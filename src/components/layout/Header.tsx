@@ -15,6 +15,7 @@ import {
 import { CurrencyPair, Timeframe } from '../../types';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useBiasStore } from '../../store/useBiasStore';
+import { useUIStore } from '../../store/useUIStore';
 
 export interface HeaderProps {
   onOpenSpecs: () => void;
@@ -28,10 +29,12 @@ export const Header: React.FC<HeaderProps> = ({
   const { selectedPair, setSelectedPair, selectedTimeframe, setSelectedTimeframe } = useMarketStore();
   const biasMap = useBiasStore((state) => state.biasMap);
   const bias = biasMap[selectedPair]?.[selectedTimeframe] || 'BULLISH';
+  const isExpanded = useUIStore((state) => state.sidebarExpanded);
 
   const [dateTimeStr, setDateTimeStr] = useState('');
   const [showPairMenu, setShowPairMenu] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     const updateTime = () => {
@@ -70,7 +73,11 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header 
       id="root-layout-header"
-      className="fixed top-0 left-0 right-0 h-12 bg-card border-b border-[#2A2E39] px-4 flex items-center justify-between z-50 select-none font-sans"
+      className="fixed top-0 right-0 h-12 bg-card border-b border-[#2A2E39] px-4 flex items-center justify-between z-50 select-none font-sans transition-all duration-200 ease-in-out"
+      style={{
+        left: isExpanded ? '220px' : '64px',
+        width: `calc(100vw - ${isExpanded ? '220px' : '64px'})`
+      }}
     >
       <div className="flex items-center space-x-4 min-w-[240px]">
         <div className="flex flex-col justify-center">
@@ -215,6 +222,49 @@ export const Header: React.FC<HeaderProps> = ({
         <button className="text-gray-400 hover:text-white p-1.5 hover:bg-surface rounded-md transition-colors hidden sm:block">
           <HelpCircle size={18} />
         </button>
+
+        {/* User Dropdown Avatar Option */}
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center space-x-1 focus:outline-none cursor-pointer p-1 rounded-md hover:bg-[#2A3245]"
+          >
+            <div className="w-7 h-7 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-bold text-xs">
+              M
+            </div>
+            <ChevronDown size={12} className="text-gray-400" />
+          </button>
+
+          {userMenuOpen && (
+            <div className="absolute right-0 mt-2 w-44 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-1">
+              <div className="px-3 py-1.5 border-b border-[#2A2E39] text-[10px] text-gray-500 font-mono">
+                MARCUS VANCE
+              </div>
+              <button
+                onClick={() => {
+                  onOpenSpecs();
+                  setUserMenuOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-[#202738] rounded cursor-pointer"
+              >
+                Trader Personas
+              </button>
+              <div className="w-[calc(100%-8px)] mx-1 my-1 px-3 py-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 font-bold uppercase tracking-wider rounded select-none">
+                PRO PLAN ACTIVE
+              </div>
+              <div className="border-t border-[#2A2E39] my-1" />
+              <button
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  alert("Logged out successfully! (Mock Simulation Only)");
+                }}
+                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#202738] rounded cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

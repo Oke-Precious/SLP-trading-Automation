@@ -47,16 +47,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
   return (
     <aside
       id="root-layout-sidebar"
-      className={`fixed top-12 left-0 h-[calc(100vh-48px)] z-40 bg-nav border-r border-[#2A2E39] text-gray-300 transition-all duration-300 flex flex-col justify-between ${
+      className={`fixed top-0 left-0 h-screen z-40 bg-[#202940] border-r border-[#2C354E] text-gray-300 transition-all duration-200 ease-in-out flex flex-col justify-between ${
         isExpanded ? 'w-[220px]' : 'w-[64px]'
       }`}
     >
-      {/* Toggle slider controller */}
-      <div 
-        onClick={toggleExpanded}
-        className="absolute -right-3 top-4 hidden md:flex bg-[#2A2E39] text-gray-400 hover:text-white rounded-full p-1 border border-[#3A435E] cursor-pointer"
-      >
-        {isExpanded ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+      {/* Top section: SLP TRADER logo (220px expanded) / S icon (64px collapsed) with tagline */}
+      <div className={`p-4 py-5 border-b border-[#2C354E] flex flex-col ${isExpanded ? 'items-start' : 'items-center'} justify-center shrink-0 overflow-hidden`}>
+        {isExpanded ? (
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-[#CAAA98] font-bold tracking-tight text-md font-display uppercase">SLP TRADER</span>
+            </div>
+            <span className="text-[9px] text-gray-400 font-mono leading-none tracking-widest mt-1 block uppercase">
+              Directional Bias System
+            </span>
+          </div>
+        ) : (
+          <div className="w-8 h-8 rounded bg-[#CAAA98] flex items-center justify-center text-slate-900 font-black text-sm select-none shadow-md">
+            S
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-1">
@@ -67,18 +77,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
             <button
               key={item.id}
               onClick={() => setActivePage(item.id)}
-              className={`w-full flex items-center py-3 px-5 transition-all duration-200 group text-left relative ${
+              className={`w-[calc(100%-16px)] flex items-center py-2.5 px-4 mx-2 my-0.5 rounded-md transition-all duration-200 group text-left relative ${
                 isActive 
-                  ? 'bg-surface text-light font-bold border-l-4 border-light' 
-                  : 'hover:bg-[#1C2335] hover:text-white'
+                  ? 'bg-[#181F33] text-[#CAAA98] font-bold border-l-4 border-[#CAAA98]' 
+                  : 'text-gray-400 hover:bg-[#2C354E] hover:text-white'
               }`}
             >
-              <div className={`transition-transform duration-200 ${isActive ? 'scale-110 text-light' : 'text-gray-400 group-hover:text-gray-200'}`}>
-                <Icon size={20} className="shrink-0" />
+              <div className={`transition-transform duration-200 ${isActive ? 'scale-110 text-[#CAAA98]' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                <Icon size={18} className="shrink-0" />
               </div>
 
               <span 
-                className={`ml-4 whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold transition-opacity duration-300 ${
+                className={`ml-3 whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold transition-opacity duration-200 ${
                   isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
                 }`}
               >
@@ -89,32 +99,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
         })}
       </nav>
 
-      <div className="border-t border-[#2A2E39] p-3 space-y-2">
+      <div className="border-t border-[#2C354E] p-3 space-y-2">
         <button
           onClick={openPersonasModal}
-          className="w-full flex items-center hover:bg-[#1E2538] p-2 rounded-lg transition-colors text-left text-xs text-gray-400 hover:text-light relative group"
+          className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white relative group"
         >
-          <Users size={20} className="shrink-0 text-light group-hover:scale-110 transition-transform" />
+          <Users size={18} className="shrink-0 text-[#CAAA98] group-hover:scale-110 transition-transform" />
           <span className={`ml-3 text-[10px] uppercase tracking-wider font-semibold ${isExpanded ? 'inline' : 'hidden'}`}>
             Trader Personas
           </span>
         </button>
 
+        {/* Separator line */}
+        <div className="border-t border-[#2C354E]/50 my-1" />
+
+        {/* User profile section */}
         <div className="flex items-center p-1 rounded-lg">
           <div className="relative shrink-0">
-            <div className="w-8 h-8 rounded-full bg-slate-700 border border-light flex items-center justify-center text-white font-semibold text-xs animate-pulse">
+            <div className="w-8 h-8 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-semibold text-xs animate-pulse">
               M
             </div>
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-bullish border-2 border-nav rounded-full" />
+            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-[#202940] rounded-full" />
           </div>
 
-          <div className={`ml-3 transition-opacity duration-300 ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
+          <div className={`ml-3 transition-opacity duration-200 ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
             <div className="text-[11px] font-bold text-gray-200 whitespace-nowrap">Marcus Vance</div>
-            <span className="text-[9px] bg-bullish/15 text-bullish px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-              PRO TRADER
+            <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">
+              PRO PLAN
             </span>
           </div>
         </div>
+
+        {/* Toggle Expand/Collapse Controller Button */}
+        <button
+          onClick={toggleExpanded}
+          className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white cursor-pointer"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronLeft size={16} className="shrink-0 text-gray-400 group-hover:text-white" />
+              <span className="ml-3 text-[10px] uppercase tracking-wider font-semibold">Collapse Sidebar</span>
+            </>
+          ) : (
+            <>
+              <ChevronRight size={16} className="shrink-0 mx-auto text-gray-400 group-hover:text-white" />
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );

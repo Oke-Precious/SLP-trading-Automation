@@ -23,11 +23,14 @@ import DashboardView from './components/DashboardView';
 import OtherViews from './components/OtherViews';
 import SpecsHub from './components/SpecsHub';
 import { CurrencyPair, Timeframe } from './types';
+import { useMarketStore } from './store/useMarketStore';
 
 export default function App() {
   const [activePage, setActivePage] = useState<string>('dashboard');
-  const [currentPair, setCurrentPair] = useState<CurrencyPair>('BTCUSDT');
-  const [currentTimeframe, setCurrentTimeframe] = useState<Timeframe>('4H');
+  const currentPair = useMarketStore((state) => state.selectedPair);
+  const setCurrentPair = useMarketStore((state) => state.setSelectedPair);
+  const currentTimeframe = useMarketStore((state) => state.selectedTimeframe);
+  const setCurrentTimeframe = useMarketStore((state) => state.setSelectedTimeframe);
   const [isSpecsHubOpen, setIsSpecsHubOpen] = useState(false);
   const [initialSpecsTab, setInitialSpecsTab] = useState<'spec' | 'personas'>('spec');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
