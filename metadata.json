@@ -1,0 +1,6 @@
+{
+  "name": "AutoSLP",
+  "description": "SMC High-Performance Algorithmic Trading Dashboard with interactive specifications, trader personas, live charts, trading plan, and comprehensive backtesting and bias matrix utilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

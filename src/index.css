@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+/* Custom Scrollbar Styles to match deep navy/charcoal styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111622;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A3245;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3A455E;
+}
+
+/* Custom glow animations and classes for the high fidelity dashboard */
+.poi-pulse-green {
+  box-shadow: 0 0 12px rgba(38, 166, 154, 0.25);
+}
+
+.poi-pulse-blue {
+  box-shadow: 0 0 12px rgba(21, 101, 192, 0.25);
+}
+
+.custom-shimmer {
+  background: linear-gradient(90deg, #1A1F2C 25%, #252B3A 50%, #1A1F2C 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
