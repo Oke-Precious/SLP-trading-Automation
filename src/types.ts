@@ -11,7 +11,7 @@ export interface Persona {
 }
 
 export type CurrencyPair = 'BTCUSDT' | 'ETHUSDT' | 'EURUSD' | 'GBPUSD';
-export type Timeframe = '1D' | '4H' | '1H' | '30m' | '15m';
+export type Timeframe = '1D' | '4H' | '1H' | '30m' | '15m' | '5m';
 
 export interface POI {
   id: string;

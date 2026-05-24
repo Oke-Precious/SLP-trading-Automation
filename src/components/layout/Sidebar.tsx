@@ -47,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
   return (
     <aside
       id="root-layout-sidebar"
-      className={`fixed top-0 left-0 h-screen z-40 bg-[#202940] border-r border-[#2C354E] text-gray-300 transition-all duration-200 ease-in-out flex flex-col justify-between ${
+      className={`hidden md:flex fixed top-0 left-0 h-screen z-40 bg-[#202940] border-r border-[#2C354E] text-gray-300 transition-all duration-200 ease-in-out flex flex-col justify-between ${
         isExpanded ? 'w-[220px]' : 'w-[64px]'
       }`}
     >

@@ -26,6 +26,7 @@ import {
   Key
 } from 'lucide-react';
 import { CurrencyPair, Timeframe } from '../types';
+import { useMarketStore } from '../store/useMarketStore';
 
 interface OtherViewsProps {
   pageId: string;
@@ -542,83 +543,244 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // 9. SETTINGS DASHBOARD PAGE
   if (pageId === 'settings') {
+    const { appStateMode, setAppStateMode, layoutVariant, setLayoutVariant } = useMarketStore();
     const [mockApiKey, setMockApiKey] = useState('***********************************3A1f');
     const [mockExchange, setMockExchange] = useState('BINANCE_US');
 
+    // Test connection states
+    const [connectionPhase, setConnectionPhase] = useState<string | null>(null);
+    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'running' | 'success'>('idle');
+
+    const handleTestConnection = () => {
+      setConnectionStatus('running');
+      setConnectionPhase('Handshaking SSL secure channel...');
+      
+      setTimeout(() => {
+        setConnectionPhase('Verifying broker token credentials...');
+      }, 1000);
+
+      setTimeout(() => {
+        setConnectionPhase('Synchronizing ledger structures...');
+      }, 2000);
+
+      setTimeout(() => {
+        setConnectionStatus('success');
+        setConnectionPhase('Secure channel successfully bound!');
+        showToast('API broker connection test completed successfully!');
+      }, 3000);
+
+      setTimeout(() => {
+        setConnectionStatus('idle');
+        setConnectionPhase(null);
+      }, 5000);
+    };
+
     return (
-      <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5">
+      <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-6 relative">
         {toastMessage && (
           <div className="fixed top-16 right-4 bg-[#1E2433] text-gray-200 border-l-4 border-[#CAAA98] px-4 py-3 rounded-lg shadow-2xl z-50 text-xs animate-slideIn">
             {toastMessage}
           </div>
         )}
-        <div className="flex justify-between items-center pb-2 border-b border-[#2A2E39] mb-6">
-          <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider font-display">System Settings & preferences</h2>
-          <span className="text-xs text-gray-500 font-mono">App Version: 4.1.2</span>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-3 border-b border-[#2C354E] mb-6 gap-2">
+          <div>
+            <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider font-display">System Settings & preferences</h2>
+            <p className="text-[11px] text-[#94A3B8] mt-1">Configure broker access parameters, simulate states, and toggle A/B layout paradigms.</p>
+          </div>
+          <span className="text-xs text-[#CAAA98] font-mono bg-[#111622] px-3 py-1 rounded border border-[#2A2E39] h-fit">App Version: 4.2.0</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs text-gray-300 font-sans">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs text-gray-200 font-sans">
           
-          {/* API Keys (Do NOT generate input for actual API keys, manage mock configuration safely) */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
-              <Key size={16} className="text-[#CAAA98]" />
-              <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Broker Exchange Integrations</span>
-            </div>
-            
-            <div>
-              <label className="block text-gray-400 mb-1">Exchange Origin Connection:</label>
-              <select 
-                value={mockExchange}
-                onChange={(e) => setMockExchange(e.target.value)}
-                className="w-full bg-[#111622] border border-[#2A2E39] p-2 rounded text-xs select-none"
-              >
-                <option value="BINANCE_US">Binance US (Futures API)</option>
-                <option value="OANDA">Oanda Forex Services</option>
-                <option value="BYBIT">Bybit Exchange Algos</option>
-              </select>
+          {/* Left panel: Broker Exchange connection & Sandbox Simulation */}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
+                <Key size={16} className="text-[#CAAA98]" aria-hidden="true" />
+                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Broker Exchange Integrations</span>
+              </div>
+              
+              <div>
+                <label htmlFor="settings-exchange-selector" className="block text-[#94A3B8] mb-1 font-semibold">Exchange Origin Connection:</label>
+                <select 
+                  id="settings-exchange-selector"
+                  value={mockExchange}
+                  onChange={(e) => setMockExchange(e.target.value)}
+                  className="w-full bg-[#111622] border border-[#2A2E39] p-2.5 rounded text-xs text-gray-200 focus:outline-none focus:border-[#CAAA98]"
+                >
+                  <option value="BINANCE_US">Binance US (Futures API)</option>
+                  <option value="OANDA">Oanda Forex Services</option>
+                  <option value="BYBIT">Bybit Exchange Algos</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="settings-apikey-input" className="block text-[#94A3B8] mb-1 font-semibold">Secure Integration API Key ID:</label>
+                <input
+                  id="settings-apikey-input"
+                  type="text"
+                  disabled
+                  value={mockApiKey}
+                  className="w-full bg-[#111622]/50 border border-[#2A2E39]/80 text-[#CAAA98] p-2.5 rounded text-xs pl-3 font-mono"
+                />
+                <span className="text-[10px] text-[#94A3B8] mt-1.5 block leading-relaxed">
+                  To replace secrets safely, update your environment variables inside the Platform Secrets Panel in the Google AI Studio settings overlay.
+                </span>
+              </div>
+
+              {/* TEST CONNECTION PROGRESSIVE ANIMATOR */}
+              <div className="pt-2">
+                <button
+                  id="btn-test-connection"
+                  onClick={handleTestConnection}
+                  disabled={connectionStatus === 'running'}
+                  className={`px-4 py-2.5 rounded text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+                    connectionStatus === 'running'
+                      ? 'bg-slate-800 text-gray-500 border border-slate-700'
+                      : connectionStatus === 'success'
+                        ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-transparent border border-[#CAAA98] hover:bg-[#CAAA98]/10 text-[#CAAA98]'
+                  }`}
+                >
+                  {connectionStatus === 'running' && (
+                    <span className="w-3.5 h-3.5 border-2 border-t-transparent border-[#CAAA98] rounded-full animate-spin shrink-0" />
+                  )}
+                  <span>
+                    {connectionStatus === 'running'
+                      ? 'Testing Stream...'
+                      : connectionStatus === 'success'
+                        ? 'Connection Active ✓'
+                        : 'Test broker connectivity'}
+                  </span>
+                </button>
+
+                {connectionPhase && (
+                  <div className="mt-2.5 p-2 bg-[#111622] border border-[#2C354E] rounded text-[10px] font-mono text-[#E2E8F0] flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
+                    <span className="font-semibold text-orange-400">PHASE LOG:</span>
+                    <span>{connectionPhase}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-gray-400 mb-1">Secure Integration API Key ID:</label>
-              <input
-                type="text"
-                disabled
-                value={mockApiKey}
-                className="w-full bg-[#111622]/50 border border-[#2A2E39]/80 text-[#CAAA98] p-2 rounded text-xs pl-3 font-mono"
-              />
-              <span className="text-[10px] text-gray-500 mt-1 block">To replace secrets safely, update your environment variables inside the Platform Secrets Panel in the Google AI Studio menu.</span>
+            {/* AUDITOR'S SANDBOX CONTROLLER: SIMUALATE APP LOADING/ERRORS */}
+            <div className="space-y-3 p-4 bg-[#111622] border border-[#2C354E] rounded-lg">
+              <div className="border-b border-gray-800 pb-1 mb-2">
+                <span className="text-white font-bold uppercase tracking-wider text-[10px] font-mono">Auditor State Control Board</span>
+                <p className="text-[10px] text-[#94A3B8] mt-0.5 font-sans">Simulate error or loading placeholders (Part B - Item 6)</p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(['healthy', 'loading', 'error', 'empty'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      setAppStateMode(mode);
+                      showToast(`Hydration simulation swapped to: ${mode.toUpperCase()} MODE`);
+                    }}
+                    className={`py-1.5 px-2 rounded font-mono text-[9px] font-bold uppercase tracking-wider select-none border transition-all ${
+                      appStateMode === mode
+                        ? 'bg-[#CAAA98] text-[#111622] border-[#CAAA98]'
+                        : 'bg-[#181F33] text-[#94A3B8] border-[#2A2E39] hover:text-white'
+                    }`}
+                  >
+                    {mode === 'healthy' ? 'Healthy/Live' : mode}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Preferences configuration */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
-              <Settings size={16} className="text-[#CAAA98]" />
-              <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Safety safeguards</span>
+          {/* Right panel: Preferences, Safeguards, and Layout Variants */}
+          <div className="space-y-6">
+            
+            {/* PART C: APPEARANCE SECTION & A/B TEST TOGGLES */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
+                <LayoutGrid size={16} className="text-[#CAAA98]" aria-hidden="true" />
+                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Interface Appearance (A/B Test)</span>
+              </div>
+
+              <div>
+                <span className="block text-[#94A3B8] mb-1 font-semibold mb-2">Selected Dashboard Layout Variant:</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    id="btn-layout-variant-A"
+                    onClick={() => {
+                      setLayoutVariant('A');
+                      showToast('Swapped layout scheme to: VARIANT A (Default Split Mode)');
+                    }}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      layoutVariant === 'A'
+                        ? 'bg-[#1E2433] border-[#CAAA98] shadow-lg text-white font-bold'
+                        : 'bg-[#111622]/40 border-[#2A2E39] text-[#94A3B8] hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="text-[11px] uppercase tracking-wider mb-1 block">Layout Variant A</div>
+                    <p className="text-[9px] text-gray-400 font-sans leading-relaxed">
+                      Classic view: interactive candlestick chart top-left, daily plan rules top-right split.
+                    </p>
+                    <span className="text-[8px] mt-2 font-mono bg-[#26A69A]/15 text-[#26A69A] border border-[#26A69A]/30 px-1.5 py-0.2 rounded font-bold uppercase inline-block">
+                      {layoutVariant === 'A' ? 'ACTIVE DEFAULT' : 'SELECT'}
+                    </span>
+                  </button>
+
+                  <button
+                    id="btn-layout-variant-B"
+                    onClick={() => {
+                      setLayoutVariant('B');
+                      showToast('Swapped layout scheme to: VARIANT B (Full Width Chart Mode)');
+                    }}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      layoutVariant === 'B'
+                        ? 'bg-[#1E2433] border-[#CAAA98] shadow-lg text-white font-bold'
+                        : 'bg-[#111622]/40 border-[#2A2E39] text-[#94A3B8] hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="text-[11px] uppercase tracking-wider mb-1 block">Layout Variant B</div>
+                    <p className="text-[9px] text-gray-400 font-sans leading-relaxed">
+                      Breathing room view: chart gets full width, POIs list and rule guides stacked side-by-side beneath chart canvas.
+                    </p>
+                    <span className="text-[8px] mt-2 font-mono bg-[#26A69A]/15 text-[#26A69A] border border-[#26A69A]/30 px-1.5 py-0.2 rounded font-bold uppercase inline-block">
+                      {layoutVariant === 'B' ? 'ACTIVE ALTERNATIVE' : 'SELECT'}
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span>Maximum capitalization risk per trade setup:</span>
-                <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-white font-semibold">1.5% MAX RISK</span>
+            {/* Safeguards Block */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
+                <Settings size={16} className="text-[#CAAA98]" aria-hidden="true" />
+                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Risk Security Settings</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span>Daily cumulative loss safeguard threshold:</span>
-                <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-white font-semibold">4.0% DAILY CEILING</span>
+
+              <div className="space-y-3.5 p-3.5 bg-[#111622] rounded-lg border border-[#2A2E39] text-[11px]">
+                <div className="flex justify-between items-center text-gray-300">
+                  <span className="font-medium text-[#E2E8F0]">Max risk factor per setup:</span>
+                  <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-white font-bold select-none border border-slate-700">1.5% CAPITAL</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-300">
+                  <span className="font-medium text-[#E2E8F0]">Daily cumulative loss limit:</span>
+                  <span className="font-mono bg-slate-800 px-2 py-0.5 rounded text-white font-bold select-none border border-slate-700">4.0% MAXIMUM</span>
+                </div>
+                <div className="flex justify-between items-center text-gray-300">
+                  <span className="font-medium text-[#E2E8F0]">Push alerts on structural breakout (BOS):</span>
+                  <span className="text-[#26A69A] font-bold uppercase tracking-wider font-mono">ENABLED ENABLED</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span>Push notifications on structural breakout (BOS):</span>
-                <span className="text-emerald-400 font-bold uppercase">Enabled</span>
-              </div>
+
+              <button
+                id="btn-save-settings"
+                onClick={() => showToast('Preference profile parameters written successfully to local configuration registries!')}
+                className="w-full bg-[#CAAA98] hover:bg-[#b09382] text-slate-950 font-bold p-3 rounded uppercase tracking-wider text-[11px] cursor-pointer"
+              >
+                Save Configuration Preferences
+              </button>
             </div>
 
-            <button
-              onClick={() => showToast('Preference profile parameters written successfully to local configuration registries.')}
-              className="w-full bg-[#CAAA98] hover:bg-[#b09382] text-slate-950 font-bold p-2.5 rounded uppercase tracking-wider text-[11px] cursor-pointer mt-4"
-            >
-              Save Configuration Preferences
-            </button>
           </div>
 
         </div>
@@ -628,7 +790,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // Fallback default frame loader
   return (
-    <div className="p-8 text-center bg-[#1A1F2C] border border-[#2A2E39] rounded-xl text-xs text-gray-400">
+    <div className="p-8 text-center bg-[#1A1F2C] border border-[#2A2E39] rounded-xl text-xs text-[#94A3B8]">
       Section view under active construction. Select a sidebar tab to hydrate logs.
     </div>
   );

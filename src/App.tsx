@@ -24,9 +24,11 @@ import OtherViews from './components/OtherViews';
 import SpecsHub from './components/SpecsHub';
 import { CurrencyPair, Timeframe } from './types';
 import { useMarketStore } from './store/useMarketStore';
+import { useUIStore } from './store/useUIStore';
 
 export default function App() {
   const [activePage, setActivePage] = useState<string>('dashboard');
+  const sidebarExpanded = useUIStore((state) => state.sidebarExpanded);
   const currentPair = useMarketStore((state) => state.selectedPair);
   const setCurrentPair = useMarketStore((state) => state.setSelectedPair);
   const currentTimeframe = useMarketStore((state) => state.selectedTimeframe);
@@ -35,6 +37,51 @@ export default function App() {
   const [initialSpecsTab, setInitialSpecsTab] = useState<'spec' | 'personas'>('spec');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Command/Ctrl + K (Search Command Palette)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+
+      // 2. Command/Ctrl + / (Sidebar Toggle)
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        useUIStore.getState().toggleSidebar();
+      }
+
+      // 3. 1-6 Timeframe Switch (1=1D, 2=4H, 3=1H, 4=30m, 5=15m, 6=5m)
+      const isInputActive = 
+        document.activeElement?.tagName === 'INPUT' || 
+        document.activeElement?.tagName === 'TEXTAREA' || 
+        document.activeElement?.getAttribute('contenteditable') === 'true';
+
+      if (!isInputActive) {
+        if (e.key === '1') { e.preventDefault(); setCurrentTimeframe('1D'); }
+        if (e.key === '2') { e.preventDefault(); setCurrentTimeframe('4H'); }
+        if (e.key === '3') { e.preventDefault(); setCurrentTimeframe('1H'); }
+        if (e.key === '4') { e.preventDefault(); setCurrentTimeframe('30m'); }
+        if (e.key === '5') { e.preventDefault(); setCurrentTimeframe('15m'); }
+        if (e.key === '6') { e.preventDefault(); setCurrentTimeframe('5m'); }
+      }
+
+      // 4. Escape key dismissals
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+        setIsSpecsHubOpen(false);
+        
+        // Dispatch coordinate event for nested dialog dismissals in dashboard view
+        const escEvent = new CustomEvent('autoslp_escape_pressed');
+        window.dispatchEvent(escEvent);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setCurrentTimeframe]);
 
   // Dynamic Directional Bias matrix computed realistically to give high-fidelity interactions
   const getCalculatedBias = (pair: CurrencyPair, tf: Timeframe): 'BULLISH' | 'BEARISH' => {
@@ -77,7 +124,12 @@ export default function App() {
   );
 
   return (
-    <div id="applet-viewport" className="min-h-screen bg-[#111622] text-gray-100 font-sans flex flex-col justify-between overflow-x-hidden pt-12 pl-[64px]">
+    <div 
+      id="applet-viewport" 
+      className={`min-h-screen bg-[#111622] text-gray-100 font-sans flex flex-col justify-between overflow-x-hidden pt-12 transition-all duration-300 ${
+        sidebarExpanded ? 'md:pl-[220px]' : 'md:pl-[64px]'
+      } pl-0 pb-20 md:pb-4`}
+    >
       
       {/* 1. TOP SUPREME HEADER BAR */}
       <Header 
@@ -223,6 +275,37 @@ export default function App() {
           AutoSLP Algorithmic Solutions &bull; May 2026 Sandbox Preview Mode
         </span>
       </footer>
+
+      {/* 7. HIGH FIDELITY MOBILE BOTTOM NAVIGATION BAR */}
+      <nav 
+        id="mobile-bottom-navigation-bar"
+        className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#1A1F2C] border-t border-[#2C354E] z-40 flex items-center justify-around px-2 pb-1"
+      >
+        {[
+          { id: 'dashboard', label: 'Console', icon: Grid },
+          { id: 'market-overview', label: 'Heatmap', icon: Globe },
+          { id: 'directional-bias', label: 'Biases', icon: Target },
+          { id: 'trade-setups', label: 'Setups', icon: Bell },
+          { id: 'settings', label: 'Settings', icon: Settings },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activePage === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActivePage(item.id)}
+              className={`flex flex-col items-center justify-center flex-1 h-full py-2 cursor-pointer transition-colors ${
+                isActive ? 'text-[#CAAA98]' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Icon size={18} className={isActive ? 'scale-110' : ''} />
+              <span className="text-[9px] font-semibold tracking-wider uppercase mt-1">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
     </div>
   );

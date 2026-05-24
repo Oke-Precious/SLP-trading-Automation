@@ -1,0 +1,144 @@
+import React from 'react';
+import { Target, Check } from 'lucide-react';
+
+interface DashboardPlanProps {
+  stepsCompleted: boolean[];
+  setStepsCompleted: (steps: boolean[]) => void;
+  showToast: (msg: string) => void;
+  appStateMode: string;
+  setAppStateMode: (m: string) => void;
+  signalSpec: { entry: string; sl: string; tp1: string; tp2: string; rr: string };
+  currencySymbol: string;
+}
+
+export default function DashboardPlan({
+  stepsCompleted,
+  setStepsCompleted,
+  showToast,
+  appStateMode,
+  setAppStateMode,
+  signalSpec,
+  currencySymbol
+}: DashboardPlanProps) {
+  if (appStateMode === 'empty') {
+    return (
+      <section className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl flex flex-col justify-between h-[520px] overflow-hidden">
+        <div className="p-4 bg-[#1E2433] border-b border-[#2A2E39] flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wider font-bold text-gray-300">Daily Trading Plan Rules</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center p-5 space-y-3">
+          <Target size={32} className="text-gray-500 animate-pulse" />
+          <span className="text-xs text-gray-300 font-bold font-mono">RULES CHECKLIST OFFLINE</span>
+          <p className="text-[10px] text-gray-500 max-w-[200px] leading-snug">No active bounds defined. Click below to reload active compliance constraints into the plan roster.</p>
+          <button
+            onClick={() => {
+              setStepsCompleted([true, true, false, false, false, false]);
+              setAppStateMode('healthy');
+              showToast("Standard compliance steps re-loaded successfully!");
+            }}
+            className="text-[9px] bg-[#26A69A]/15 text-[#26A69A] border border-[#26A69A]/30 px-3 py-1.5 rounded hover:bg-[#26A69A]/30 transition-all uppercase font-semibold cursor-pointer"
+          >
+            Restore Rules Checklist
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const stepsList = [
+    { idx: 1, title: '1. Establish HTF Bias (Daily/4H)', desc: 'Scan daily chart for 2-3 consecutive trends (e.g., HH/HL for Bullish or LH/LL for Bearish).' },
+    { idx: 2, title: '2. Plot Unmitigated HTF POIs', desc: 'Mark Daily/4H Order Blocks or Breakers. These are areas where price usually retraces.' },
+    { idx: 3, title: '3. Monitor Retracement to POI', desc: 'Wait patiently for price to correction or retrace into unmitigated zone. Avoid chasing premium spikes.' },
+    { idx: 4, title: '4. Wait for Lower TF MSS & Inducement', desc: 'Confirm on H1/15m with a Market Structure Shift. Inducement must have a solid BODY CLOSE, no wicks.' },
+    { idx: 5, title: '5. Place Entry at LTF POI', desc: 'Set limit setups at nearest unmitigated LTF block aligned strictly with the overall HTF bias.' },
+    { idx: 6, title: '6. Target Swing Bounds & DBOS', desc: 'Target next logical HH (bullish) or LL (bearish). Scale-in trailing entries via Double Breaker Steps.' },
+  ];
+
+  return (
+    <section 
+      id="quad-2-trading-plan"
+      className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl flex flex-col justify-between h-[520px] overflow-hidden"
+    >
+      <div className="p-4 bg-[#1E2433] border-b border-[#2A2E39] flex items-center justify-between shrink-0">
+        <span className="text-xs uppercase tracking-wider font-bold text-gray-300">
+          Daily Trading Plan Rules
+        </span>
+        <span className="text-[10px] bg-[#26A69A]/10 text-[#26A69A] border border-[#26A69A]/30 px-1.5 py-0.5 rounded font-bold">
+          SESSION ACTIVE
+        </span>
+      </div>
+
+      <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
+        {stepsList.map((step, sIdx) => {
+          const isDone = stepsCompleted[sIdx];
+          return (
+            <div 
+              key={step.idx}
+              onClick={() => {
+                const newSteps = [...stepsCompleted];
+                newSteps[sIdx] = !newSteps[sIdx];
+                setStepsCompleted(newSteps);
+                showToast(`Step ${step.idx} status updated!`);
+              }}
+              className={`p-2.5 rounded border transition-colors cursor-pointer flex items-start space-x-3 ${
+                isDone 
+                  ? 'bg-[#2A3245]/20 border-[#26A69A]/30 text-gray-300' 
+                  : 'bg-[#141822] border-[#2A2E39] text-gray-400 hover:border-gray-600'
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                isDone ? 'bg-[#26A69A] text-slate-950' : 'bg-[#202940] text-slate-100'
+              }`}>
+                {isDone ? <Check size={10} className="stroke-[3]" /> : step.idx}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h4 className={`text-xs font-bold leading-tight ${isDone ? 'text-gray-400 line-through' : 'text-gray-100'}`}>
+                  {step.title}
+                </h4>
+                <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">
+                  {step.desc}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="p-3 border-t border-[#2A2E39] bg-[#141822] shrink-0">
+        <div className="border border-[#26A69A] bg-[#26A69A]/5 rounded-lg p-3 relative overflow-hidden">
+          <div className="absolute top-2 right-2 text-[8px] bg-[#26A69A]/20 text-[#26A69A] px-1.5 py-0.5 rounded font-mono font-bold">
+            ACTIVE SIGNAL
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Target size={14} className="text-[#26A69A]" />
+            <span className="text-xs font-bold text-gray-200">SMC Long Setup Trigger</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-[#26A69A]/15 text-[9px] font-mono">
+            <div>
+              <span className="text-gray-500 block">ENTRY:</span>
+              <span className="text-[#26A69A] font-bold">{currencySymbol}{signalSpec.entry}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">STOP LOSS:</span>
+              <span className="text-[#EF5350] font-bold">{currencySymbol}{signalSpec.sl}</span>
+            </div>
+            <div>
+              <span className="text-gray-500 block">PROFIT RATIO:</span>
+              <span className="text-[#CAAA98] font-bold">{signalSpec.rr}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => showToast(`Limit order parameters synchronized to terminal: Entry ${currencySymbol}${signalSpec.entry}!`)}
+            className="w-full mt-2 bg-[#26A69A] hover:bg-emerald-600 text-slate-950 py-1 rounded font-bold text-[10px] transition-colors cursor-pointer text-center block uppercase"
+          >
+            Deploy Order Limit &rarr;
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
