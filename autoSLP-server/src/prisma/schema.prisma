@@ -1,0 +1,191 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+enum POIType {
+  ORDER_BLOCK
+  BREAKER_BLOCK
+}
+
+enum POIStatus {
+  ACTIVE
+  MITIGATED
+  TESTED
+}
+
+enum Direction {
+  LONG
+  SHORT
+}
+
+enum SignalStatus {
+  PENDING
+  ACTIVE
+  HIT_TP1
+  HIT_TP2
+  STOPPED
+}
+
+enum AlertType {
+  PRICE_ENTERS_POI
+  BIAS_CHANGE
+  MSS_DETECTED
+  PRICE_LEVEL
+}
+
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  DISABLED
+}
+
+enum Bias {
+  BULLISH
+  BEARISH
+  NEUTRAL
+}
+
+enum Strength {
+  STRONG
+  MODERATE
+  WEAK
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  plan          Plan      @default(FREE)
+  preferences   Json      // Structural JSON: { "defaultPair": "BTCUSDT", "defaultTF": "1H", "theme": "dark" }
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  trades        Trade[]
+  pois          POI[]
+  alerts        Alert[]
+  signals       Signal[]
+}
+
+model Candle {
+  id         String   @id @default(uuid())
+  pair       String
+  timeframe  String
+  open       Decimal  @db.Decimal(18, 8)
+  high       Decimal  @db.Decimal(18, 8)
+  low        Decimal  @db.Decimal(18, 8)
+  close      Decimal  @db.Decimal(18, 8)
+  volume     Decimal  @db.Decimal(18, 8)
+  timestamp  DateTime
+
+  @@unique([pair, timeframe, timestamp])
+  @@index([pair, timeframe, timestamp])
+}
+
+model POI {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair        String
+  timeframe   String
+  type        POIType   // ORDER_BLOCK or BREAKER_BLOCK
+  priceFrom   Decimal   @db.Decimal(18, 8)
+  priceTo     Decimal   @db.Decimal(18, 8)
+  status      POIStatus @default(ACTIVE)
+  notes       String?   @db.VarChar(500)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  signals     Signal[]
+
+  @@index([userId, pair])
+  @@index([pair, status])
+}
+
+model Signal {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair            String
+  timeframe       String
+  direction       Direction    // LONG or SHORT
+  poiId           String?
+  poi             POI?         @relation(fields: [poiId], references: [id], onDelete: SetNull)
+  entryFrom       Decimal      @db.Decimal(18, 8)
+  entryTo         Decimal      @db.Decimal(18, 8)
+  stopLoss        Decimal      @db.Decimal(18, 8)
+  target1         Decimal      @db.Decimal(18, 8)
+  target2         Decimal?     @db.Decimal(18, 8)
+  status          SignalStatus @default(PENDING)
+  confirmationTF  String       // Lower TF triggering MSS (e.g., 5m, 15m)
+  rrRatio         Decimal      @db.Decimal(6, 2)
+  createdAt       DateTime     @default(now())
+  triggeredAt     DateTime?
+  closedAt        DateTime?
+  pnlPercent      Decimal?     @db.Decimal(6, 2)
+  
+  trades          Trade[]
+
+  @@index([userId, status])
+  @@index([pair, status])
+}
+
+model Trade {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalId    String?
+  signal      Signal?   @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  pair        String
+  direction   Direction
+  entryPrice  Decimal   @db.Decimal(18, 8)
+  exitPrice   Decimal?  @db.Decimal(18, 8)
+  size        Decimal   @db.Decimal(18, 8)
+  pnl         Decimal?  @db.Decimal(18, 8)
+  rrAchieved  Decimal?  @db.Decimal(6, 2)
+  notes       String?   @db.VarChar(1000)
+  entryAt     DateTime
+  exitAt      DateTime?
+  screenshots Json?
+
+  @@index([userId, pair])
+}
+
+model Alert {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair        String
+  condition   AlertType
+  value       Json
+  status      AlertStatus @default(ACTIVE)
+  channels    Json
+  triggeredAt DateTime?
+  createdAt   DateTime    @default(now())
+
+  @@index([userId, status])
+}
+
+model BiasAnalysis {
+  id          String   @id @default(uuid())
+  pair        String
+  timeframe   String
+  bias        Bias     // BULLISH | BEARISH | NEUTRAL
+  strength    Strength // STRONG | MODERATE | WEAK
+  structure   String   // "Higher Highs / Higher Lows" (HH/HL)
+  phase       String   // "Impulse Leg expansion" | "Retracement Correction"
+  analyzedAt  DateTime @default(now())
+
+  @@index([pair, timeframe, analyzedAt])
+}
