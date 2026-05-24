@@ -5,6 +5,19 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-display: "Space Grotesk", sans-serif;
+
+  --color-nav: #202940;
+  --color-earth: #4B4038;
+  --color-warm: #9A8678;
+  --color-light: #CAAA98;
+  --color-bullish: #26A69A;
+  --color-bearish: #EF5350;
+  --color-neutral: #F0B90B;
+  --color-surface: #131722;
+  --color-card: #1E2433;
+  --color-text-primary: #E0E3EB;
+  --color-text-secondary: #9AA3B2;
+  --color-border-custom: #2A2E39;
 }
 
 /* Custom Scrollbar Styles to match deep navy/charcoal styling */
