@@ -8,15 +8,19 @@ import { create } from 'zustand';
 interface UIState {
   sidebarExpanded: boolean;
   activeModal: string | null;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected';
   toggleSidebar: () => void;
   openModal: (id: string) => void;
   closeModal: () => void;
+  setConnectionStatus: (status: 'connected' | 'connecting' | 'disconnected') => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarExpanded: true,
   activeModal: null,
+  connectionStatus: 'disconnected',
   toggleSidebar: () => set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
   openModal: (id) => set({ activeModal: id }),
   closeModal: () => set({ activeModal: null }),
+  setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
 }));

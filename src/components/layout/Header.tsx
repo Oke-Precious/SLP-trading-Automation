@@ -16,6 +16,7 @@ import { CurrencyPair, Timeframe } from '../../types';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useBiasStore } from '../../store/useBiasStore';
 import { useUIStore } from '../../store/useUIStore';
+import { onSignalCreated, onAlertTriggered, onPOIStatusChange } from '../../lib/websocket/client';
 
 export interface HeaderProps {
   onOpenSpecs: () => void;
@@ -30,11 +31,78 @@ export const Header: React.FC<HeaderProps> = ({
   const biasMap = useBiasStore((state) => state.biasMap);
   const bias = biasMap[selectedPair]?.[selectedTimeframe] || 'BULLISH';
   const isExpanded = useUIStore((state) => state.sidebarExpanded);
+  const connectionStatus = useUIStore((state) => state.connectionStatus);
 
   const [dateTimeStr, setDateTimeStr] = useState('');
   const [showPairMenu, setShowPairMenu] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const [notifications, setNotifications] = useState([
+    { id: '1', title: 'BOS Confirmed (BTCUSDT H4)', desc: 'Break of Structure identified at $67,400', time: '5m ago', type: 'structure' },
+    { id: '2', title: 'POI Mitigation Warning (ETHUSDT H1)', desc: 'Price entered the lower order block', time: '14m ago', type: 'mitigation' },
+    { id: '3', title: 'New Signal Long Generated', desc: 'AutoSLP entry triggered for GBPUSD', time: '1h ago', type: 'signal' },
+  ]);
+
+  useEffect(() => {
+    // Request permission on-demand when header mounts
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    const triggerNotification = (title: string, desc: string, type = 'signal') => {
+      // 1. Browser push constructor
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(title, { body: desc });
+        } catch (err) {
+          console.error('Push notification failed to trigger:', err);
+        }
+      }
+
+      // 2. Prepend in-app notification state
+      setNotifications((prev) => [
+        {
+          id: 'ws-' + Date.now(),
+          title,
+          desc,
+          time: 'Just now',
+          type,
+        },
+        ...prev,
+      ]);
+    };
+
+    // WebSocket Listeners
+    const unsubSignal = onSignalCreated((signal: any) => {
+      triggerNotification(
+        `New Signal Created: ${signal.pair} ${signal.direction}`,
+        `A high-probability setup was identified at key structural levels.`
+      );
+    });
+
+    const unsubAlert = onAlertTriggered((alert: any) => {
+      triggerNotification(
+        `Alert Triggered: ${alert.pair}`,
+        `Target condition hit: ${alert.condition}`
+      );
+    });
+
+    const unsubPOI = onPOIStatusChange((poi: any) => {
+      triggerNotification(
+        `POI Zone Updated: ${poi.name}`,
+        `POI block status mutated to ${poi.status}.`
+      );
+    });
+
+    return () => {
+      unsubSignal();
+      unsubAlert();
+      unsubPOI();
+    };
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -64,11 +132,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const timeframes: Timeframe[] = ['1D', '4H', '1H', '30m', '15m'];
 
-  const notifications = [
-    { id: 1, title: 'BOS Confirmed (BTCUSDT H4)', desc: 'Break of Structure identified at $67,400', time: '5m ago', type: 'structure' },
-    { id: 2, title: 'POI Mitigation Warning (ETHUSDT H1)', desc: 'Price entered the lower order block', time: '14m ago', type: 'mitigation' },
-    { id: 3, title: 'New Signal Long Generated', desc: 'AutoSLP entry triggered for GBPUSD', time: '1h ago', type: 'signal' },
-  ];
 
   return (
     <header 
@@ -81,9 +144,21 @@ export const Header: React.FC<HeaderProps> = ({
     >
       <div className="flex items-center space-x-4 min-w-[240px]">
         <div className="flex flex-col justify-center">
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1.5 animate-fade-in">
             <span className="text-light font-bold tracking-tight text-sm font-display">AutoSLP</span>
-            <span className="text-white font-bold tracking-tight text-xs bg-slate-800 px-1 py-0.2 rounded scale-90">TRADER</span>
+            <span className="text-white font-bold tracking-tight text-xs bg-slate-800 px-1.5 py-0.5 rounded scale-90">TRADER</span>
+            <div className="flex items-center space-x-1 shadow-sm border-l border-slate-700 pl-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                connectionStatus === 'connected'
+                  ? 'bg-emerald-500 shadow-[0_0_8px_rgb(16,185,129)]'
+                  : connectionStatus === 'connecting'
+                    ? 'bg-amber-400 animate-pulse'
+                    : 'bg-rose-500'
+              }`} />
+              <span className="text-[8px] text-gray-400 uppercase font-mono tracking-wider">
+                {connectionStatus}
+              </span>
+            </div>
           </div>
           <span className="text-[9px] text-warm font-mono leading-none tracking-widest mt-0.5 uppercase">
             Directional Bias System

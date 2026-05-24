@@ -4,30 +4,26 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert, CurrencyPair } from '../types';
+import { alertsApi, CreateAlertData } from '../lib/api/alerts';
+import { Alert } from '../types';
 
-export const useAlerts = (pair?: CurrencyPair) => {
+export const useAlerts = () => {
   const queryClient = useQueryClient();
 
-  const query = useQuery({
-    queryKey: ['price-alerts', pair],
-    queryFn: async (): Promise<Alert[]> => {
-      const mockAlerts: Alert[] = [
-        { id: 'al-1', pair: 'BTCUSDT', condition: 'Price crosses $62,500', status: 'Active', timestamp: new Date().toISOString() },
-        { id: 'al-2', pair: 'ETHUSDT', condition: 'Price hits 4H Breaker Block ($3,120)', status: 'Active', timestamp: new Date().toISOString() },
-      ];
-      if (pair) {
-        return mockAlerts.filter((a) => a.pair === pair);
-      }
-      return mockAlerts;
+  const query = useQuery<Alert[]>({
+    queryKey: ['price-alerts'],
+    queryFn: () => alertsApi.getAlerts(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (newAlert: CreateAlertData) => alertsApi.createAlert(newAlert),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
     },
   });
 
-  const triggerMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // simulate trigger
-      return id;
-    },
+  const toggleMutation = useMutation({
+    mutationFn: (id: string) => alertsApi.toggleAlert(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
     },
@@ -35,6 +31,28 @@ export const useAlerts = (pair?: CurrencyPair) => {
 
   return {
     ...query,
-    triggerAlert: triggerMutation.mutate,
+    createAlert: createMutation.mutate,
+    toggleAlert: toggleMutation.mutate,
   };
 };
+
+export const useCreateAlert = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (newAlert: CreateAlertData) => alertsApi.createAlert(newAlert),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
+    },
+  });
+};
+
+export const useToggleAlert = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => alertsApi.toggleAlert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
+    },
+  });
+};
+

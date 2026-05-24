@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Database, Bell } from 'lucide-react';
 import { POI, Signal } from '../types';
+import { useDeletePOI } from '../hooks/usePOIs';
 
 interface DashboardDoublePanelsProps {
   poiList: POI[];
@@ -28,10 +29,24 @@ export default function DashboardDoublePanels({
   isLayoutB = false
 }: DashboardDoublePanelsProps) {
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
+  const deletePoiMutation = useDeletePOI();
 
-  const handleDeletePoi = (id: string, name: string) => {
-    setPoiList(prev => prev.filter(p => p.id !== id));
-    showToast(`POI zone "${name}" deleted from active level charts.`);
+  const handleDeletePoi = async (id: string, name: string) => {
+    try {
+      if (id.startsWith('temp-') || id === '1' || id === '2' || id === '3' || id === 'p1' || id === 'p2') {
+        // Local removal for mock template data or temp client IDs
+        setPoiList(prev => prev.filter(p => p.id !== id));
+        showToast(`POI zone "${name}" deleted from active level charts.`);
+        return;
+      }
+      await deletePoiMutation.mutateAsync(id);
+      setPoiList(prev => prev.filter(p => p.id !== id));
+      showToast(`POI zone "${name}" deleted from active level charts.`);
+    } catch (e: any) {
+      if (e.message !== 'Deletion cancelled' && e.message !== 'Deletion cancelled by user') {
+        showToast('Error deleting POI: ' + e.message);
+      }
+    }
   };
 
   return (

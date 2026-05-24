@@ -4,11 +4,20 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { signalsApi } from '../lib/api/signals';
+import { signalsApi, SignalFilters } from '../lib/api/signals';
 
-export const useSignals = () => {
+export const useSignals = (filters?: SignalFilters) => {
   return useQuery({
-    queryKey: ['trading-signals'],
-    queryFn: () => signalsApi.getSignals(),
+    queryKey: ['trading-signals', filters],
+    queryFn: () => signalsApi.getSignals(filters),
   });
 };
+
+export const useSignalById = (id: string) => {
+  return useQuery({
+    queryKey: ['trading-signal', id],
+    queryFn: () => signalsApi.getSignalById(id),
+    enabled: !!id,
+  });
+};
+

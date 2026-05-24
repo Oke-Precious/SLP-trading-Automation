@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, X } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI, Signal } from '../types';
 import { useMarketStore } from '../store/useMarketStore';
+import { usePOIs, useCreatePOI } from '../hooks/usePOIs';
 
 import DashboardChart from './DashboardChart';
 import DashboardPlan from './DashboardPlan';
@@ -80,35 +81,42 @@ export default function DashboardView({
 
   // Initial Points of Interest
   const [poiList, setPoiList] = useState<POI[]>([]);
+  const { data: qPoiList } = usePOIs({ pair: currentPair });
+  const createPoiMutation = useCreatePOI();
 
-  // Update POI list bounds dynamically when pair switches to match relative price offsets
+  // Sync state when backend or cached query updates
   useEffect(() => {
-    if (currentPair === 'BTCUSDT') {
-      setPoiList([
-        { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '64,200.0 – 65,100.0', priceMin: 64200, priceMax: 65100, status: 'Active', timeframe: '4H' },
-        { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '61,800.0 – 62,500.0', priceMin: 61800, priceMax: 62500, status: 'Mitigated', timeframe: '1D' },
-        { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '65,800.0 – 66,400.0', priceMin: 65800, priceMax: 66400, status: 'Tested', timeframe: '1H' },
-      ]);
-    } else if (currentPair === 'ETHUSDT') {
-      setPoiList([
-        { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '3,410.0 – 3,460.0', priceMin: 3410, priceMax: 3460, status: 'Active', timeframe: '4H' },
-        { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '3,280.0 – 3,330.0', priceMin: 3280, priceMax: 3330, status: 'Mitigated', timeframe: '1D' },
-        { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '3,520.0 – 3,560.0', priceMin: 3520, priceMax: 3560, status: 'Tested', timeframe: '1H' },
-      ]);
-    } else if (currentPair === 'EURUSD') {
-      setPoiList([
-        { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '1.0810 – 1.0840', priceMin: 1.0810, priceMax: 1.0840, status: 'Active', timeframe: '4H' },
-        { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '1.0740 – 1.0780', priceMin: 1.0740, priceMax: 1.0780, status: 'Mitigated', timeframe: '1D' },
-        { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '1.0890 – 1.0920', priceMin: 1.0890, priceMax: 1.0920, status: 'Tested', timeframe: '1H' },
-      ]);
-    } else { // GBPUSD
-      setPoiList([
-        { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '1.2670 – 1.2720', priceMin: 1.2670, priceMax: 1.2720, status: 'Active', timeframe: '4H' },
-        { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '1.2580 – 1.2630', priceMin: 1.2580, priceMax: 1.2630, status: 'Mitigated', timeframe: '1D' },
-        { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '1.2790 – 1.2840', priceMin: 1.2790, priceMax: 1.2840, status: 'Tested', timeframe: '1H' },
-      ]);
+    if (qPoiList && qPoiList.length > 0) {
+      setPoiList(qPoiList);
+    } else {
+      // Offline fallback defaults when database query is empty or not loaded yet
+      if (currentPair === 'BTCUSDT') {
+        setPoiList([
+          { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '64,200.0 – 65,100.0', priceMin: 64200, priceMax: 65100, status: 'Active', timeframe: '4H' },
+          { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '61,800.0 – 62,500.0', priceMin: 61800, priceMax: 62500, status: 'Mitigated', timeframe: '1D' },
+          { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '65,800.0 – 66,400.0', priceMin: 65800, priceMax: 66400, status: 'Tested', timeframe: '1H' },
+        ]);
+      } else if (currentPair === 'ETHUSDT') {
+        setPoiList([
+          { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '3,410.0 – 3,460.0', priceMin: 3410, priceMax: 3460, status: 'Active', timeframe: '4H' },
+          { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '3,280.0 – 3,330.0', priceMin: 3280, priceMax: 3330, status: 'Mitigated', timeframe: '1D' },
+          { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '3,520.0 – 3,560.0', priceMin: 3520, priceMax: 3560, status: 'Tested', timeframe: '1H' },
+        ]);
+      } else if (currentPair === 'EURUSD') {
+        setPoiList([
+          { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '1.0810 – 1.0840', priceMin: 1.0810, priceMax: 1.0840, status: 'Active', timeframe: '4H' },
+          { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '1.0740 – 1.0780', priceMin: 1.0740, priceMax: 1.0780, status: 'Mitigated', timeframe: '1D' },
+          { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '1.0890 – 1.0920', priceMin: 1.0890, priceMax: 1.0920, status: 'Tested', timeframe: '1H' },
+        ]);
+      } else { // GBPUSD
+        setPoiList([
+          { id: '1', name: 'POI - 1 (OB)', type: 'OB', priceRange: '1.2670 – 1.2720', priceMin: 1.2670, priceMax: 1.2720, status: 'Active', timeframe: '4H' },
+          { id: '2', name: 'POI - 2 (OB)', type: 'OB', priceRange: '1.2580 – 1.2630', priceMin: 1.2580, priceMax: 1.2630, status: 'Mitigated', timeframe: '1D' },
+          { id: '3', name: 'POI - 3 (BB)', type: 'BB', priceRange: '1.2790 – 1.2840', priceMin: 1.2790, priceMax: 1.2840, status: 'Tested', timeframe: '1H' },
+        ]);
+      }
     }
-  }, [currentPair]);
+  }, [qPoiList, currentPair]);
 
   // Handle POI addition
   const handleAddPoiSubmit = (e: React.FormEvent) => {
@@ -135,6 +143,17 @@ export default function DashboardView({
       status: 'Active',
       timeframe: currentTimeframe
     };
+
+    // Trigger persistent database save mutation
+    createPoiMutation.mutate({
+      name: newPoi.name,
+      type: newPoi.type,
+      priceRange: newPoi.priceRange,
+      priceMin: newPoi.priceMin,
+      priceMax: newPoi.priceMax,
+      status: 'Active',
+      timeframe: newPoi.timeframe
+    });
 
     setPoiList([newPoi, ...poiList]);
     setShowAddPoiModal(false);
