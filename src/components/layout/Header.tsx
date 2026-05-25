@@ -257,6 +257,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             onClick={() => setNotificationOpen(!notificationOpen)}
+            aria-label="Notification Bell"
             className="relative text-gray-400 hover:text-white p-1.5 hover:bg-surface rounded-md transition-colors cursor-pointer"
           >
             <Bell size={18} />

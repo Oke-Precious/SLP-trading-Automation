@@ -77,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
             <button
               key={item.id}
               onClick={() => setActivePage(item.id)}
+              aria-current={isActive ? 'page' : undefined}
               className={`w-[calc(100%-16px)] flex items-center py-2.5 px-4 mx-2 my-0.5 rounded-md transition-all duration-200 group text-left relative ${
                 isActive 
                   ? 'bg-[#181F33] text-[#CAAA98] font-bold border-l-4 border-[#CAAA98]' 

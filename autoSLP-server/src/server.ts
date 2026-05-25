@@ -6,6 +6,9 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config } from './config';
 import { sendError } from './shared/utils/response';
+import { authRoutes } from './modules/auth/auth.routes';
+import { poiRoutes } from './modules/poi/poi.routes';
+import { marketRoutes } from './modules/market/market.routes';
 
 export async function createServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -60,6 +63,11 @@ export async function createServer(): Promise<FastifyInstance> {
       deepLinking: false
     }
   });
+
+  // Register modular routes
+  await server.register(authRoutes, { prefix: '/auth' });
+  await server.register(poiRoutes, { prefix: '/pois' });
+  await server.register(marketRoutes, { prefix: '/market' });
 
   // Global Error Handler
   server.setErrorHandler((error, request, reply) => {

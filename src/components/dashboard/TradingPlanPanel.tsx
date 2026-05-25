@@ -5,6 +5,8 @@
 
 import React, { useState } from 'react';
 import { CheckSquare, Square, Flame } from 'lucide-react';
+import { useSignalStore } from '../../store/useSignalStore';
+import { ActiveSignalCard } from './ActiveSignalCard';
 
 export const TradingPlanPanel: React.FC = () => {
   const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({
@@ -15,6 +17,8 @@ export const TradingPlanPanel: React.FC = () => {
     5: false,
     6: false,
   });
+
+  const activeSignal = useSignalStore((state) => state.activeSignal);
 
   const steps = [
     { id: 1, title: 'Establish HTF Bias (Daily/4H)', desc: 'Daily order flow in structural trend (HH + HL sequence).' },
@@ -75,6 +79,12 @@ export const TradingPlanPanel: React.FC = () => {
           );
         })}
       </div>
+
+      {activeSignal && (
+        <div data-testid="active-signal-card" className="mt-4 pt-4 border-t border-[#2D313E]/60">
+          <ActiveSignalCard />
+        </div>
+      )}
     </div>
   );
 };

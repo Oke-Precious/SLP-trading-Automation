@@ -51,6 +51,13 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
     { id: '3', pair: 'GBPUSD', condition: 'Price crosses $1.2650 (SSL Sweep)', status: 'Triggered', time: 'May 24, 2026 10:15' },
   ]);
 
+  // Hoisted Settings States (Rules of Hooks compliance)
+  const { appStateMode, setAppStateMode, layoutVariant, setLayoutVariant } = useMarketStore();
+  const [mockApiKey, setMockApiKey] = useState('***********************************3A1f');
+  const [mockExchange, setMockExchange] = useState('BINANCE_US');
+  const [connectionPhase, setConnectionPhase] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'running' | 'success'>('idle');
+
   const handleCreateAlert = (e: React.FormEvent) => {
     e.preventDefault();
     setAlerts([
@@ -543,14 +550,6 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // 9. SETTINGS DASHBOARD PAGE
   if (pageId === 'settings') {
-    const { appStateMode, setAppStateMode, layoutVariant, setLayoutVariant } = useMarketStore();
-    const [mockApiKey, setMockApiKey] = useState('***********************************3A1f');
-    const [mockExchange, setMockExchange] = useState('BINANCE_US');
-
-    // Test connection states
-    const [connectionPhase, setConnectionPhase] = useState<string | null>(null);
-    const [connectionStatus, setConnectionStatus] = useState<'idle' | 'running' | 'success'>('idle');
-
     const handleTestConnection = () => {
       setConnectionStatus('running');
       setConnectionPhase('Handshaking SSL secure channel...');
