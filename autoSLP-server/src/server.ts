@@ -4,36 +4,83 @@ import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import helmet from '@fastify/helmet';
 import { config } from './config';
 import { sendError } from './shared/utils/response';
 import { authRoutes } from './modules/auth/auth.routes';
 import { poiRoutes } from './modules/poi/poi.routes';
 import { marketRoutes } from './modules/market/market.routes';
+import { privateKey, publicKey } from './shared/utils/security';
 
 export async function createServer(): Promise<FastifyInstance> {
   const server = Fastify({
     logger: true
   });
 
-  // 1. CORS plugin config
+  // 1. Enforce HTTPS: Redirect HTTP to HTTPS in server configuration
+  server.addHook('onRequest', async (request, reply) => {
+    const proto = request.headers['x-forwarded-proto'];
+    if (proto === 'http') {
+      const host = request.headers.host;
+      return reply.redirect(301, `https://${host}${request.url}`);
+    }
+  });
+
+  // 2. Set HTTP security headers via @fastify/helmet
+  await server.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"]
+      }
+    },
+    frameguard: { action: 'deny' }, // X-Frame-Options: DENY
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }, // Referrer-Policy
+    hsts: { maxAge: 31536000, includeSubDomains: true } // HSTS: 1 year
+  });
+
+  // Extra headers hook (Permissions-Policy, nosniff redundancy)
+  server.addHook('preHandler', async (request, reply) => {
+    reply.header('Permissions-Policy', 'camera=(), microphone=()');
+    reply.header('X-Content-Type-Options', 'nosniff');
+  });
+
+  // 3. CORS: Allow only NEXT_PUBLIC_APP_URL origin (allow undefined origins exclusively for tests / internal requests)
+  const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL;
   await server.register(cors, {
-    origin: '*',
+    origin: (origin, cb) => {
+      if (!origin || !allowedOrigin || origin === allowedOrigin) {
+        cb(null, true);
+        return;
+      }
+      cb(new Error('Not allowed by CORS'), false);
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
   });
 
-  // 2. Cookie config
+  // 4. Secure HttpOnly Cookie configurations
   await server.register(cookie);
 
-  // 3. JWT config
+  // 5. Asymmetric Key JWT Config (RS256 algorithm)
   await server.register(jwt, {
-    secret: config.JWT_SECRET,
+    secret: {
+      private: privateKey,
+      public: publicKey
+    },
+    sign: { algorithm: 'RS256' },
+    verify: { algorithms: ['RS256'] },
     cookie: {
       cookieName: 'token',
       signed: false
     }
   });
 
-  // 4. OpenAPI / Swagger documentation
+  // 6. OpenAPI / Swagger documentation
   await server.register(swagger, {
     openapi: {
       info: {
@@ -64,7 +111,7 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
-  // Register modular routes
+  // Register modular hardened routes
   await server.register(authRoutes, { prefix: '/auth' });
   await server.register(poiRoutes, { prefix: '/pois' });
   await server.register(marketRoutes, { prefix: '/market' });

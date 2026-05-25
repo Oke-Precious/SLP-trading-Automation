@@ -38,6 +38,33 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // GDPR Cookie Consent States
+  const [showCookieBanner, setShowCookieBanner] = useState(false);
+  const [cookieConsent, setCookieConsent] = useState<{ essentialOnly: boolean; optOutAnalytics: boolean } | null>(null);
+
+  useEffect(() => {
+    const consent = localStorage.getItem('autoslp_cookie_consent_v1');
+    if (!consent) {
+      setShowCookieBanner(true);
+    } else {
+      setCookieConsent(JSON.parse(consent));
+    }
+  }, []);
+
+  const handleAcceptAll = () => {
+    const consent = { essentialOnly: false, optOutAnalytics: false };
+    localStorage.setItem('autoslp_cookie_consent_v1', JSON.stringify(consent));
+    setCookieConsent(consent);
+    setShowCookieBanner(false);
+  };
+
+  const handleAcceptEssential = () => {
+    const consent = { essentialOnly: true, optOutAnalytics: true };
+    localStorage.setItem('autoslp_cookie_consent_v1', JSON.stringify(consent));
+    setCookieConsent(consent);
+    setShowCookieBanner(false);
+  };
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -270,10 +297,27 @@ export default function App() {
       )}
 
       {/* 6. STATIC SECURE FOOTER */}
-      <footer className="w-full bg-[#111622] py-4 text-center border-t border-[#2A2E39]/40 select-none">
-        <span className="font-mono text-[10px] text-gray-600 tracking-wider uppercase pb-1 block">
+      <footer className="w-full bg-[#111622] py-4 text-center border-t border-[#2A2E39]/40 select-none flex flex-col items-center justify-center gap-2">
+        <span className="font-mono text-[10px] text-gray-600 tracking-wider uppercase">
           AutoSLP Algorithmic Solutions &bull; May 2026 Sandbox Preview Mode
         </span>
+        <div className="flex space-x-4 text-[10px] font-mono text-gray-500">
+          <a href="#" className="hover:text-[#CAAA98] transition-colors">Privacy Policy</a>
+          <span>&middot;</span>
+          <a href="#" className="hover:text-[#CAAA98] transition-colors">Terms of Service</a>
+          <span>&middot;</span>
+          <button 
+            onClick={() => {
+              const updated = { essentialOnly: true, optOutAnalytics: true };
+              localStorage.setItem('autoslp_cookie_consent_v1', JSON.stringify(updated));
+              setCookieConsent(updated);
+              alert('Successfully Opted Out of Analytics, saving essential preference.');
+            }} 
+            className="hover:text-[#CAAA98] transition-colors uppercase tracking-tight underline cursor-pointer"
+          >
+            {cookieConsent?.optOutAnalytics ? "Analytics: Opted Out" : "Opt out of Analytics"}
+          </button>
+        </div>
       </footer>
 
       {/* 7. HIGH FIDELITY MOBILE BOTTOM NAVIGATION BAR */}
@@ -306,6 +350,46 @@ export default function App() {
           );
         })}
       </nav>
+
+      {/* 8. GDPR COMPLIANT COOKIE CONSENT BANNER */}
+      {showCookieBanner && (
+        <div 
+          id="cookie-consent-overlay-banner"
+          className="fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:max-w-md bg-[#1B2131] border border-[#2A344C] rounded-xl shadow-2xl p-5 z-50 flex flex-col gap-3 font-sans"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-1.5 bg-[#CAAA98]/10 text-[#CAAA98] rounded">
+                <Globe size={16} />
+              </div>
+              <h3 className="text-sm font-bold text-white tracking-wide">Cookie Privacy Consent</h3>
+            </div>
+            <button 
+              onClick={() => setShowCookieBanner(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400 leading-relaxed font-normal">
+            We employ essential cookies for secure login sessions, 2FA profiles, and state continuity. Analytics cookies remain optional, disabled by default. You can change your selection at any time.
+          </p>
+          <div className="flex items-center space-x-2 mt-1">
+            <button 
+              onClick={handleAcceptAll}
+              className="flex-1 bg-[#CAAA98] hover:bg-[#CAAA98]/90 text-slate-950 text-[10px] font-bold py-1.5 px-3 rounded cursor-pointer uppercase tracking-wider transition-colors"
+            >
+              Accept All
+            </button>
+            <button 
+              onClick={handleAcceptEssential}
+              className="flex-1 bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white text-[10px] font-bold py-1.5 px-3 rounded cursor-pointer border border-slate-700 uppercase tracking-wider transition-colors"
+            >
+              Essential Only
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

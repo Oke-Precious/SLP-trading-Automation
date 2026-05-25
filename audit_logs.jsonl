@@ -1,0 +1,5 @@
+{"userId":"user-1","action":"POI:POI_DELETED","resource":"POI","resourceId":"test-poi-123","ip":"127.0.0.1","userAgent":"lightMyRequest","result":"SUCCESS","timestamp":"2026-05-25T08:36:27.846Z"}
+{"userId":"user-1","action":"POI:POI_DELETED","resource":"POI","resourceId":"test-poi-123","ip":"127.0.0.1","userAgent":"lightMyRequest","result":"SUCCESS","timestamp":"2026-05-25T08:37:28.732Z"}
+{"userId":"user-1","action":"POI:POI_CREATED","resource":"POI","resourceId":"test-poi-123","ip":"127.0.0.1","userAgent":"lightMyRequest","result":"SUCCESS","timestamp":"2026-05-25T08:38:04.752Z"}
+{"userId":"user-1","action":"POI:POI_MODIFIED","resource":"POI","resourceId":"test-poi-123","ip":"127.0.0.1","userAgent":"lightMyRequest","result":"SUCCESS","timestamp":"2026-05-25T08:38:04.769Z"}
+{"userId":"user-1","action":"POI:POI_DELETED","resource":"POI","resourceId":"test-poi-123","ip":"127.0.0.1","userAgent":"lightMyRequest","result":"SUCCESS","timestamp":"2026-05-25T08:38:04.775Z"}

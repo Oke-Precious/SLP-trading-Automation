@@ -189,3 +189,16 @@ model BiasAnalysis {
 
   @@index([pair, timeframe, analyzedAt])
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  resource   String
+  resourceId String?
+  ip         String
+  userAgent  String
+  timestamp  DateTime @default(now())
+  result     String
+}
+
