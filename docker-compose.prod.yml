@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  postgres:
+    id: postgres_prod
+    image: timescale/timescaledb:latest-pg16
+    container_name: autoslp-postgres-prod
+    # Exposed ports are strictly eliminated to prevent external DB vulnerability vectors
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - autoslp-tier-network
+
+  redis:
+    id: redis_prod
+    image: redis:7-alpine
+    container_name: autoslp-redis-prod
+    # Command config with resilient appendonly and RDB snapshots
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - autoslp-tier-network
+
+  server:
+    id: server_prod
+    build:
+      context: ./autoSLP-server
+      dockerfile: Dockerfile
+    container_name: autoslp-backend-prod
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=require
+      REDIS_URL: redis://redis:6379
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - autoslp-tier-network
+
+  client:
+    id: client_prod
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: autoslp-frontend-prod
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.autoslp.com
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - autoslp-tier-network
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+
+networks:
+  autoslp-tier-network:
+    driver: bridge

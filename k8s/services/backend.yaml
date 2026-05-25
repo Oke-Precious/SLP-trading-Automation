@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  id: autoslp-backend-srv
+  name: autoslp-backend-service
+  namespace: autoslp
+  labels:
+    app: autoslp-backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "4000"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4000
+      targetPort: 4000
+      protocol: TCP
+      name: http-api
+  selector:
+    app: autoslp-backend

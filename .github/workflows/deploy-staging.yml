@@ -1,0 +1,93 @@
+name: Continuous Deployment (Staging Environment)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-push:
+    id: staging_build_push
+    name: Build & Publish Staging Docker Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source VCS Codebase
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Initialize Docker Buildx multi-architecture builder
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compile and register Frontend container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/frontend:staging
+            ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+
+      - name: Compile and register Backend container
+        uses: docker/build-push-action@v5
+        with:
+          context: ./autoSLP-server
+          file: ./autoSLP-server/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/backend:staging
+            ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+
+  redeploy-staging:
+    id: staging_deploy
+    name: Execute Rolling Deploy to Cloud Staging cluster
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Setup Kubernetes context configuration tools
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.STAGING_KUBECONFIG }}
+
+      - name: Force redeployment pull patterns
+        run: |
+          kubectl rollout restart deployment/autoslp-frontend-deployment -n staging
+          kubectl rollout restart deployment/autoslp-backend-deployment -n staging
+
+      - name: Block deploy until staging cluster returns stable rollout states
+        run: |
+          kubectl rollout status deployment/autoslp-frontend-deployment -n staging --timeout=120s
+          kubectl rollout status deployment/autoslp-backend-deployment -n staging --timeout=120s
+
+  smoke-test:
+    id: staging_smoke_chk
+    name: Staging Cloud Live Validation check
+    runs-on: ubuntu-latest
+    needs: redeploy-staging
+    steps:
+      - name: Ping APIs health and configuration endpoints
+        run: |
+          curl -f -s https://staging-api.autoslp.com/api/v1/health || exit 1
+          curl -f -s https://staging-api.autoslp.com/metrics || exit 1
+
+  notifications:
+    id: staging_slack_notif
+    name: Teams Success Slack broadcast Dispatch
+    runs-on: ubuntu-latest
+    needs: [build-and-push, redeploy-staging, smoke-test]
+    if: always()
+    steps:
+      - name: Post success/failure messages to integration Webhook pipelines
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_STAGING_DEPLOY_WEBHOOK }}
+          SLACK_COLOR: ${{ needs.smoke-test.result == 'success' && 'good' || 'danger' }}
+          SLACK_MESSAGE: "Deploy to autoSLP Staging Cloud Environment was: ${{ needs.smoke-test.result == 'success' && 'SUCCESSFUL ✅' || 'FAILED ❌' }}. Ref: ${{ github.sha }}"

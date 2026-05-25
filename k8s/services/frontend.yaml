@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  id: autoslp-frontend-srv
+  name: autoslp-frontend-service
+  namespace: autoslp
+  labels:
+    app: autoslp-frontend
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: autoslp-frontend

@@ -1,0 +1,60 @@
+groups:
+  - name: autoslp-core-alerts
+    rules:
+      # 1. API Latency: p95 latency > 500ms for 5m -> WARNING
+      - alert: AutoSLPApiP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(autoSLP_api_request_duration_seconds_bucket[5m])) by (le, route, method)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          tier: api
+        annotations:
+          summary: "High API Request Latency detected on route {{ $labels.route }}"
+          description: "The 95th percentile request latency for {{ $labels.method }} {{ $labels.route }} has exceeded 500ms (current: {{ $value }}s) over a 5 minute interval."
+
+      # 2. Error Rate: Error status codes (5xx) > 5% for 2m -> CRITICAL
+      - alert: AutoSLPEndpointErrorRateHigh
+        expr: |
+          sum(rate(autoSLP_api_request_duration_seconds_count{status=~"5.."}[2m])) 
+          / 
+          sum(rate(autoSLP_api_request_duration_seconds_count[2m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          tier: api
+        annotations:
+          summary: "API Error rate exceeds critical threshold of 5%"
+          description: "Internal Server Error rates (5xx HTTP status codes) are currently computed at {{ $value | printf \"%.2f\" }}% of active traffic patterns."
+
+      # 3. Pod Crash Restart: Pod crash-restart > 3 in 10m -> CRITICAL
+      - alert: AutoSLPPodCrashRestartLooping
+        expr: increase(kube_pod_container_status_restarts_total{namespace="autoslp"}[10m]) > 3
+        for: 2m
+        labels:
+          severity: critical
+          tier: infrastructure
+        annotations:
+          summary: "Kubernetes Pod container restarts looping on cluster"
+          description: "Container {{ $labels.container }} in namespace autoslp has restarted {{ $value }} times within the last 10 minutes, indicating a crash loop scenario."
+
+      # 4. TimescaleDB Disk Space: TimescaleDB disk usage > 80% -> WARNING
+      - alert: AutoSLPTimescaleDBDiskUsageHigh
+        expr: (kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"postgres-.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"postgres-.*"}) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          tier: storage
+        annotations:
+          summary: "TimescaleDB PersistentVolume storage space is running low"
+          description: "Disk storage space on active database volumes has exceeded 80% usage (current: {{ $value | printf \"%.2f\" }}%)."
+
+      # 5. Redis Memory Footprint: Redis memory > 75% -> WARNING
+      - alert: AutoSLPRedisMemoryUsageHigh
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 75
+        for: 5m
+        labels:
+          severity: warning
+          tier: cache
+        annotations:
+          summary: "Redis memory usage exceeds warning threshold of 75%"
+          description: "Redis in-memory store footprints are currently at {{ $value | printf \"%.2f\" }}% of absolute reservation limit limits."

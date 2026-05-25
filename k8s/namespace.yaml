@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  id: autoslp-ns
+  name: autoslp
+  labels:
+    est.service: core-smart-money-concepts
+    istio-injection: enabled

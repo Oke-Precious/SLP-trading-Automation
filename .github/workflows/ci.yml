@@ -1,0 +1,190 @@
+name: Continuous Integration Security Guard
+
+on:
+  pull_request:
+    branches: [ main, master, develop ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  lint:
+    id: lint_job
+    name: Code Quality check (Lint & Build Checking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source VCS Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node runtime core environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Frontend and Root Node Packages
+        run: npm ci
+
+      - name: Run ESLint & TypeScript Compiler Verification (Client)
+        run: npm run lint
+
+      - name: Install fastify Backend Packages
+        run: |
+          cd autoSLP-server
+          npm ci
+
+      - name: Run Fastify TypeScript Compilation Validation (Backend)
+        run: |
+          cd autoSLP-server
+          npm run build
+
+  test-frontend:
+    id: frontend_test_job
+    name: Frontend Unit & Render Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout VCS Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Packages
+        run: npm ci
+
+      - name: Execute Vitest with Code Coverage report output
+        run: npx vitest run --coverage
+
+  test-backend:
+    id: backend_test_job
+    name: Backend API Integration & Service Unit Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres_test:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_DB: autoslp_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: verystrongpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis_test:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout VCS Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Backend Dependencies
+        run: |
+          cd autoSLP-server
+          npm ci
+
+      - name: Set up Prisma DB engines and Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:verystrongpassword@localhost:5432/autoslp_test?schema=public
+        run: |
+          cd autoSLP-server
+          npx prisma db push
+
+      - name: Run Backend Tests
+        env:
+          DATABASE_URL: postgresql://postgres:verystrongpassword@localhost:5432/autoslp_test?schema=public
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+        run: |
+          cd autoSLP-server
+          npm run test -- --coverage
+
+  test-e2e:
+    id: e2e_test_job
+    name: Playwright Framework End-to-End Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source VCS Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Initialize and cache Playwright Headless Browser files
+        run: npx playwright install --with-deps
+
+      - name: Execute Playwright integration execution suite
+        run: npx playwright test
+
+  security:
+    id: security_scan_job
+    name: Vulnerability Verification (Audit / Snyk)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository source
+        uses: actions/checkout@v4
+
+      - name: Setup Node runtime environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Inspect Dependencies for High Vulnerabilities
+        run: npm audit --audit-level=high
+
+      - name: Execute Snyk scanning against third party APIs
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+
+  build:
+    id: build_check_job
+    name: Compiles Production Container Images Mock Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v4
+
+      - name: Initialize Docker Buildx multi-architecture compiler
+        uses: docker/setup-buildx-action@v3
+
+      - name: Parse and verify client Docker production build recipe
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: false
+          tags: autoslp/frontend:test-compilation
+
+      - name: Parse and verify Fastify Docker production build recipe
+        uses: docker/build-push-action@v5
+        with:
+          context: ./autoSLP-server
+          file: ./autoSLP-server/Dockerfile
+          push: false
+          tags: autoslp/backend:test-compilation

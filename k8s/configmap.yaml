@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  id: autoslp-config
+  name: autoslp-config
+  namespace: autoslp
+data:
+  NODE_ENV: "production"
+  HOST: "0.0.0.0"
+  PORT: "4000"
+  REDIS_URL: "redis://autoslp-redis-service:6379"
+  BINANCE_WS_URL: "wss://stream.binance.com:9443/ws"
+  SUPPORTED_PAIRS: "BTCUSDT,ETHUSDT,SOLUSDT,LINKUSDT,AVAXUSDT"
+  METRICS_PORT: "4000"
+  CLIENT_HOST_NAME: "https://autoslp.com"

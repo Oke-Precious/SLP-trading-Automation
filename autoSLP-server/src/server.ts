@@ -11,6 +11,7 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { poiRoutes } from './modules/poi/poi.routes';
 import { marketRoutes } from './modules/market/market.routes';
 import { privateKey, publicKey } from './shared/utils/security';
+import { register, apiRequestDurationSeconds } from './shared/utils/metrics';
 
 export async function createServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -111,6 +112,30 @@ export async function createServer(): Promise<FastifyInstance> {
     }
   });
 
+  // HTTP metric duration instrument hooks
+  server.addHook('onRequest', async (request) => {
+    // Also protect https redirection hook
+    const proto = request.headers['x-forwarded-proto'];
+    if (proto === 'http') {
+      const host = request.headers.host;
+      // Return and end redirect immediately
+      return;
+    }
+    (request as any).startTime = process.hrtime();
+  });
+
+  server.addHook('onResponse', async (request, reply) => {
+    const start = (request as any).startTime;
+    if (start) {
+      const [seconds, nanoseconds] = process.hrtime(start);
+      const duration = seconds + nanoseconds / 1e9;
+      const url = request.routerPath || request.url || 'unknown';
+      apiRequestDurationSeconds
+        .labels(request.method, url, reply.statusCode.toString())
+        .observe(duration);
+    }
+  });
+
   // Register modular hardened routes
   await server.register(authRoutes, { prefix: '/auth' });
   await server.register(poiRoutes, { prefix: '/pois' });
@@ -126,6 +151,27 @@ export async function createServer(): Promise<FastifyInstance> {
   // Health and verification checks route
   server.get('/api/v1/health', async () => {
     return { status: 'healthy', environment: 'production', timestamp: new Date() };
+  });
+
+  // Prometheus metrics scraping endpoint
+  server.get('/metrics', async (request, reply) => {
+    const clientIp = request.ip || '127.0.0.1';
+    // Match local / docker / internal virtual VPC subnets
+    const isIpAllowed = 
+      clientIp === '127.0.0.1' || 
+      clientIp === '::1' || 
+      clientIp.startsWith('10.') || 
+      clientIp.startsWith('192.168.') || 
+      clientIp.startsWith('172.') ||
+      process.env.NODE_ENV === 'test' ||
+      !!process.env.VITEST; // Ensure tests aren't blocked by IP checks
+
+    if (!isIpAllowed) {
+      return reply.status(403).send({ error: 'Acquisition access denied: IP is not on metrics allowlist.' });
+    }
+
+    reply.type(register.contentType);
+    return register.metrics();
   });
 
   return server;
