@@ -1,0 +1,54 @@
+name: Docs Check
+
+on:
+  pull_request:
+    paths:
+      - 'src/modules/analysis/**'
+      - 'autoSLP-server/src/modules/analysis/**'
+      - 'autoSLP-server/src/modules/market/**'
+
+jobs:
+  check-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if ALGORITHMS.md was modified
+        id: check_algorithms
+        run: |
+          # Get list of changed files in this Pull Request
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          # Check if ALGORITHMS.md is in the changed files list
+          if echo "$CHANGED_FILES" | grep -q "docs/ALGORITHMS.md"; then
+            echo "ALGORITHMS.md was modified. Excellent!"
+            echo "updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "ALGORITHMS.md was NOT modified."
+            echo "updated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Add reminder label to PR
+        if: steps.check_algorithms.outputs.updated == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['documentation']
+            });
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Documentation Warning**: You modified core analysis/market code under `src/modules/analysis/` but did not update **`docs/ALGORITHMS.md`**. Please verify if the algorithms, explanations, or pseudocodes need an update!'
+            });
