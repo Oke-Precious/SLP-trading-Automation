@@ -52,7 +52,7 @@ export default function DashboardDoublePanels({
   return (
     <div 
       id="quad-4-double-panels" 
-      className={`${isLayoutB ? 'col-span-1 border border-[#2A2E39] rounded-xl h-[520px]' : 'md:col-span-12 lg:col-span-7 border border-[#2A2E39] rounded-xl h-[360px]'} bg-[#1A1F2C] grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#2A2E39] overflow-hidden`}
+      className={`${isLayoutB ? 'col-span-1 border border-[#2A2E39] rounded-xl h-[520px]' : 'md:col-span-12 lg:col-span-5 border border-[#2A2E39] rounded-xl h-[360px]'} bg-[#1A1F2C] grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-[#2A2E39] overflow-hidden`}
     >
       {/* LEFT SUB-PANEL: HIGHER TIMEFRAME POI MAP */}
       <div className="p-4 flex flex-col justify-between h-full">

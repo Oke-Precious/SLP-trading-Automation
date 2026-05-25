@@ -76,6 +76,8 @@ model User {
   pois          POI[]
   alerts        Alert[]
   signals       Signal[]
+  feedbacks     Feedback[]
+  npsSurveys    NpsSurvey[]
 }
 
 model Candle {
@@ -134,8 +136,10 @@ model Signal {
   triggeredAt     DateTime?
   closedAt        DateTime?
   pnlPercent      Decimal?     @db.Decimal(6, 2)
+  isAiGenerated   Boolean      @default(false)
   
   trades          Trade[]
+  rating          SignalRating?
 
   @@index([userId, status])
   @@index([pair, status])
@@ -200,5 +204,42 @@ model AuditLog {
   userAgent  String
   timestamp  DateTime @default(now())
   result     String
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean
+  rollout     Int      @default(100)
+  planGated   Plan?
+  description String
+}
+
+model Feedback {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  idea        String
+  priority    String   // "must" | "want" | "nice"
+  category    String
+  status      String   @default("PENDING") // PENDING, TRIAGED, ARCHIVED
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+}
+
+model NpsSurvey {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  score     Int
+  feedback  String?
+  createdAt DateTime @default(now())
+}
+
+model SignalRating {
+  id        String   @id @default(uuid())
+  signalId  String   @unique
+  signal    Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  rating    String   // "UP" or "DOWN"
+  createdAt DateTime @default(now())
 }
 

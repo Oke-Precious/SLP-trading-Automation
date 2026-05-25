@@ -4,17 +4,19 @@ interface DashboardSummaryProps {
   currentPair: string;
   bias: string;
   fullWidth?: boolean;
+  className?: string;
 }
 
 export default function DashboardSummary({
   currentPair,
   bias,
-  fullWidth = false
+  fullWidth = false,
+  className = ''
 }: DashboardSummaryProps) {
   return (
     <section 
       id="quad-3-market-summary"
-      className={`${fullWidth ? 'col-span-12' : 'md:col-span-12 lg:col-span-5'} bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5 flex flex-col justify-between h-[360px]`}
+      className={`${className || (fullWidth ? 'col-span-12' : 'md:col-span-12 lg:col-span-5')} bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5 flex flex-col justify-between h-[360px]`}
     >
       <div>
         <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#2A2E39]">

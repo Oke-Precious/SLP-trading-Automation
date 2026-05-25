@@ -25,6 +25,8 @@ import SpecsHub from './components/SpecsHub';
 import { CurrencyPair, Timeframe } from './types';
 import { useMarketStore } from './store/useMarketStore';
 import { useUIStore } from './store/useUIStore';
+import { analytics } from './lib/analytics';
+import FeedbackWidget from './components/FeedbackWidget';
 
 export default function App() {
   const [activePage, setActivePage] = useState<string>('dashboard');
@@ -50,6 +52,26 @@ export default function App() {
       setCookieConsent(JSON.parse(consent));
     }
   }, []);
+
+  // Track active page changes & journal opened events (privacy-first, zero PII)
+  useEffect(() => {
+    if (cookieConsent?.optOutAnalytics) return;
+    analytics.track('page_view', { path: activePage });
+    if (activePage === 'journal') {
+      analytics.track('journal_opened');
+    }
+  }, [activePage, cookieConsent]);
+
+  // Track dynamic asset pair & timeframe toggles
+  useEffect(() => {
+    if (cookieConsent?.optOutAnalytics) return;
+    analytics.track('pair_switched', { pair: currentPair });
+  }, [currentPair, cookieConsent]);
+
+  useEffect(() => {
+    if (cookieConsent?.optOutAnalytics) return;
+    analytics.track('timeframe_switched', { tf: currentTimeframe });
+  }, [currentTimeframe, cookieConsent]);
 
   const handleAcceptAll = () => {
     const consent = { essentialOnly: false, optOutAnalytics: false };
@@ -390,6 +412,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* In-App Feedback loop widgets & NPS triggers */}
+      <FeedbackWidget />
 
     </div>
   );

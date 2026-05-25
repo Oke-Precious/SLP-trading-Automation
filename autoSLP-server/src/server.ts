@@ -10,6 +10,9 @@ import { sendError } from './shared/utils/response';
 import { authRoutes } from './modules/auth/auth.routes';
 import { poiRoutes } from './modules/poi/poi.routes';
 import { marketRoutes } from './modules/market/market.routes';
+import { featuresRoutes } from './modules/features/features.routes.js';
+import { feedbackRoutes } from './modules/feedback/feedback.routes.js';
+import { aiRoutes } from './modules/ai/ai.routes.js';
 import { privateKey, publicKey } from './shared/utils/security';
 import { register, apiRequestDurationSeconds } from './shared/utils/metrics';
 
@@ -140,6 +143,9 @@ export async function createServer(): Promise<FastifyInstance> {
   await server.register(authRoutes, { prefix: '/auth' });
   await server.register(poiRoutes, { prefix: '/pois' });
   await server.register(marketRoutes, { prefix: '/market' });
+  await server.register(featuresRoutes, { prefix: '/features' });
+  await server.register(feedbackRoutes, { prefix: '/feedback' });
+  await server.register(aiRoutes, { prefix: '/ai' });
 
   // Global Error Handler
   server.setErrorHandler((error, request, reply) => {

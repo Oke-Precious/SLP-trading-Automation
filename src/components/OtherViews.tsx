@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { CurrencyPair, Timeframe } from '../types';
 import { useMarketStore } from '../store/useMarketStore';
+import { analytics } from '../lib/analytics';
 
 interface OtherViewsProps {
   pageId: string;
@@ -64,6 +65,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
       { id: String(Date.now()), pair: alertFormPair, condition: alertFormCond, status: 'Active', time: 'Just now' },
       ...alerts
     ]);
+    analytics.track('alert_created', { alertType: alertFormCond });
     showToast(`Alert created successfully for ${alertFormPair}: ${alertFormCond}`);
   };
 

@@ -57,6 +57,36 @@ async function main() {
   });
 
   console.log(`SMC POIs seeded: ${poi1.id}, ${poi2.id}`);
+  
+  // Create default feature flags
+  const flags = [
+    { key: 'ai_pattern_recognition', enabled: false, rollout: 0, planGated: null, description: 'Phase 11 AI pattern recognition feature' },
+    { key: 'backtest_module', enabled: true, rollout: 50, planGated: null, description: 'Backtesting module (beta users only)' },
+    { key: 'multi_exchange', enabled: false, rollout: 0, planGated: null, description: 'Multi-exchange trading integration' },
+    { key: 'social_trading', enabled: false, rollout: 0, planGated: null, description: 'Social trading and shared public signals' },
+    { key: 'dark_mode_v2', enabled: true, rollout: 100, planGated: null, description: 'Complete redesigned Dark Mode V2' },
+    { key: 'advanced_charts', enabled: true, rollout: 100, planGated: Plan.PREMIUM, description: 'Advanced trading charts (Pro plan only)' }
+  ];
+
+  for (const flag of flags) {
+    await prisma.featureFlag.upsert({
+      where: { key: flag.key },
+      update: {
+        enabled: flag.enabled,
+        rollout: flag.rollout,
+        planGated: flag.planGated,
+        description: flag.description
+      },
+      create: {
+        key: flag.key,
+        enabled: flag.enabled,
+        rollout: flag.rollout,
+        planGated: flag.planGated,
+        description: flag.description
+      }
+    });
+  }
+  console.log('Feature Flags seeded successfully!');
 
   // 4. Create Sample Alerts
   await prisma.alert.create({

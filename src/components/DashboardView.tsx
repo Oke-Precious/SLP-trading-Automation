@@ -3,11 +3,13 @@ import { Check, X } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI, Signal } from '../types';
 import { useMarketStore } from '../store/useMarketStore';
 import { usePOIs, useCreatePOI } from '../hooks/usePOIs';
+import { analytics } from '../lib/analytics';
 
 import DashboardChart from './DashboardChart';
 import DashboardPlan from './DashboardPlan';
 import DashboardSummary from './DashboardSummary';
 import DashboardDoublePanels from './DashboardDoublePanels';
+import AiAnalysisPanel from './AiAnalysisPanel';
 
 interface DashboardViewProps {
   currentPair: CurrencyPair;
@@ -157,6 +159,10 @@ export default function DashboardView({
 
     setPoiList([newPoi, ...poiList]);
     setShowAddPoiModal(false);
+    
+    // Track privacy-first event in self-hosted analytics
+    analytics.track('poi_created', { type: newPoiType === 'OB' ? 'ORDER_BLOCK' : 'BREAKER_BLOCK' });
+    
     showToast(`Successfully added custom Point of Interest zone: ${newPoiName}`);
 
     // Trigger local status flash ID to give a subtle feedback animation in lists
@@ -223,11 +229,18 @@ export default function DashboardView({
               appStateMode={appStateMode}
             />
             {!isFullscreen && (
-              <DashboardSummary
-                currentPair={currentPair}
-                bias={bias}
-                fullWidth={true}
-              />
+              <div className="space-y-6">
+                <DashboardSummary
+                  currentPair={currentPair}
+                  bias={bias}
+                  fullWidth={true}
+                />
+                <AiAnalysisPanel 
+                  currentPair={currentPair}
+                  currentTimeframe={currentTimeframe}
+                  bias={bias}
+                />
+              </div>
             )}
           </div>
 
@@ -299,8 +312,15 @@ export default function DashboardView({
               <DashboardSummary
                 currentPair={currentPair}
                 bias={bias}
-                fullWidth={false}
+                className="md:col-span-12 lg:col-span-3"
               />
+              <div className="md:col-span-12 lg:col-span-4">
+                <AiAnalysisPanel 
+                  currentPair={currentPair}
+                  currentTimeframe={currentTimeframe}
+                  bias={bias}
+                />
+              </div>
               <DashboardDoublePanels
                 poiList={poiList}
                 setPoiList={setPoiList}
