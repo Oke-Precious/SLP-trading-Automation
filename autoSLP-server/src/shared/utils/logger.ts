@@ -7,5 +7,8 @@ export const logger = {
   },
   error: (msg: string, err?: any, ...args: any[]) => {
     console.error(`[ERROR] [${new Date().toISOString()}] ${msg}`, err || '', ...args);
+  },
+  debug: (msg: string, ...args: any[]) => {
+    console.debug(`[DEBUG] [${new Date().toISOString()}] ${msg}`, ...args);
   }
 };

@@ -52,7 +52,11 @@ apiClient.interceptors.response.use(
 
     // Check if network error (no response)
     if (!error.response) {
-      toast.error('Connection error. Retrying...', { id: 'network-connection-error' });
+      if (originalRequest?.method && originalRequest.method.toLowerCase() !== 'get') {
+        toast.error('Action could not be synced. Connection error.', { id: 'network-connection-error' });
+      } else {
+        console.warn('Backend server connection error. Falling back to offline fallback data.');
+      }
       return Promise.reject(error);
     }
 
