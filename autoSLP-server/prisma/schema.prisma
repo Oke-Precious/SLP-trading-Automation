@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum Direction {
+  LONG
+  SHORT
+}
+
+enum POIType {
+  ORDER_BLOCK
+  BREAKER_BLOCK
+  FAIR_VALUE_GAP
+  LIQUIDITY_POOL
+}
+
+enum POIStatus {
+  ACTIVE
+  MITIGATED
+  TESTED
+  EXPIRED
+}
+
+enum SignalStatus {
+  PENDING
+  ACTIVE
+  HIT_TP1
+  HIT_TP2
+  STOPPED_OUT
+  CANCELLED
+  EXPIRED
+}
+
+enum Bias {
+  BULLISH
+  BEARISH
+  NEUTRAL
+}
+
+enum Strength {
+  STRONG
+  MODERATE
+  WEAK
+}
+
+enum AlertType {
+  PRICE_ENTERS_POI
+  BIAS_CHANGE
+  MSS_DETECTED
+  PRICE_LEVEL_ABOVE
+  PRICE_LEVEL_BELOW
+  SIGNAL_CREATED
+  PERCENTAGE_MOVE
+}
+
+enum AlertStatus {
+  ACTIVE
+  TRIGGERED
+  DISABLED
+  EXPIRED
+}
+
+enum AlertChannel {
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String
+  plan          Plan     @default(FREE)
+  isVerified    Boolean  @default(false)
+  is2FAEnabled  Boolean  @default(false)
+  twoFASecret   String?
+  preferences   Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  trades        Trade[]
+  pois          POI[]
+  alerts        Alert[]
+  signals       Signal[]
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  family    String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@index([family])
+}
+
+model Candle {
+  id        String   @id @default(uuid())
+  pair      String
+  timeframe String
+  open      Decimal  @db.Decimal(20, 8)
+  high      Decimal  @db.Decimal(20, 8)
+  low       Decimal  @db.Decimal(20, 8)
+  close     Decimal  @db.Decimal(20, 8)
+  volume    Decimal  @db.Decimal(30, 8)
+  timestamp DateTime
+  @@unique([pair, timeframe, timestamp])
+  @@index([pair, timeframe, timestamp(sort: Desc)])
+}
+
+model POI {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair        String
+  timeframe   String
+  type        POIType
+  priceFrom   Decimal   @db.Decimal(20, 8)
+  priceTo     Decimal   @db.Decimal(20, 8)
+  status      POIStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  signals     Signal[]
+  @@index([userId, pair, status])
+}
+
+model BiasAnalysis {
+  id         String   @id @default(uuid())
+  pair       String
+  timeframe  String
+  bias       Bias
+  strength   Strength
+  structure  String
+  phase      String
+  lastHH     Decimal? @db.Decimal(20, 8)
+  lastHL     Decimal? @db.Decimal(20, 8)
+  analyzedAt DateTime @default(now())
+  @@index([pair, timeframe, analyzedAt(sort: Desc)])
+}
+
+model Signal {
+  id             String       @id @default(uuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair           String
+  timeframe      String
+  direction      Direction
+  poiId          String?
+  poi            POI?         @relation(fields: [poiId], references: [id])
+  entryFrom      Decimal      @db.Decimal(20, 8)
+  entryTo        Decimal      @db.Decimal(20, 8)
+  stopLoss       Decimal      @db.Decimal(20, 8)
+  target1        Decimal      @db.Decimal(20, 8)
+  target2        Decimal?     @db.Decimal(20, 8)
+  status         SignalStatus @default(PENDING)
+  confirmationTF String
+  rrRatio        Decimal      @db.Decimal(10, 2)
+  bias           Bias
+  notes          String?
+  createdAt      DateTime     @default(now())
+  triggeredAt    DateTime?
+  closedAt       DateTime?
+  pnlPercent     Decimal?     @db.Decimal(10, 4)
+  trades         Trade[]
+  @@index([userId, pair, status])
+  @@index([pair, createdAt(sort: Desc)])
+}
+
+model Trade {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalId    String?
+  signal      Signal?   @relation(fields: [signalId], references: [id])
+  pair        String
+  direction   Direction
+  entryPrice  Decimal   @db.Decimal(20, 8)
+  exitPrice   Decimal?  @db.Decimal(20, 8)
+  size        Decimal   @db.Decimal(20, 8)
+  pnl         Decimal?  @db.Decimal(20, 8)
+  pnlPercent  Decimal?  @db.Decimal(10, 4)
+  rrAchieved  Decimal?  @db.Decimal(10, 2)
+  fees        Decimal?  @db.Decimal(20, 8)
+  notes       String?
+  screenshots Json      @default("[]")
+  entryAt     DateTime
+  exitAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([userId, pair, entryAt(sort: Desc)])
+}
+
+model Alert {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pair        String
+  type        AlertType
+  condition   Json
+  status      AlertStatus @default(ACTIVE)
+  channels    Json        @default("{\"email\": false, \"push\": false, \"inApp\": true}")
+  message     String?
+  cooldownMin Int         @default(60)
+  createdAt   DateTime    @default(now())
+  triggeredAt DateTime?
+  expiresAt   DateTime?
+  @@index([userId, status])
+  @@index([pair, status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
+  resourceId String?
+  ip         String?
+  userAgent  String?
+  result     String
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
