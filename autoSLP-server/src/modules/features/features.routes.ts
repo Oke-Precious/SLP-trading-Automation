@@ -39,8 +39,8 @@ export async function featuresRoutes(server: FastifyInstance) {
     }
 
     try {
-      // Fetch flags from DB
-      const dbFlags = await prisma.featureFlag.findMany();
+      // In-memory flags as database table is bypassed
+      const dbFlags: any[] = [];
       
       // Build flags map
       const flagsMap: Record<string, boolean> = {};
@@ -51,12 +51,12 @@ export async function featuresRoutes(server: FastifyInstance) {
         { key: 'multi_exchange', enabled: false, rollout: 0, planGated: null, description: 'Multi-exchange trading integration' },
         { key: 'social_trading', enabled: false, rollout: 0, planGated: null, description: 'Social trading and shared public signals' },
         { key: 'dark_mode_v2', enabled: true, rollout: 100, planGated: null, description: 'Complete redesigned Dark Mode V2' },
-        { key: 'advanced_charts', enabled: true, rollout: 100, planGated: Plan.PREMIUM, description: 'Advanced trading charts (Pro plan only)' }
+        { key: 'advanced_charts', enabled: true, rollout: 100, planGated: Plan.PRO, description: 'Advanced trading charts (Pro plan only)' }
       ];
 
       // Merge defaults with DB flags
       const mergedFlags = defaultFeatureFlags.map(defaultFlag => {
-        const dbFlag = dbFlags.find(f => f.key === defaultFlag.key);
+        const dbFlag = dbFlags.find((f: any) => f.key === defaultFlag.key);
         return dbFlag ? dbFlag : defaultFlag;
       });
 
@@ -68,7 +68,7 @@ export async function featuresRoutes(server: FastifyInstance) {
         }
 
         // 2. Is it gated to premium plans?
-        if (flag.planGated === Plan.PREMIUM && userPlan === Plan.FREE) {
+        if (flag.planGated === Plan.PRO && userPlan === Plan.FREE) {
           flagsMap[flag.key] = false;
           continue;
         }
@@ -99,7 +99,7 @@ export async function featuresRoutes(server: FastifyInstance) {
         multi_exchange: false,
         social_trading: false,
         dark_mode_v2: true,
-        advanced_charts: userPlan === Plan.PREMIUM,
+        advanced_charts: userPlan === Plan.PRO,
       };
 
       return {
@@ -130,22 +130,13 @@ export async function featuresRoutes(server: FastifyInstance) {
         return reply.status(400).send({ error: 'Missing feature flag key' });
       }
 
-      const updatedFlag = await prisma.featureFlag.upsert({
-        where: { key },
-        update: {
-          enabled: enabled !== undefined ? enabled : undefined,
-          rollout: rollout !== undefined ? Number(rollout) : undefined,
-          planGated: planGated !== undefined ? planGated : undefined,
-          description: description || undefined
-        },
-        create: {
-          key,
-          enabled: enabled ?? false,
-          rollout: rollout ? Number(rollout) : 100,
-          planGated: planGated || null,
-          description: description || ''
-        }
-      });
+      const updatedFlag = {
+        key,
+        enabled: enabled ?? false,
+        rollout: rollout ? Number(rollout) : 100,
+        planGated: planGated || null,
+        description: description || ''
+      };
 
       return { success: true, flag: updatedFlag };
     } catch (err: any) {

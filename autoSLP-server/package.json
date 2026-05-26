@@ -28,6 +28,7 @@
     "ioredis": "^5.4.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.13",
+    "otplib": "^13.4.0",
     "postcss": "^8.4.38",
     "prom-client": "^15.1.2",
     "socket.io": "^4.7.5",

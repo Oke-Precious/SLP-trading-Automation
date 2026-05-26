@@ -1,4 +1,4 @@
-import { Candle, POIZone, SwingPoints } from '../../shared/types';
+import { Candle, POIZone, SwingPoints } from '../../shared/types/index.js';
 
 export interface SetupSignal {
   pair: string;

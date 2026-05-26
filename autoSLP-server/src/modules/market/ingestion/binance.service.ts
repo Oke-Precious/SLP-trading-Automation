@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { Redis } from 'ioredis';
 import { PrismaClient } from '@prisma/client';
-import { logger } from '../../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger.js';
 
 const CRYPTO_PAIRS = [
   'btcusdt', 'ethusdt', 'solusdt', 'bnbusdt', 'xrpusdt',
@@ -58,11 +58,11 @@ export class BinanceService {
       }
     });
 
-    this.ws.on('error', (err) => {
+    this.ws.on('error', (err: any) => {
       logger.error('Binance WS error:', err.message);
     });
 
-    this.ws.on('close', (code, reason) => {
+    this.ws.on('close', (code: number, reason: any) => {
       logger.warn(`Binance WS closed (${code}): ${reason}`);
       this.scheduleReconnect();
     });

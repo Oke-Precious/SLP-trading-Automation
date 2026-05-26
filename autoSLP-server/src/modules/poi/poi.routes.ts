@@ -1,11 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { PrismaClient } from '@prisma/client';
-import { limitRate } from '../../shared/utils/rate-limit';
+import { limitRate } from '../../shared/utils/rate-limit.js';
 import { 
   sanitizeString, 
   validateNumberRange, 
   logAudit 
-} from '../../shared/utils/security';
+} from '../../shared/utils/security.js';
 
 const prisma = new PrismaClient();
 

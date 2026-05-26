@@ -1,6 +1,6 @@
-import { createServer } from './server';
-import { config } from './config';
-import { logger } from './shared/utils/logger';
+import { createServer } from './server.js';
+import { config } from './config.js';
+import { logger } from './shared/utils/logger.js';
 
 async function start() {
   const app = await createServer();

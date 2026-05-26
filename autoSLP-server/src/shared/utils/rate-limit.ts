@@ -1,4 +1,4 @@
-import { redisClient } from './cache';
+import { redisClient } from './cache.js';
 
 /**
  * Custom Rate Limiter using Redis/MockRedisCache.

@@ -1,4 +1,4 @@
-import { Candle } from '../types';
+import { Candle } from '../types/index.js';
 
 export function normalizeCandle(rawKline: {
   s: string;   // Symbol (pair)

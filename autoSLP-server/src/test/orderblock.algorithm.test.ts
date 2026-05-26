@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { detectOrderBlocks, detectBreakerBlocks } from '../modules/analysis/orderblock.algorithm';
-import { Candle, POIZone } from '../shared/types';
+import { detectOrderBlocks, detectBreakerBlocks } from '../modules/analysis/orderblock.algorithm.js';
+import { Candle, POIZone } from '../shared/types/index.js';
 
 describe('Order Block Algorithm Tests', () => {
   const createMockCandlesForOB = (length: number): Candle[] => {
@@ -50,7 +50,7 @@ describe('Order Block Algorithm Tests', () => {
     const blocks = detectOrderBlocks(candles);
     expect(blocks.length).toBeGreaterThan(0);
 
-    const bullishOB = blocks.find(b => b.direction === 'BULLISH');
+    const bullishOB = blocks.find((b: any) => b.direction === 'BULLISH');
     expect(bullishOB).toBeDefined();
 
     // Verify correct price floor matches base candle low

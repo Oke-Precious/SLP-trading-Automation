@@ -1,4 +1,4 @@
-import { Candle, POIZone } from '../../shared/types';
+import { Candle, POIZone } from '../../shared/types/index.js';
 
 /**
  * Calculates average true range (ATR) to establish dynamic impulse multiplier limits

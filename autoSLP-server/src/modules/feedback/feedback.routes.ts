@@ -51,7 +51,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
     console.log(`Priority: ${priority} | Category: ${category} | Body: ${idea}`);
 
     try {
-      const dbFeedback = await prisma.feedback.create({
+      const dbFeedback = await (prisma as any).feedback.create({
         data: {
           userId,
           idea,
@@ -84,7 +84,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
     }
 
     try {
-      const nps = await prisma.npsSurvey.create({
+      const nps = await (prisma as any).npsSurvey.create({
         data: {
           userId,
           score,
@@ -113,7 +113,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
 
     try {
       // Upsert the signal rating in DB
-      const dbRating = await prisma.signalRating.upsert({
+      const dbRating = await (prisma as any).signalRating.upsert({
         where: { signalId },
         update: { rating: mappedRating },
         create: { signalId, rating: mappedRating }
@@ -141,7 +141,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
 
       let feedbacksFromDb = [];
       try {
-        feedbacksFromDb = await prisma.feedback.findMany({
+        feedbacksFromDb = await (prisma as any).feedback.findMany({
           orderBy: { createdAt: 'desc' }
         });
       } catch {
@@ -150,7 +150,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
 
       let surveysFromDb = [];
       try {
-        surveysFromDb = await prisma.npsSurvey.findMany({
+        surveysFromDb = await (prisma as any).npsSurvey.findMany({
           orderBy: { createdAt: 'desc' }
         });
       } catch {
@@ -185,7 +185,7 @@ export async function feedbackRoutes(server: FastifyInstance) {
       const { status, tags } = body;
 
       try {
-        const updated = await prisma.feedback.update({
+        const updated = await (prisma as any).feedback.update({
           where: { id },
           data: {
             status: status || undefined,

@@ -3,7 +3,7 @@ import { AlertType, AlertStatus } from '@prisma/client';
 export interface EvaluatableAlert {
   id: string;
   pair: string;
-  condition: AlertType;
+  condition: any;
   value: any; // { price?: number, poiFrom?: number, poiTo?: number, level?: number }
   status: AlertStatus;
   channels: any;
@@ -32,7 +32,7 @@ export function evaluateAlertConditions(
     return result;
   }
 
-  switch (alert.condition) {
+  switch (alert.condition as any) {
     case 'PRICE_ENTERS_POI': {
       const from = parseFloat(alert.value?.poiFrom || '0');
       const to = parseFloat(alert.value?.poiTo || '0');

@@ -1,4 +1,4 @@
-import { Candle, PivotPoint, SwingPoints } from '../../shared/types';
+import { Candle, PivotPoint, SwingPoints } from '../../shared/types/index.js';
 
 export function detectSwingPoints(candles: Candle[], lookback: number = 5): SwingPoints {
   const highs: PivotPoint[] = [];

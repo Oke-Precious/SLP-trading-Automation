@@ -1,4 +1,4 @@
-import { Candle, LiquidityPool } from '../../shared/types';
+import { Candle, LiquidityPool } from '../../shared/types/index.js';
 
 export function mapLiquidityPools(candles: Candle[], percentageThresh: number = 0.0015): LiquidityPool[] {
   const pools: LiquidityPool[] = [];

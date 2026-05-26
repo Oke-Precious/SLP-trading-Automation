@@ -2,8 +2,7 @@ import client from 'prom-client';
 
 // Explicitly register default metrics collects for Prometheus scraping
 client.collectDefaultMetrics({
-  prefix: 'autoslp_',
-  timeout: 5000
+  prefix: 'autoslp_'
 });
 
 // Custody metric declarations

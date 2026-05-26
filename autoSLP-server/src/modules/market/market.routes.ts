@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { limitRate } from '../../shared/utils/rate-limit';
+import { limitRate } from '../../shared/utils/rate-limit.js';
 
 export async function marketRoutes(server: FastifyInstance) {
   // GET /market/candles

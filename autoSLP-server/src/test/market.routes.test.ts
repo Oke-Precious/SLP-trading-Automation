@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createServer } from '../server';
+import { createServer } from '../server.js';
 
 describe('Market Routes Integration Tests', () => {
   let app: any;

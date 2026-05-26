@@ -1,6 +1,6 @@
-import Redis from 'ioredis';
-import { logger } from './logger';
-import { config } from '../../config';
+import { Redis } from 'ioredis';
+import { logger } from './logger.js';
+import { config } from '../../config.js';
 
 // High-speed token storage backend (in-memory lock cache fallback in case Redis setup is pending)
 export class MockRedisCache {

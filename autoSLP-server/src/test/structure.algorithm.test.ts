@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { detectSwingPoints, classifyStructure } from '../modules/analysis/structure.algorithm';
-import { Candle, PivotPoint } from '../shared/types';
+import { detectSwingPoints, classifyStructure } from '../modules/analysis/structure.algorithm.js';
+import { Candle, PivotPoint } from '../shared/types/index.js';
 
 describe('Structure Algorithm Tests', () => {
   it('detectSwingPoints with 20-bar flat data -> no swing points', () => {
@@ -35,7 +35,7 @@ describe('Structure Algorithm Tests', () => {
     }));
 
     const { highs } = detectSwingPoints(candles, 3);
-    expect(highs.some(h => h.index === 10 && h.price === 200)).toBe(true);
+    expect(highs.some((h: any) => h.index === 10 && h.price === 200)).toBe(true);
   });
 
   it('classifyStructure with HH+HL sequence -> BULLISH', () => {

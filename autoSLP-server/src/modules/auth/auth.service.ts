@@ -1,10 +1,10 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PrismaClient, Plan } from '@prisma/client';
-import { config } from '../../config';
-import { logger } from '../../shared/utils/logger';
-import { privateKey, publicKey, logAudit } from '../../shared/utils/security';
-import { redisClient } from '../../shared/utils/cache';
+import { config } from '../../config.js';
+import { logger } from '../../shared/utils/logger.js';
+import { privateKey, publicKey, logAudit } from '../../shared/utils/security.js';
+import { redisClient } from '../../shared/utils/cache.js';
 
 const prisma = new PrismaClient();
 

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { calculateBias } from '../modules/analysis/bias.algorithm';
-import { Candle } from '../shared/types';
+import { calculateBias } from '../modules/analysis/bias.algorithm.js';
+import { Candle } from '../shared/types/index.js';
 
 // Mock structure algorithms to return exact swing patterns we want to test
-vi.mock('../modules/analysis/structure.algorithm', async (importOriginal) => {
+vi.mock('../modules/analysis/structure.algorithm.js', async (importOriginal) => {
   const actual = await importOriginal() as any;
   return {
     ...actual,

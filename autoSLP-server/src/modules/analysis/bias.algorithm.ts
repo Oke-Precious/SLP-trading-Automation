@@ -1,5 +1,5 @@
-import { Candle } from '../../shared/types';
-import { detectSwingPoints, classifyStructure } from './structure.algorithm';
+import { Candle } from '../../shared/types/index.js';
+import { detectSwingPoints, classifyStructure } from './structure.algorithm.js';
 
 interface BiasResult {
   bias: 'BULLISH' | 'BEARISH' | 'NEUTRAL';

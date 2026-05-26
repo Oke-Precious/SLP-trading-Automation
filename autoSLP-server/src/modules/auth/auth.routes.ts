@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { AuthService } from './auth.service';
-import { redisClient } from '../../shared/utils/cache';
+import { AuthService } from './auth.service.js';
+import { redisClient } from '../../shared/utils/cache.js';
 import { PrismaClient } from '@prisma/client';
 import { 
   encrypt, 
@@ -12,8 +12,8 @@ import {
   logAudit,
   sanitizeString,
   validateNumberRange
-} from '../../shared/utils/security';
-import { limitRate } from '../../shared/utils/rate-limit';
+} from '../../shared/utils/security.js';
+import { limitRate } from '../../shared/utils/rate-limit.js';
 import QRCode from 'qrcode';
 
 const authService = new AuthService();
@@ -496,7 +496,7 @@ export async function authRoutes(server: FastifyInstance) {
           userId: userFilter,
           action: actionFilter
         },
-        orderBy: { timestamp: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: limit
       });
 

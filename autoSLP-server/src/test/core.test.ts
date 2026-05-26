@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { generateTokenPair } from '../modules/auth/auth.service';
-import { normalizeCandle } from '../shared/utils/candle_normalizer';
-import { detectSwingPoints, classifyStructure } from '../modules/analysis/structure.algorithm';
-import { calculateBias } from '../modules/analysis/bias.algorithm';
-import { detectOrderBlocks } from '../modules/analysis/orderblock.algorithm';
-import { evaluateSetup } from '../modules/signal/signal.generator';
-import { evaluateAlertConditions, EvaluatableAlert } from '../modules/alert/alert.evaluator';
-import { Candle } from '../shared/types';
+import { generateTokenPair } from '../modules/auth/auth.service.js';
+import { normalizeCandle } from '../shared/utils/candle_normalizer.js';
+import { detectSwingPoints, classifyStructure } from '../modules/analysis/structure.algorithm.js';
+import { calculateBias } from '../modules/analysis/bias.algorithm.js';
+import { detectOrderBlocks } from '../modules/analysis/orderblock.algorithm.js';
+import { evaluateSetup } from '../modules/signal/signal.generator.js';
+import { evaluateAlertConditions, EvaluatableAlert } from '../modules/alert/alert.evaluator.js';
+import { Candle } from '../shared/types/index.js';
 
 describe('AutoSLP Core Core Services Test Suite', () => {
 
@@ -89,8 +89,8 @@ describe('AutoSLP Core Core Services Test Suite', () => {
 
       const { highs, lows } = detectSwingPoints(candles, 3);
       
-      expect(highs.some((h) => h.price === 500)).toBe(true);
-      expect(lows.some((l) => l.price === 20)).toBe(true);
+      expect(highs.some((h: any) => h.price === 500)).toBe(true);
+      expect(lows.some((l: any) => l.price === 20)).toBe(true);
     });
   });
 

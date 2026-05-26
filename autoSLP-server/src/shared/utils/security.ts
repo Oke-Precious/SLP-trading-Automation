@@ -1,9 +1,10 @@
 import crypto from 'crypto';
-import { authenticator } from 'otplib';
+import { TOTP, verifySync, generateSecret } from 'otplib';
 import { PrismaClient } from '@prisma/client';
 import fs from 'fs/promises';
 
 const prisma = new PrismaClient();
+const totp = new TOTP();
 
 // -------------------------------------------------------------
 // Asymmetric Key Pair Management for JWT (RS256)
@@ -78,15 +79,24 @@ export function maskApiKey(key: string): string {
 // Two-Factor Authentication Helpers (TOTP)
 // -------------------------------------------------------------
 export function generate2FASecret(): string {
-  return authenticator.generateSecret();
+  try {
+    return generateSecret();
+  } catch {
+    return totp.generateSecret();
+  }
 }
 
 export function get2FAKeyURI(email: string, secret: string): string {
-  return authenticator.keyuri(email, 'AutoSLP', secret);
+  return totp.toURI({ label: email, issuer: 'AutoSLP', secret });
 }
 
 export function verify2FACode(code: string, secret: string): boolean {
-  return authenticator.verify({ token: code, secret });
+  try {
+    const res = verifySync({ secret, token: code, strategy: 'totp' });
+    return typeof res === 'boolean' ? res : !res ? false : !!res.valid;
+  } catch {
+    return false;
+  }
 }
 
 // -------------------------------------------------------------
@@ -153,7 +163,7 @@ export async function logAudit(d: {
     await prisma.auditLog.create({
       data: {
         ...payload,
-        timestamp: new Date()
+        createdAt: new Date()
       }
     });
   } catch (err) {

@@ -5,16 +5,16 @@ import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import helmet from '@fastify/helmet';
-import { config } from './config';
-import { sendError } from './shared/utils/response';
-import { authRoutes } from './modules/auth/auth.routes';
-import { poiRoutes } from './modules/poi/poi.routes';
-import { marketRoutes } from './modules/market/market.routes';
+import { config } from './config.js';
+import { sendError } from './shared/utils/response.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
+import { poiRoutes } from './modules/poi/poi.routes.js';
+import { marketRoutes } from './modules/market/market.routes.js';
 import { featuresRoutes } from './modules/features/features.routes.js';
 import { feedbackRoutes } from './modules/feedback/feedback.routes.js';
 import { aiRoutes } from './modules/ai/ai.routes.js';
-import { privateKey, publicKey } from './shared/utils/security';
-import { register, apiRequestDurationSeconds } from './shared/utils/metrics';
+import { privateKey, publicKey } from './shared/utils/security.js';
+import { register, apiRequestDurationSeconds } from './shared/utils/metrics.js';
 
 export async function createServer(): Promise<FastifyInstance> {
   const server = Fastify({
@@ -26,7 +26,7 @@ export async function createServer(): Promise<FastifyInstance> {
     const proto = request.headers['x-forwarded-proto'];
     if (proto === 'http') {
       const host = request.headers.host;
-      return reply.redirect(301, `https://${host}${request.url}`);
+      return reply.status(301).redirect(`https://${host}${request.url}`);
     }
   });
 
@@ -132,7 +132,7 @@ export async function createServer(): Promise<FastifyInstance> {
     if (start) {
       const [seconds, nanoseconds] = process.hrtime(start);
       const duration = seconds + nanoseconds / 1e9;
-      const url = request.routerPath || request.url || 'unknown';
+      const url = (request as any).routerPath || request.url || 'unknown';
       apiRequestDurationSeconds
         .labels(request.method, url, reply.statusCode.toString())
         .observe(duration);
@@ -148,7 +148,7 @@ export async function createServer(): Promise<FastifyInstance> {
   await server.register(aiRoutes, { prefix: '/ai' });
 
   // Global Error Handler
-  server.setErrorHandler((error, request, reply) => {
+  server.setErrorHandler((error: any, request, reply) => {
     server.log.error(error);
     const errorCode = error.message?.startsWith('VALIDATION_') ? 'VALIDATION_001' : 'INTERNAL_SERVER_ERROR';
     reply.status(error.statusCode || 500).send(sendError(errorCode, error.message || 'An unexpected server error occurred.'));

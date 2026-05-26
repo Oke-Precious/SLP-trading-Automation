@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { createServer } from '../server';
+import { createServer } from '../server.js';
 
 // Mock AuthService inside routes
-vi.mock('../modules/auth/auth.service', () => {
+vi.mock('../modules/auth/auth.service.js', () => {
   return {
     AuthService: class {
       async register(email: string) {
