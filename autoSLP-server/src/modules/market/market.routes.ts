@@ -1,40 +1,67 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { limitRate } from '../../shared/utils/rate-limit.js';
+import { FastifyInstance } from 'fastify';
+import { marketController } from './market.controller.js';
+import { authenticate } from '../../shared/middleware/authenticate.js';
 
-export async function marketRoutes(server: FastifyInstance) {
-  // GET /market/candles
-  server.get('/candles', async (request: FastifyRequest, reply: FastifyReply) => {
-    let identifier = request.ip;
-    let isAuthed = false;
+export async function marketRoutes(fastify: FastifyInstance) {
+  // ── PUBLIC ROUTES (no auth needed for market data) ────────────────────
+  fastify.get('/pairs', {
+    schema: {
+      tags: ['Market'],
+      summary: 'Get all supported trading pairs',
+    }
+  }, marketController.getPairs);
 
-    try {
-      await request.jwtVerify();
-      const decoded = request.user as any;
-      if (decoded && decoded.sub) {
-        identifier = decoded.sub;
-        isAuthed = true;
+  fastify.get('/candles', {
+    schema: {
+      tags: ['Market'],
+      summary: 'Get OHLCV candles for a pair',
+      querystring: {
+        type: 'object',
+        required: ['pair', 'timeframe'],
+        properties: {
+          pair:      { type: 'string', example: 'BTCUSDT' },
+          timeframe: { type: 'string', example: '1D' },
+          limit:     { type: 'number', default: 500 },
+          from:      { type: 'string', format: 'date-time' },
+          to:        { type: 'string', format: 'date-time' },
+        }
       }
-    } catch {
-      // Unauthenticated client fallback
     }
+  }, marketController.getCandles);
 
-    if (isAuthed) {
-      await limitRate('market-candles-auth', identifier, 60);
-    } else {
-      await limitRate('market-candles-anon', identifier, 10);
+  fastify.get('/ticker', {
+    schema: {
+      tags: ['Market'],
+      querystring: {
+        type: 'object',
+        required: ['pair'],
+        properties: { pair: { type: 'string' } }
+      }
     }
+  }, marketController.getTicker);
 
-    const { start } = request.query as any;
-    if (start && Number(start) > Date.now()) {
-      return reply.status(200).send([]);
+  fastify.get('/tickers', {
+    schema: { tags: ['Market'], summary: 'Get tickers for all pairs' }
+  }, marketController.getAllTickers);
+
+  // ── AUTHENTICATED ROUTES ───────────────────────────────────────────────
+  fastify.get('/bias', {
+    preHandler: [authenticate],
+    schema: {
+      tags: ['Market'],
+      querystring: {
+        type: 'object',
+        required: ['pair', 'timeframe'],
+        properties: {
+          pair:      { type: 'string' },
+          timeframe: { type: 'string' },
+        }
+      }
     }
-    return [
-      { time: '2025-05-24', open: 60000, high: 61000, low: 59000, close: 60500, volume: 100 }
-    ];
-  });
+  }, marketController.getBias);
 
-  // GET /market/bias
-  server.get('/bias', async (request: FastifyRequest, reply: FastifyReply) => {
-    return { bias: 'BULLISH', strength: 'STRONG' };
-  });
+  fastify.get('/bias/all', {
+    preHandler: [authenticate],
+    schema: { tags: ['Market'], summary: 'Get bias for all pairs and timeframes' }
+  }, marketController.getAllBias);
 }
