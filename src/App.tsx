@@ -27,9 +27,19 @@ import { useMarketStore } from './store/useMarketStore';
 import { useUIStore } from './store/useUIStore';
 import { analytics } from './lib/analytics';
 import FeedbackWidget from './components/FeedbackWidget';
+import { useAuthStore } from './store/useAuthStore';
+import LoginPage from './app/login/page';
+import RegisterPage from './app/register/page';
 
 export default function App() {
-  const [activePage, setActivePage] = useState<string>('dashboard');
+  const { isLoggedIn, clearAuth } = useAuthStore();
+  const [activePage, setActivePage] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname.includes('/register')) return 'register';
+      if (window.location.pathname.includes('/login')) return 'login';
+    }
+    return 'dashboard';
+  });
   const sidebarExpanded = useUIStore((state) => state.sidebarExpanded);
   const currentPair = useMarketStore((state) => state.selectedPair);
   const setCurrentPair = useMarketStore((state) => state.setSelectedPair);
@@ -52,6 +62,26 @@ export default function App() {
       setCookieConsent(JSON.parse(consent));
     }
   }, []);
+
+  // Listen for custom navigation systems
+  useEffect(() => {
+    const handleNavigate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      setActivePage(customEvent.detail || 'dashboard');
+    };
+    const handleUnauthorized = () => {
+      clearAuth();
+      setActivePage('login');
+    };
+
+    window.addEventListener('autoslp_navigate', handleNavigate);
+    window.addEventListener('autoslp_unauthorized_logged_out', handleUnauthorized);
+    
+    return () => {
+      window.removeEventListener('autoslp_navigate', handleNavigate);
+      window.removeEventListener('autoslp_unauthorized_logged_out', handleUnauthorized);
+    };
+  }, [clearAuth]);
 
   // Track active page changes & journal opened events (privacy-first, zero PII)
   useEffect(() => {
@@ -171,6 +201,13 @@ export default function App() {
     item.phrase.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.type.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (!isLoggedIn) {
+    if (activePage === 'register') {
+      return <RegisterPage />;
+    }
+    return <LoginPage />;
+  }
 
   return (
     <div 

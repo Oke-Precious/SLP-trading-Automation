@@ -243,7 +243,7 @@ export default function DashboardChart({
           ))}
 
           {/* Order Blocks */}
-          {(appStateMode !== 'empty') && poiList.filter(p => p.type === 'OB' && p.status === 'Active').map((ob) => (
+          {(appStateMode !== 'empty' && Array.isArray(poiList)) && poiList.filter(p => p.type === 'OB' && p.status === 'Active').map((ob) => (
             <g key={ob.id} 
                className="transition-opacity duration-200"
                onMouseEnter={() => setHoveredPoi(ob.id)}
@@ -271,7 +271,7 @@ export default function DashboardChart({
           ))}
 
           {/* Breaker OB Blocks */}
-          {(appStateMode !== 'empty') && poiList.filter(p => p.type === 'BB').map((bb) => (
+          {(appStateMode !== 'empty' && Array.isArray(poiList)) && poiList.filter(p => p.type === 'BB').map((bb) => (
             <g key={bb.id}
                className="transition-opacity duration-200"
                onMouseEnter={() => setHoveredPoi(bb.id)}

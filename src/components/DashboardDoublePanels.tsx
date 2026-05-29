@@ -93,7 +93,7 @@ export default function DashboardDoublePanels({
             </div>
           ) : (
             <div className={`space-y-1 overflow-y-auto ${isLayoutB ? 'max-h-[380px]' : 'max-h-[220px]'} pr-1`}>
-              {poiList.map((poi) => {
+              {Array.isArray(poiList) && poiList.map((poi) => {
                 const isFlashed = poiFlashId === poi.id;
                 return (
                   <div
@@ -107,7 +107,7 @@ export default function DashboardDoublePanels({
                     }`}
                   >
                     <div className="flex items-center space-x-2">
-                      <span className={`w-2 h-2 rounded-full ${
+                       <span className={`w-2 h-2 rounded-full ${
                         poi.type === 'OB' ? 'bg-[#26A69A]' : 'bg-[#1565C0]'
                       }`} />
                       <div>
@@ -147,7 +147,7 @@ export default function DashboardDoublePanels({
         </div>
 
         <div className="text-[10px] text-gray-500 font-mono pt-3 border-t border-[#2A2E39]">
-          HTF Level: {appStateMode === 'empty' ? 0 : poiList.filter(p => p.status === 'Active').length} Active OB Blocks
+          HTF Level: {appStateMode === 'empty' ? 0 : (Array.isArray(poiList) ? poiList.filter(p => p.status === 'Active').length : 0)} Active OB Blocks
         </div>
       </div>
 

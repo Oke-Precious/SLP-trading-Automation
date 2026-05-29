@@ -17,9 +17,11 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Users
+  Users,
+  LogOut
 } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export interface SidebarProps {
   activePage: string;
@@ -30,6 +32,8 @@ export interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, openPersonasModal }) => {
   const isExpanded = useUIStore((state) => state.sidebarExpanded);
   const toggleExpanded = useUIStore((state) => state.toggleSidebar);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const user = useAuthStore((state) => state.user);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -115,20 +119,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
         <div className="border-t border-[#2C354E]/50 my-1" />
 
         {/* User profile section */}
-        <div className="flex items-center p-1 rounded-lg">
-          <div className="relative shrink-0">
-            <div className="w-8 h-8 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-semibold text-xs animate-pulse">
-              M
+        <div className="flex items-center justify-between p-1 rounded-lg">
+          <div className="flex items-center">
+            <div className="relative shrink-0">
+              <div className="w-8 h-8 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-semibold text-xs uppercase animate-pulse">
+                {(user?.username || 'Marcus')[0]}
+              </div>
+              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-[#202940] rounded-full" />
             </div>
-            <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-[#202940] rounded-full" />
+
+            <div className={`ml-3 transition-opacity duration-200 ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
+              <div className="text-[11px] font-bold text-gray-200 whitespace-nowrap">{user?.username || 'Marcus Vance'}</div>
+              <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">
+                {user?.plan || 'PRO PLAN'}
+              </span>
+            </div>
           </div>
 
-          <div className={`ml-3 transition-opacity duration-200 ${isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'}`}>
-            <div className="text-[11px] font-bold text-gray-200 whitespace-nowrap">Marcus Vance</div>
-            <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider">
-              PRO PLAN
-            </span>
-          </div>
+          {isExpanded && (
+            <button
+              onClick={() => {
+                clearAuth();
+                setActivePage('login');
+              }}
+              title="Sign Out"
+              className="text-gray-400 hover:text-red-400 p-1.5 rounded transition-colors hover:bg-slate-800 cursor-pointer"
+            >
+              <LogOut size={14} />
+            </button>
+          )}
         </div>
 
         {/* Toggle Expand/Collapse Controller Button */}

@@ -154,7 +154,8 @@ export default function DashboardView({
       priceMin: newPoi.priceMin,
       priceMax: newPoi.priceMax,
       status: 'Active',
-      timeframe: newPoi.timeframe
+      timeframe: newPoi.timeframe,
+      pair: currentPair
     });
 
     setPoiList([newPoi, ...poiList]);

@@ -20,7 +20,7 @@ export const useCreatePOI = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (newPoi: Omit<POI, 'id'>) => poiApi.createPOI(newPoi),
+    mutationFn: (newPoi: Omit<POI, 'id'> & { pair?: string }) => poiApi.createPOI(newPoi),
     onMutate: async (newPoi) => {
       // Cancel target queries
       await queryClient.cancelQueries({ queryKey: ['pois'] });

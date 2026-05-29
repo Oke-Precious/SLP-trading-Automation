@@ -3,13 +3,24 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
+// Detect production or development robustly
+const isProd = process.env.NODE_ENV === 'production' || !process.argv.some(arg => arg.includes('tsx') || arg.includes('server.ts'));
+process.env.NODE_ENV = isProd ? 'production' : 'development';
+
 // 1. Force Fastify backend server to run on port 3002 internally
 process.env.PORT = '3002';
 process.env.HOST = '127.0.0.1';
 
 async function startServer() {
   // Import and boot the Fastify backend programmatically in the same Node.js runtime process
-  await import('./autoSLP-server/src/index.js');
+  try {
+    console.log('[Unified Server] Attempting programmatic boot of autoSLP-server Fastify backend...');
+    await import('./autoSLP-server/src/index.js');
+    console.log('[Unified Server] autoSLP-server Fastify backend booted successfully on port 3002!');
+  } catch (error) {
+    console.error('[Unified Server] CRITICAL WARNING: Fastify backend failed to boot programmatically.', error);
+    console.log('[Unified Server] Booting front-end standalone Express fallback on port 3000 to keep preview active.');
+  }
 
   const app = express();
   const PORT = 3000;

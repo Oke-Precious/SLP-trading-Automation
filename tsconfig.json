@@ -18,6 +18,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "next/navigation": [
+        "./src/lib/next-navigation-mock.ts"
+      ],
+      "next/link": [
+        "./src/lib/next-link-mock.tsx"
       ]
     },
     "allowImportingTsExtensions": true,
