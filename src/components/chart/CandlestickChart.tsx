@@ -1,154 +1,282 @@
-/**
- * @file CandlestickChart.tsx
- * @description Candlestick rendering using TradingView lightweight-charts mapped to use real-query candles.
- */
+'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { createChart, UTCTimestamp } from 'lightweight-charts';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  createChart,
+  IChartApi,
+  ISeriesApi,
+  CrosshairMode,
+  LineStyle,
+  Time,
+} from 'lightweight-charts';
+import { useRealtimeCandles } from '../../hooks/useRealtimeCandles';
 import { useMarketStore } from '../../store/useMarketStore';
-import { useCandles } from '../../hooks/useMarketData';
-import { Skeleton } from '../ui/Skeleton';
-import { Button } from '../ui/Button';
+import { usePOIStore } from '../../store/usePOIStore';
+import { formatPrice } from '../../lib/market/marketDataService';
+import LoadingSpinner from '../ui/LoadingSpinner';
 
-export interface CandlestickChartProps {
+interface Props {
   height?: number;
 }
 
-export const CandlestickChart: React.FC<CandlestickChartProps> = ({ height = 400 }) => {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
-  
+export default function CandlestickChart({ height = 480 }: Props) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartApi = useRef<IChartApi | null>(null);
+  const candleSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const poiSeriesRefs = useRef<any[]>([]);
+
   const { selectedPair, selectedTimeframe } = useMarketStore();
-  
-  // Real-time hooks integration
-  const { data: candles, isLoading, isError, refetch } = useCandles();
+  const { pois } = usePOIStore();
+  const { candles, isLoading, isConnected, error, refetch } = useRealtimeCandles(
+    selectedPair,
+    selectedTimeframe
+  );
 
-  // Initialize TradingView lightweight chart instance
+  // ── Initialize chart once ──────────────────────────────
   useEffect(() => {
-    if (!chartContainerRef.current || isLoading || isError || !candles) return;
+    if (!chartRef.current) return;
 
-    const container = chartContainerRef.current;
-    
-    // Create the lightweight chart
-    const chart = createChart(container, {
-      width: container.clientWidth,
-      height: height,
+    chartApi.current = createChart(chartRef.current, {
+      width: chartRef.current.clientWidth,
+      height: Math.floor(height * 0.8),
       layout: {
         background: { color: '#131722' },
-        textColor: '#D9D9D9',
+        textColor: '#9AA3B2',
+        fontSize: 12,
+        fontFamily: 'JetBrains Mono, monospace',
       },
       grid: {
-        vertLines: { color: 'rgba(42, 46, 57, 0.3)' },
-        horzLines: { color: 'rgba(42, 46, 57, 0.3)' },
+        vertLines: { color: '#1E2433', style: LineStyle.Dotted },
+        horzLines: { color: '#1E2433', style: LineStyle.Dotted },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: '#CAAA98', labelBackgroundColor: '#202940' },
+        horzLine: { color: '#CAAA98', labelBackgroundColor: '#202940' },
+      },
+      rightPriceScale: {
+        borderColor: '#2A2E39',
+        textColor: '#9AA3B2',
       },
       timeScale: {
         borderColor: '#2A2E39',
         timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 5,
       },
-    }) as any;
+      handleScroll: true,
+      handleScale: true,
+    });
 
-    const series = chart.addCandlestickSeries({
+    // Candlestick series
+    candleSeries.current = chartApi.current.addCandlestickSeries({
       upColor: '#26A69A',
       downColor: '#EF5350',
-      borderVisible: false,
+      borderUpColor: '#26A69A',
+      borderDownColor: '#EF5350',
       wickUpColor: '#26A69A',
       wickDownColor: '#EF5350',
     });
 
-    chartRef.current = chart;
-    seriesRef.current = series;
+    // Volume series (20% height at bottom)
+    volumeSeries.current = chartApi.current.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+    });
+    chartApi.current.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+    });
 
-    const handleResize = () => {
-      if (chart && container) {
-        chart.resize(container.clientWidth, height);
+    // Responsive resize
+    const ro = new ResizeObserver(() => {
+      if (chartRef.current && chartApi.current) {
+        chartApi.current.applyOptions({ width: chartRef.current.clientWidth });
       }
-    };
-
-    window.addEventListener('resize', handleResize);
+    });
+    ro.observe(chartRef.current);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-      chartRef.current = null;
-      seriesRef.current = null;
+      ro.disconnect();
+      chartApi.current?.remove();
     };
-  }, [isLoading, isError, candles, height]);
+  }, [height]);
 
-  // Load and format candle data onto series instance
+  // ── Update candle data when pair/timeframe changes ─────
   useEffect(() => {
-    const chart = chartRef.current;
-    const series = seriesRef.current;
-    if (!candles || !series || !chart) return;
+    if (!candleSeries.current || !volumeSeries.current || candles.length === 0) return;
 
-    const formatted = candles.map((c: any) => {
-      const timestamp = c.timestamp ? new Date(c.timestamp).getTime() : (c.time > 10000000000 ? c.time : c.time * 1000);
-      return {
-        time: Math.floor(timestamp / 1000) as UTCTimestamp,
-        open: parseFloat(c.open || c.openPrice || '0'),
-        high: parseFloat(c.high || c.highPrice || '0'),
-        low: parseFloat(c.low || c.lowPrice || '0'),
-        close: parseFloat(c.close || c.closePrice || '0'),
-      };
-    }).sort((a: any, b: any) => a.time - b.time);
+    candleSeries.current.setData(
+      candles.map((c) => ({
+        time: c.time as Time,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
+    );
 
-    // Keep unique time keys to avoid TradingView duplicate key asserts
-    const uniqueMap = new Map<number, typeof formatted[0]>();
-    formatted.forEach((item: any) => {
-      uniqueMap.set(item.time, item);
+    volumeSeries.current.setData(
+      candles.map((c) => ({
+        time: c.time as Time,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(38,166,154,0.5)' : 'rgba(239,83,80,0.5)',
+      }))
+    );
+
+    chartApi.current?.timeScale().fitContent();
+  }, [candles]);
+
+  // ── Render POI zones as price lines ───────────────────
+  useEffect(() => {
+    if (!candleSeries.current) return;
+
+    // Remove old POI lines
+    poiSeriesRefs.current.forEach((line) => {
+      try {
+        candleSeries.current?.removePriceLine(line);
+      } catch {}
     });
-    const finalData = Array.from(uniqueMap.values());
+    poiSeriesRefs.current = [];
 
-    if (finalData.length > 0) {
-      series.setData(finalData);
-      chart.timeScale().fitContent();
-    }
+    pois.forEach((poi) => {
+      if (poi.status?.toUpperCase() === 'MITIGATED') return;
+      
+      const isOrderBlock = (poi.type as string) === 'OB' || (poi.type as string) === 'ORDER_BLOCK';
+      const color = isOrderBlock ? '#26A69A' : '#1565C0';
+      const priceMax = poi.priceMax ?? (poi as any).priceTo;
+      const priceMin = poi.priceMin ?? (poi as any).priceFrom;
+
+      if (priceMax === undefined || priceMin === undefined) return;
+
+      const topLine = candleSeries.current?.createPriceLine({
+        price: priceMax,
+        color,
+        lineWidth: 1,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: `${poi.name} ▲`,
+      });
+      const botLine = candleSeries.current?.createPriceLine({
+        price: priceMin,
+        color,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: false,
+        title: `${poi.name} ▼`,
+      });
+      if (topLine) poiSeriesRefs.current.push(topLine);
+      if (botLine) poiSeriesRefs.current.push(botLine);
+    });
+  }, [pois]);
+
+  // ── HH/HL markers from structure analysis ─────────────
+  useEffect(() => {
+    if (!candleSeries.current || candles.length < 10) return;
+    const markers = detectStructureMarkers(candles);
+    candleSeries.current.setMarkers(markers);
   }, [candles]);
 
   if (isLoading) {
     return (
-      <div className="relative bg-[#131722] border border-[#2A2E39] rounded-xl overflow-hidden p-4 flex flex-col justify-between" style={{ height: `${height + 24}px` }}>
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex space-x-2">
-            <Skeleton className="w-24 h-6" />
-            <Skeleton className="w-12 h-6" />
-          </div>
-          <Skeleton className="w-32 h-6" />
-        </div>
-        <Skeleton className="w-full flex-grow rounded" />
+      <div
+        className="flex items-center justify-center bg-surface rounded-lg"
+        style={{ height }}
+      >
+        <LoadingSpinner />
+        <span className="ml-3 text-text-secondary text-sm">
+          Loading {selectedPair} chart...
+        </span>
       </div>
     );
   }
 
-  if (isError) {
+  if (error) {
     return (
-      <div className="relative bg-[#131722] border border-[#2A2E39] rounded-xl overflow-hidden p-6 flex flex-col items-center justify-center text-center" style={{ height: `${height + 24}px` }}>
-        <div className="max-w-md space-y-4">
-          <div className="mx-auto w-12 h-12 bg-red-950/50 border border-red-500/30 rounded-full flex items-center justify-center text-red-500">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-            </svg>
-          </div>
-          <h3 className="text-white font-medium text-lg">Failed to Load Candlestick Data</h3>
-          <p className="text-gray-400 text-sm">There was an issue connecting to the market api service. Please verify your connection status and attempt again.</p>
-          <Button onClick={() => refetch()} variant="secondary" className="mt-2">
-            Retry Connection
-          </Button>
-        </div>
+      <div
+        className="flex flex-col items-center justify-center bg-surface rounded-lg gap-3"
+        style={{ height }}
+      >
+        <span className="text-bearish text-sm">{error}</span>
+        <button
+          onClick={refetch}
+          className="text-xs text-light underline focus:outline-none"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="relative bg-[#131722] border border-[#2A2E39] rounded-xl overflow-hidden p-2">
-      <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 font-mono text-xs text-light">
-        <span className="font-bold uppercase text-white">{selectedPair}</span>
-        <span className="bg-[#2A3245] px-1.5 py-0.5 rounded text-[10px] text-gray-400 font-semibold">{selectedTimeframe}</span>
-        <span className="text-[10px] text-emerald-400 font-bold animate-pulse font-mono uppercase tracking-wider">&bull; LIVE DATAFEED ACTIVE</span>
+    <div className="relative bg-surface rounded-lg overflow-hidden border border-[#2A2E39]">
+      {/* Visual Live indicator */}
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 font-mono">
+        <div
+          className={`w-2 h-2 rounded-full ${
+            isConnected ? 'bg-[#26A69A] animate-pulse' : 'bg-gray-500'
+          }`}
+        />
+        <span className="text-[10px] text-gray-400 font-bold tracking-wider">
+          {isConnected ? 'LIVE DATAFEED ACTIVE' : 'DELAYED DATAFEED ACTIVE'}
+        </span>
       </div>
-      <div ref={chartContainerRef} className="w-full animate-fade-in" style={{ height: `${height}px` }} />
+      <div className="absolute top-3 left-4 z-10 flex items-center space-x-2 font-mono text-xs text-light">
+        <span className="font-bold uppercase text-white">{selectedPair}</span>
+        <span className="bg-[#2A3245] px-1.5 py-0.5 rounded text-[10px] text-gray-400 font-semibold">
+          {selectedTimeframe}
+        </span>
+      </div>
+      <div ref={chartRef} style={{ width: '100%', height }} />
     </div>
   );
-};
+}
 
-export default CandlestickChart;
+// ── Detect HH/HL/LH/LL for chart markers ──────────────────
+function detectStructureMarkers(candles: any[]) {
+  const markers: any[] = [];
+  const lookback = 5;
+
+  for (let i = lookback; i < candles.length - lookback; i++) {
+    const curr = candles[i];
+    const prevCandles = candles.slice(i - lookback, i);
+    const nextCandles = candles.slice(i + 1, i + lookback + 1);
+
+    const isSwingHigh =
+      prevCandles.every((c) => c.high < curr.high) &&
+      nextCandles.every((c) => c.high < curr.high);
+    const isSwingLow =
+      prevCandles.every((c) => c.low > curr.low) &&
+      nextCandles.every((c) => c.low > curr.low);
+
+    if (isSwingHigh) {
+      const lastHH = markers.slice().reverse().find((m) => m.text === 'HH');
+      const lastHHCandle = lastHH
+        ? candles.find((c) => c.time === lastHH.time)
+        : null;
+      markers.push({
+        time: curr.time,
+        position: 'aboveBar',
+        color: '#EF5350',
+        shape: 'arrowDown',
+        text: !lastHHCandle || curr.high > lastHHCandle.high ? 'HH' : 'LH',
+        size: 1,
+      });
+    }
+    if (isSwingLow) {
+      const lastLL = markers.slice().reverse().find((m) => m.text === 'LL');
+      const lastLLCandle = lastLL
+        ? candles.find((c) => c.time === lastLL.time)
+        : null;
+      markers.push({
+        time: curr.time,
+        position: 'belowBar',
+        color: '#26A69A',
+        shape: 'arrowUp',
+        text: !lastLLCandle || curr.low < lastLLCandle.low ? 'LL' : 'HL',
+        size: 1,
+      });
+    }
+  }
+  return markers;
+}
