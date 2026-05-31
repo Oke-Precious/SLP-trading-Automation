@@ -8,6 +8,9 @@ import {
   CrosshairMode,
   LineStyle,
   Time,
+  CandlestickSeries,
+  HistogramSeries,
+  createSeriesMarkers,
 } from 'lightweight-charts';
 import { useRealtimeCandles } from '../../hooks/useRealtimeCandles';
 import { useMarketStore } from '../../store/useMarketStore';
@@ -22,12 +25,14 @@ interface Props {
 export default function CandlestickChart({ height = 480 }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
-  const candleSeries = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const volumeSeries = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const candleSeries = useRef<any>(null);
+  const volumeSeries = useRef<any>(null);
   const poiSeriesRefs = useRef<any[]>([]);
+  const markersPluginRef = useRef<any>(null);
 
   const { selectedPair, selectedTimeframe } = useMarketStore();
   const { pois } = usePOIStore();
+  const [chartInitialized, setChartInitialized] = useState(0);
   const { candles, isLoading, isConnected, error, refetch } = useRealtimeCandles(
     selectedPair,
     selectedTimeframe
@@ -38,7 +43,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
     if (!chartRef.current) return;
 
     chartApi.current = createChart(chartRef.current, {
-      width: chartRef.current.clientWidth,
+      width: chartRef.current.clientWidth || 300,
       height: Math.floor(height * 0.8),
       layout: {
         background: { color: '#131722' },
@@ -70,7 +75,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
     });
 
     // Candlestick series
-    candleSeries.current = chartApi.current.addCandlestickSeries({
+    candleSeries.current = chartApi.current.addSeries(CandlestickSeries, {
       upColor: '#26A69A',
       downColor: '#EF5350',
       borderUpColor: '#26A69A',
@@ -79,8 +84,11 @@ export default function CandlestickChart({ height = 480 }: Props) {
       wickDownColor: '#EF5350',
     });
 
+    // Markers Plugin
+    markersPluginRef.current = createSeriesMarkers(candleSeries.current, []);
+
     // Volume series (20% height at bottom)
-    volumeSeries.current = chartApi.current.addHistogramSeries({
+    volumeSeries.current = chartApi.current.addSeries(HistogramSeries, {
       priceFormat: { type: 'volume' },
       priceScaleId: 'volume',
     });
@@ -88,10 +96,13 @@ export default function CandlestickChart({ height = 480 }: Props) {
       scaleMargins: { top: 0.85, bottom: 0 },
     });
 
+    // Mark as initialized
+    setChartInitialized((prev) => prev + 1);
+
     // Responsive resize
     const ro = new ResizeObserver(() => {
       if (chartRef.current && chartApi.current) {
-        chartApi.current.applyOptions({ width: chartRef.current.clientWidth });
+        chartApi.current.resize(chartRef.current.clientWidth, Math.floor(height * 0.8));
       }
     });
     ro.observe(chartRef.current);
@@ -125,7 +136,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
     );
 
     chartApi.current?.timeScale().fitContent();
-  }, [candles]);
+  }, [candles, chartInitialized]);
 
   // ── Render POI zones as price lines ───────────────────
   useEffect(() => {
@@ -168,48 +179,51 @@ export default function CandlestickChart({ height = 480 }: Props) {
       if (topLine) poiSeriesRefs.current.push(topLine);
       if (botLine) poiSeriesRefs.current.push(botLine);
     });
-  }, [pois]);
+  }, [pois, chartInitialized]);
 
   // ── HH/HL markers from structure analysis ─────────────
   useEffect(() => {
-    if (!candleSeries.current || candles.length < 10) return;
+    if (!markersPluginRef.current || candles.length < 10) return;
     const markers = detectStructureMarkers(candles);
-    candleSeries.current.setMarkers(markers);
-  }, [candles]);
-
-  if (isLoading) {
-    return (
-      <div
-        className="flex items-center justify-center bg-surface rounded-lg"
-        style={{ height }}
-      >
-        <LoadingSpinner />
-        <span className="ml-3 text-text-secondary text-sm">
-          Loading {selectedPair} chart...
-        </span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div
-        className="flex flex-col items-center justify-center bg-surface rounded-lg gap-3"
-        style={{ height }}
-      >
-        <span className="text-bearish text-sm">{error}</span>
-        <button
-          onClick={refetch}
-          className="text-xs text-light underline focus:outline-none"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+    markersPluginRef.current.setMarkers(markers);
+  }, [candles, chartInitialized]);
 
   return (
-    <div className="relative bg-surface rounded-lg overflow-hidden border border-[#2A2E39]">
+    <div
+      id="candlestick-chart-wrapper"
+      className="relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39]"
+      style={{ height }}
+    >
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div
+          id="candlestick-chart-loading-overlay"
+          className="absolute inset-0 flex items-center justify-center bg-[#131722] z-50 rounded-lg"
+        >
+          <LoadingSpinner />
+          <span className="ml-3 text-text-secondary text-sm">
+            Loading {selectedPair} chart...
+          </span>
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {error && !isLoading && (
+        <div
+          id="candlestick-chart-error-overlay"
+          className="absolute inset-0 flex flex-col items-center justify-center bg-[#131722] z-50 rounded-lg gap-3"
+        >
+          <span className="text-bearish text-sm">{error}</span>
+          <button
+            id="candlestick-chart-retry-btn"
+            onClick={refetch}
+            className="text-xs text-light underline focus:outline-none cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Visual Live indicator */}
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 font-mono">
         <div
@@ -227,7 +241,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
           {selectedTimeframe}
         </span>
       </div>
-      <div ref={chartRef} style={{ width: '100%', height }} />
+      <div id="candlestick-chart-container" ref={chartRef} style={{ width: '100%', height }} />
     </div>
   );
 }

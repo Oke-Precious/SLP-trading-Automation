@@ -21,11 +21,14 @@ export async function createServer(): Promise<FastifyInstance> {
     logger: true
   });
 
-  // 1. Enforce HTTPS: Redirect HTTP to HTTPS in server configuration
+  // 1. Enforce HTTPS: Redirect HTTP to HTTPS in server configuration (except for local loopbacks)
   server.addHook('onRequest', async (request, reply) => {
     const proto = request.headers['x-forwarded-proto'];
     if (proto === 'http') {
       const host = request.headers.host;
+      if (host && (host.includes('127.0.0.1') || host.includes('localhost') || host.includes('0.0.0.0') || host.includes('3002'))) {
+        return;
+      }
       return reply.status(301).redirect(`https://${host}${request.url}`);
     }
   });

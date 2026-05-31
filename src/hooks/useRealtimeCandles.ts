@@ -34,11 +34,13 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
     const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
     if (!isCrypto || !symbol || !timeframe) return
 
-    const binanceTF = timeframe === '1h' ? '1h'
-      : timeframe === '4h' ? '4h'
-      : timeframe === '1d' ? '1d'
-      : timeframe === '30m' ? '30m'
-      : timeframe === '15m' ? '15m'
+    const tfLower = timeframe.toLowerCase()
+    const binanceTF = tfLower === '1h' ? '1h'
+      : tfLower === '4h' ? '4h'
+      : tfLower === '1d' ? '1d'
+      : tfLower === '30m' ? '30m'
+      : tfLower === '15m' ? '15m'
+      : tfLower === '5m' ? '5m'
       : '1d'
 
     const unsubscribe = binanceWS.subscribeCandles(
