@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { apiClient } from '../api/client'
 
 // ── SUPPORTED INSTRUMENTS ────────────────────────────────
 export const CRYPTO_PAIRS = [
@@ -91,8 +92,8 @@ export async function fetchCryptoCandles(
       close:  parseFloat(k[4]),
       volume: parseFloat(k[5]),
     }))
-  } catch (err) {
-    console.error(`[Binance] Failed to fetch ${symbol} ${interval}:`, err)
+  } catch (err: any) {
+    console.warn(`[Binance Direct Bypass] Failed to fetch ${symbol} ${interval}: ${err?.message || err}. Local emulation initiated.`);
     return generateFallbackCandles(symbol, limit)
   }
 }
@@ -214,12 +215,50 @@ export async function fetchCandles(
   timeframe: string,
   limit: number = 200
 ): Promise<Candle[]> {
+  try {
+    const { data: res } = await apiClient.get('/market/candles', {
+      params: { pair: symbol, timeframe, limit }
+    })
+    const list = res?.data ?? res
+    if (Array.isArray(list) && list.length > 0) {
+      return list.map((c: any) => ({
+        time: Math.floor(new Date(c.timestamp || c.time * 1000).getTime() / 1000),
+        open: Number(c.open),
+        high: Number(c.high),
+        low: Number(c.low),
+        close: Number(c.close),
+        volume: Number(c.volume),
+      }))
+    }
+  } catch (backendErr) {
+    console.warn(`[Backend Cache Bypass] Failed to load candles from proxy backend for ${symbol}:`, backendErr)
+  }
+
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
   if (isCrypto) return fetchCryptoCandles(symbol, timeframe, limit)
   return fetchForexCandles(symbol, timeframe, limit)
 }
 
 export async function fetchTicker(symbol: string): Promise<Ticker | null> {
+  try {
+    const { data: res } = await apiClient.get('/market/ticker', { params: { pair: symbol } })
+    const t = res?.data ?? res
+    if (t && t.price !== undefined) {
+      return {
+        symbol,
+        price: Number(t.price),
+        change24h: Number(t.change24h ?? t.change ?? 0),
+        changePct24h: Number(t.changePct24h ?? t.changePct ?? 0),
+        high24h: Number(t.high24h ?? 0),
+        low24h: Number(t.low24h ?? 0),
+        volume24h: Number(t.volume24h ?? 0),
+        category: CRYPTO_PAIRS.some(p => p.symbol === symbol) ? 'crypto' : 'forex'
+      }
+    }
+  } catch (backendErr) {
+    console.warn(`[Backend Cache Bypass] Failed to fetch ticker for ${symbol}:`, backendErr)
+  }
+
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
   if (isCrypto) return fetchCryptoTicker(symbol)
   return fetchForexTicker(symbol)

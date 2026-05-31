@@ -12,6 +12,7 @@ import {
   X 
 } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI } from '../types';
+import CandlestickChart from './chart/CandlestickChart';
 
 interface DashboardChartProps {
   currentPair: CurrencyPair;
@@ -53,6 +54,7 @@ export default function DashboardChart({
   const [hoveredCandle, setHoveredCandle] = useState<any>(null);
   const [hoveredCandleIndex, setHoveredCandleIndex] = useState<number | null>(null);
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
+  const [chartViewMode, setChartViewMode] = useState<'live' | 'drawing'>('live');
 
   const chartOuterRef = useRef<SVGSVGElement | null>(null);
 
@@ -110,17 +112,48 @@ export default function DashboardChart({
         isFullscreen ? 'h-[80vh]' : 'h-[520px]'
       }`}
     >
-      <div className="p-4 bg-[#1E2433] border-b border-[#2A2E39] flex items-center justify-between rounded-t-xl shrink-0">
-        <div className="flex items-center space-x-3">
-          <span className="text-xs uppercase tracking-wider font-bold text-gray-300 font-sans">
-            Higher Timeframe Structure Canvas
-          </span>
-          <span className="text-[10px] bg-[#CAAA98]/10 text-[#CAAA98] border border-[#CAAA98]/30 font-mono px-2 py-0.5 rounded">
-            {currentPair} ({currentTimeframe})
-          </span>
+      <div className="p-4 bg-[#1E2433] border-b border-[#2A2E39] flex items-center justify-between rounded-t-xl shrink-0 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center space-x-2.5">
+            <span className="text-xs uppercase tracking-wider font-bold text-gray-300 font-sans">
+              Market Structure Chart
+            </span>
+            <span className="text-[10px] bg-[#CAAA98]/10 text-[#CAAA98] border border-[#CAAA98]/30 font-mono px-2 py-0.5 rounded">
+              {currentPair} ({currentTimeframe})
+            </span>
+          </div>
+
+          <div className="flex bg-[#111622] p-0.5 rounded border border-[#2D3345] text-[10px] h-fit md:-my-1">
+            <button
+              onClick={() => {
+                setChartViewMode('live');
+                showToast('Switched to Real-Time Advanced Livefeed');
+              }}
+              className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
+                chartViewMode === 'live' 
+                  ? 'bg-[#CAAA98] text-slate-950 font-bold' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Real-time Livefeed
+            </button>
+            <button
+              onClick={() => {
+                setChartViewMode('drawing');
+                showToast('Switched to SVG Drawing Canvas');
+              }}
+              className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
+                chartViewMode === 'drawing' 
+                  ? 'bg-[#CAAA98] text-slate-950 font-bold' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              SVG Drawings
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-1 sm:space-x-2">
+        <div className={`flex items-center space-x-1 sm:space-x-2 transition-all ${chartViewMode !== 'drawing' ? 'opacity-40 select-none cursor-not-allowed' : ''}`}>
           <button
             id="btn-tool-pointer"
             onClick={() => {
@@ -186,8 +219,13 @@ export default function DashboardChart({
       </div>
 
       <div className="relative flex-1 flex flex-col justify-between overflow-hidden">
-        <svg 
-          ref={chartOuterRef}
+        {chartViewMode === 'live' ? (
+          <div className="w-full h-full flex flex-col justify-center">
+            <CandlestickChart height={isFullscreen ? 540 : 370} />
+          </div>
+        ) : (
+          <svg 
+            ref={chartOuterRef}
           onClick={handleChartClick}
           onMouseMove={(e) => {
             if (chartOuterRef.current) {
@@ -460,9 +498,10 @@ export default function DashboardChart({
             </g>
           )}
         </svg>
+        )}
 
         {/* Tooltip */}
-        {hoveredCandle && mouseX !== null && (
+        {chartViewMode === 'drawing' && hoveredCandle && mouseX !== null && (
           <div 
             style={{
               top: Math.min(mouseY ? mouseY + 12 : 60, 160),
@@ -513,13 +552,15 @@ export default function DashboardChart({
           </div>
         )}
 
-        <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md p-3 rounded border border-[#2A2E39] font-mono text-[10px] text-gray-400 space-y-1 select-none pointer-events-none">
-          <div className="text-white font-bold mb-1 opacity-100 flex items-center space-x-1">
-            <span>AutoSLP Algos V3.1</span>
+        {chartViewMode === 'drawing' && (
+          <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md p-3 rounded border border-[#2A2E39] font-mono text-[10px] text-gray-400 space-y-1 select-none pointer-events-none">
+            <div className="text-white font-bold mb-1 opacity-100 flex items-center space-x-1">
+              <span>AutoSLP Algos V3.1</span>
+            </div>
+            <div>BOS Match: <span className="text-[#26A69A]">SMC Uptrend</span></div>
+            <div>Swing Confirmation: <span className="text-[#26A69A]">Validated</span></div>
           </div>
-          <div>BOS Match: <span className="text-[#26A69A]">SMC Uptrend</span></div>
-          <div>Swing Confirmation: <span className="text-[#26A69A]">Validated</span></div>
-        </div>
+        )}
       </div>
 
       <div className="p-1 px-4 bg-[#1E2433] border-t border-[#2A2E39] flex items-center justify-between rounded-b-xl shrink-0">
