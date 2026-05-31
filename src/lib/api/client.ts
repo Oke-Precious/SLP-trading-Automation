@@ -1,144 +1,77 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../constants';
-import { toast } from 'react-hot-toast';
+import { useAuthStore } from '../../store/useAuthStore';
 
-// Get base URL dynamically and robustly
+// Get base URL dynamically and robustly across Vite / Node environments
 const NEXT_PUBLIC_API_BASE_URL = 
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
   (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL ||
   (import.meta as any).env?.VITE_API_BASE_URL ||
-  API_BASE_URL;
+  '/api/v1';
 
 export const apiClient = axios.create({
   baseURL: NEXT_PUBLIC_API_BASE_URL,
+  timeout: 15000,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('autoslp_token');
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+// Attach access token to every request
+apiClient.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
+  return config;
+});
 
+// Handle 401: refresh and retry once
 let isRefreshing = false;
 let failedQueue: any[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (token) {
-      prom.resolve(token);
-    } else {
-      prom.reject(error);
-    }
-  });
-  failedQueue = [];
-};
-
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Check if network error (no response)
-    if (!error.response) {
-      if (originalRequest?.method && originalRequest.method.toLowerCase() !== 'get') {
-        toast.error('Action could not be synced. Connection error.', { id: 'network-connection-error' });
-      } else {
-        console.warn('Backend server connection error. Falling back to offline fallback data.');
-      }
-      return Promise.reject(error);
+  res => res,
+  async err => {
+    const orig = err.config;
+    if (err.response?.status !== 401 || orig._retry) {
+      return Promise.reject(err);
+    }
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then(token => {
+        if (orig.headers) {
+          orig.headers.Authorization = `Bearer ${token}`;
+        }
+        return apiClient(orig);
+      });
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (
-        originalRequest.url?.includes('/auth/refresh') ||
-        originalRequest.url?.includes('/auth/login') ||
-        originalRequest.url?.includes('/auth/register')
-      ) {
-        return Promise.reject(error);
+    orig._retry = true;
+    isRefreshing = true;
+    const refresh = localStorage.getItem('refreshToken');
+
+    try {
+      const res = await axios.post(
+        `${NEXT_PUBLIC_API_BASE_URL}/auth/refresh`,
+        { refreshToken: refresh }
+      );
+      const { accessToken, refreshToken } = res.data.data || res.data;
+      useAuthStore.getState().setToken(accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      failedQueue.forEach(q => q.resolve(accessToken));
+      failedQueue = [];
+      if (orig.headers) {
+        orig.headers.Authorization = `Bearer ${accessToken}`;
       }
-
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return apiClient(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      const refreshToken = localStorage.getItem('autoslp_refresh_token');
-
-      try {
-        const response = await axios.post(`${NEXT_PUBLIC_API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        }, {
-          withCredentials: true,
-        });
-
-        const dataResponse = response.data;
-        const accessToken = dataResponse?.data?.accessToken || dataResponse?.accessToken;
-        const newRefreshToken = dataResponse?.data?.refreshToken || dataResponse?.refreshToken;
-
-        if (accessToken) {
-          localStorage.setItem('autoslp_token', accessToken);
-          if (newRefreshToken) {
-            localStorage.setItem('autoslp_refresh_token', newRefreshToken);
-          }
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-          // Dispatch event to notify listeners (like real-time socket connections)
-          window.dispatchEvent(new CustomEvent('autoslp_token_refreshed', { detail: accessToken }));
-
-          processQueue(null, accessToken);
-          isRefreshing = false;
-
-          return apiClient(originalRequest);
-        } else {
-          throw new Error('Access token not found in refresh response');
-        }
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        isRefreshing = false;
-
-        localStorage.removeItem('autoslp_token');
-        localStorage.removeItem('autoslp_refresh_token');
-        
-        // Dispatch custom logout event to trigger clean client state
-        window.dispatchEvent(new CustomEvent('autoslp_unauthorized_logged_out'));
-        
-        if (typeof window !== 'undefined') {
-          // Redirect to login if user session is expired
-          // Use search parameter to prevent endless reload if already on login view
-          if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
-          }
-        }
-
-        return Promise.reject(refreshError);
-      }
+      return apiClient(orig);
+    } catch {
+      failedQueue.forEach(q => q.reject(err));
+      failedQueue = [];
+      useAuthStore.getState().clearAuth();
+      window.location.href = '/login';
+      return Promise.reject(err);
+    } finally {
+      isRefreshing = false;
     }
-
-    return Promise.reject(error);
   }
 );
-

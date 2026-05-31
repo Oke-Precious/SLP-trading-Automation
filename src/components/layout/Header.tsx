@@ -17,6 +17,7 @@ import { useMarketStore } from '../../store/useMarketStore';
 import { useBiasStore } from '../../store/useBiasStore';
 import { useUIStore } from '../../store/useUIStore';
 import { onSignalCreated, onAlertTriggered, onPOIStatusChange } from '../../lib/websocket/client';
+import { useTicker, useBias } from '../../hooks/useMarketData';
 
 export interface HeaderProps {
   onOpenSpecs: () => void;
@@ -28,8 +29,12 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch
 }) => {
   const { selectedPair, setSelectedPair, selectedTimeframe, setSelectedTimeframe } = useMarketStore();
-  const biasMap = useBiasStore((state) => state.biasMap);
-  const bias = biasMap[selectedPair]?.[selectedTimeframe] || 'BULLISH';
+  const { data: ticker } = useTicker();
+  const { data: biasData } = useBias();
+  
+  const bias = biasData?.bias || 'BULLISH';
+  const biasStrength = biasData?.strength || 'STRONG';
+  
   const isExpanded = useUIStore((state) => state.sidebarExpanded);
   const connectionStatus = useUIStore((state) => state.connectionStatus);
 
@@ -217,6 +222,22 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
         </div>
 
+        {ticker && (
+          <div className="text-gray-400 text-xs font-mono hidden md:flex border-l border-[#2A2E39] pl-6 space-x-4">
+            <div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider block leading-none mb-0.5">Price</span>
+              <span className="text-white font-bold">${parseFloat(ticker.price || '0').toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+            </div>
+            <div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider block leading-none mb-0.5">24h Change</span>
+              <span className={`font-bold ${parseFloat(ticker.change24h || ticker.changePct || '0') >= 0 ? 'text-bullish' : 'text-bearish'}`}>
+                {parseFloat(ticker.change24h || ticker.changePct || '0') >= 0 ? '+' : ''}
+                {parseFloat(ticker.change24h || ticker.changePct || '0').toFixed(2)}%
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="text-gray-400 text-xs font-mono hidden xl:block border-l border-[#2A2E39] pl-6">
           <span className="text-[10px] text-gray-500 uppercase tracking-wider block leading-none mb-0.5">Analysis Clock</span>
           <span className="text-light">{dateTimeStr}</span>
@@ -227,11 +248,14 @@ export const Header: React.FC<HeaderProps> = ({
             className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider transition-colors duration-300 animate-pulse ${
               bias === 'BULLISH' 
                 ? 'bg-bullish/15 text-bullish border border-bullish/30 poi-pulse-green' 
-                : 'bg-bearish/15 text-bearish border border-bearish/30 poi-pulse-blue'
+                : bias === 'BEARISH'
+                  ? 'bg-bearish/15 text-bearish border border-bearish/30 poi-pulse-blue'
+                  : 'bg-slate-700/15 text-gray-400 border border-slate-700/30'
             }`}
+            title={`Structure: ${biasData?.structure || 'N/A'}`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${bias === 'BULLISH' ? 'bg-bullish' : 'bg-bearish'}`} />
-            <span>{bias} BIAS</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${bias === 'BULLISH' ? 'bg-bullish' : bias === 'BEARISH' ? 'bg-bearish' : 'bg-gray-400'}`} />
+            <span>{bias} ({biasStrength})</span>
           </div>
         </div>
       </div>

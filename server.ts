@@ -1,3 +1,8 @@
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
+console.log(process.env.NEXT_PUBLIC_APP_NAME);
+
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';

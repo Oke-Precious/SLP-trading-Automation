@@ -5,15 +5,18 @@
 
 import React from 'react';
 import { useMarketStore } from '../../store/useMarketStore';
-import { useBiasStore } from '../../store/useBiasStore';
+import { useBias } from '../../hooks/useMarketData';
 import { Compass, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 
 export const MarketSummaryCard: React.FC = () => {
   const { selectedPair, selectedTimeframe, appStateMode } = useMarketStore();
-  const biasMap = useBiasStore((state) => state.biasMap);
-  const bias = biasMap[selectedPair]?.[selectedTimeframe] || 'BULLISH';
+  const { data: biasData, isLoading: isBiasLoading } = useBias();
+  const bias = biasData?.bias || 'BULLISH';
+  const strength = biasData?.strength || 'STRONG';
+  const structure = biasData?.structure || 'Structure Break';
+  const phase = biasData?.phase || 'Operational Bias';
 
-  if (appStateMode === 'loading') {
+  if (appStateMode === 'loading' || isBiasLoading) {
     return (
       <div className="bg-card border border-border-custom rounded-xl p-5 space-y-4 animate-pulse" data-testid="summary-skeleton">
         <div className="h-4 bg-slate-700 rounded w-1/3"></div>
@@ -41,14 +44,14 @@ export const MarketSummaryCard: React.FC = () => {
             className={`w-2 h-2 rounded-full ${isBullish ? 'bg-bullish shadow-[0_0_8px_rgb(38,166,154)]' : 'bg-bearish shadow-[0_0_8px_rgb(239,83,80)]'}`} 
           />
           <span className="text-[10px] font-mono font-bold tracking-wider text-gray-500 uppercase">
-            Trend Strength: {isBullish ? 'Strong' : 'Moderate'}
+            Trend Strength: {strength}
           </span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-surface p-3.5 rounded-lg border border-[#2D313E]/40">
-          <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider block">Operational Bias</span>
+          <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider block">{phase}</span>
           <div className="flex items-center space-x-2 mt-1">
             {isBullish ? (
               <TrendingUp className="text-bullish" size={16} />
@@ -66,7 +69,7 @@ export const MarketSummaryCard: React.FC = () => {
         <div className="bg-surface p-3.5 rounded-lg border border-[#2D313E]/40">
           <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider block">Current Trend Sequence</span>
           <p className="text-sm font-bold text-white mt-1 uppercase font-display tracking-tight">
-            {isBullish ? 'Structure Break' : 'Mitigated Downtrend'}
+            {structure}
           </p>
         </div>
       </div>

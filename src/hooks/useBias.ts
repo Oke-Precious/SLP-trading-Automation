@@ -16,7 +16,7 @@ export const useBias = (pair: CurrencyPair, timeframe: Timeframe) => {
         const response = await apiClient.get(`/market/bias`, {
           params: { pair, timeframe }
         });
-        return response.data;
+        return response.data ?? response ?? { pair, timeframe, bias: 'BULLISH' };
       } catch {
         // Fallback for demo preview stability
         const biasValue = calculateDirectionalBias(pair, timeframe, true, true);

@@ -16,6 +16,8 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  console.log(process.env.NEXT_PUBLIC_APP_NAME);
+
   return (
     <html lang="en" className="dark bg-[#131722] text-[#E0E3EB]">
       <body className="font-sans antialiased min-h-screen">
