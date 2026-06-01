@@ -29,6 +29,7 @@ import { CurrencyPair, Timeframe } from '../types';
 import { useMarketStore } from '../store/useMarketStore';
 import { analytics } from '../lib/analytics';
 import { useAllTickers } from '../hooks/useMarketData';
+import JournalPage from '../app/journal/page';
 
 interface OtherViewsProps {
   pageId: string;
@@ -564,55 +565,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // 8. DIARY JOURNAL PAGE
   if (pageId === 'journal') {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#1A1F2C] border border-[#2A2E39] md:col-span-2 rounded-xl p-5">
-            <span className="text-xs uppercase tracking-wider font-bold text-gray-200 block mb-4 border-b border-[#2A2E39] pb-2">May 2026 performance matrix tracker</span>
-            
-            {/* Heatmap calendar grid */}
-            <div className="grid grid-cols-7 gap-1 font-mono text-[10px] text-center mb-4">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                <div key={day} className="text-gray-500 py-1">{day}</div>
-              ))}
-              {Array.from({ length: 31 }).map((_, i) => {
-                const dayNum = i + 1;
-                // Random green, gray, red colors representing calendar performance
-                let colorClass = 'bg-[#1C202F] text-gray-500';
-                if (dayNum === 5 || dayNum === 12 || dayNum === 22) colorClass = 'bg-[#EF5350]/20 text-[#EF5350] border border-[#EF5350]/30';
-                if (dayNum === 1 || dayNum === 8 || dayNum === 14 || dayNum === 18 || dayNum === 24) colorClass = 'bg-[#26A69A]/20 text-emerald-400 border border-[#26A69A]/30 font-bold';
-                
-                return (
-                  <div key={i} className={`p-2.5 rounded h-10 flex flex-col justify-between ${colorClass}`}>
-                    <span className="block text-[8px] text-right">{dayNum}</span>
-                    {dayNum === 24 && <span className="block text-[7px] text-left">+2.3%</span>}
-                    {dayNum === 5 && <span className="block text-[7px] text-left">-1.2%</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-[10px] text-gray-500 leading-none">Green cells indicate winning sessions; Red cells highlight loss sessions. Dark slate cells indicate resting/no-trade days.</p>
-          </div>
-
-          {/* Notes side card */}
-          <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5 flex flex-col justify-between h-[340px]">
-            <div>
-              <span className="text-xs uppercase tracking-wider font-bold text-gray-200 block mb-3 border-b border-[#2A2E39] pb-2">May 24 session diary</span>
-              <textarea 
-                defaultValue="Identified nice BOS break of structures on BTC H4. Placed entry limits under $64,200 discount zone. Price touched, swept stops, and rebounded fully as planned in the NY overlap session."
-                className="w-full bg-[#111622] border border-[#2A2E39] p-2 text-xs rounded text-gray-300 h-44 focus:outline-none"
-              />
-            </div>
-            <button 
-              onClick={() => showToast('Session log archived in SQLite / Local Storage!')}
-              className="bg-[#26A69A] hover:bg-emerald-600 text-slate-950 font-bold p-2 text-xs rounded uppercase tracking-wider cursor-pointer"
-            >
-              Archive Diary log
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <JournalPage />;
   }
 
   // 9. SETTINGS DASHBOARD PAGE
