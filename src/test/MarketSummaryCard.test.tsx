@@ -24,7 +24,17 @@ describe('MarketSummaryCard Component', () => {
       },
     });
 
-    render(<MarketSummaryCard />);
+    const mockBiasResult = {
+      pair: 'BTCUSDT',
+      timeframe: '4H', 
+      bias: 'BULLISH' as const,
+      strength: 90,
+      structure: 'BOS' as any,
+      phase: 'Expansion' as any,
+      nextMove: 'Ascending'
+    } as any;
+
+    render(<MarketSummaryCard biasResult={mockBiasResult} isLoading={false} />);
     expect(screen.getByTestId('operational-bias-text')).toHaveTextContent('BULLISH');
     expect(screen.getByTestId('trend-strength-dot')).toHaveClass('bg-bullish');
   });
@@ -48,14 +58,24 @@ describe('MarketSummaryCard Component', () => {
       },
     });
 
-    render(<MarketSummaryCard />);
+    const mockBiasResult = {
+      pair: 'BTCUSDT',
+      timeframe: '4H', 
+      bias: 'BEARISH' as const,
+      strength: 90,
+      structure: 'CHOCH' as any,
+      phase: 'Distribution' as any,
+      nextMove: 'Declining'
+    } as any;
+
+    render(<MarketSummaryCard biasResult={mockBiasResult} isLoading={false} />);
     expect(screen.getByTestId('operational-bias-text')).toHaveTextContent('BEARISH');
     expect(screen.getByTestId('trend-strength-dot')).toHaveClass('bg-bearish');
   });
 
   it('loading state renders skeleton', () => {
     useMarketStore.setState({ appStateMode: 'loading' });
-    render(<MarketSummaryCard />);
+    render(<MarketSummaryCard biasResult={null} isLoading={true} />);
     expect(screen.getByTestId('summary-skeleton')).toBeInTheDocument();
   });
 });

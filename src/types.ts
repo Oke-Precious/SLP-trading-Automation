@@ -10,7 +10,7 @@ export interface Persona {
   literacy: string;
 }
 
-export type CurrencyPair = 'BTCUSDT' | 'ETHUSDT' | 'EURUSD' | 'GBPUSD';
+export type CurrencyPair = string;
 export type Timeframe = '1D' | '4H' | '1H' | '30m' | '15m' | '5m';
 
 export interface POI {

@@ -18,7 +18,7 @@ import { useBiasStore } from '../../store/useBiasStore';
 import { useUIStore } from '../../store/useUIStore';
 import { onSignalCreated, onAlertTriggered, onPOIStatusChange } from '../../lib/websocket/client';
 import { useRealtimeTicker } from '../../hooks/useRealtimeTicker';
-import { formatPrice } from '../../lib/market/marketDataService';
+import { ALL_INSTRUMENTS, formatPrice } from '../../lib/market/marketDataService';
 
 export interface HeaderProps {
   onOpenSpecs: () => void;
@@ -52,6 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [dateTimeStr, setDateTimeStr] = useState('');
   const [showPairMenu, setShowPairMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -140,14 +141,23 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const pairs: { label: CurrencyPair; exchange: string }[] = [
-    { label: 'BTCUSDT', exchange: 'BINANCE' },
-    { label: 'ETHUSDT', exchange: 'BINANCE' },
-    { label: 'EURUSD', exchange: 'OANDA' },
-    { label: 'GBPUSD', exchange: 'OANDA' }
-  ];
-
   const timeframes: Timeframe[] = ['1D', '4H', '1H', '30m', '15m'];
+
+  const filteredInstruments = ALL_INSTRUMENTS.filter(ins => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return ins.symbol.toLowerCase().includes(q) || ins.name.toLowerCase().includes(q);
+  });
+
+  const groupedInstruments = {
+    Crypto: filteredInstruments.filter(ins => ins.category === 'crypto'),
+    Forex: filteredInstruments.filter(ins => ins.category === 'forex'),
+    Commodity: filteredInstruments.filter(ins => ins.category === 'commodity'),
+    Index: filteredInstruments.filter(ins => ins.category === 'index'),
+  };
+
+  const activeInstrument = ALL_INSTRUMENTS.find(i => i.symbol === selectedPair);
+  const activeExchange = activeInstrument?.category === 'crypto' ? 'BINANCE' : 'OANDA';
 
 
   return (
@@ -191,29 +201,73 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center space-x-2 bg-surface hover:bg-[#1C202F] text-gray-200 px-3 py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer"
           >
             <span className="text-gray-500 text-[9px] bg-slate-900 px-1.5 py-0.5 rounded mr-1">
-              {pairs.find(p => p.label === selectedPair)?.exchange || 'BINANCE'}
+              {activeExchange}
             </span>
             <span className="font-bold text-light">{selectedPair}</span>
             <ChevronDown size={14} className="text-gray-400" />
           </button>
 
           {showPairMenu && (
-            <div className="absolute left-0 mt-1 w-44 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-1">
-              {pairs.map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => {
-                    setSelectedPair(p.label);
-                    setShowPairMenu(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs font-mono text-left hover:bg-[#202738] rounded cursor-pointer ${
-                    selectedPair === p.label ? 'text-light bg-surface font-semibold' : 'text-gray-300'
-                  }`}
-                >
-                  <span>{p.label}</span>
-                  <span className="text-[9px] text-gray-500 font-mono italic">{p.exchange}</span>
-                </button>
-              ))}
+            <div className="absolute left-0 mt-1 w-80 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-2 max-h-[30rem] overflow-y-auto">
+              <div className="p-1 mb-2 border-b border-[#2A2E39] flex items-center space-x-1.5">
+                <Search size={12} className="text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search pairs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#111622] text-xs border border-transparent rounded px-2 py-1 text-white focus:outline-none focus:border-[#2A2E39] font-mono"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-3">
+                {Object.entries(groupedInstruments).map(([groupName, items]) => {
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={groupName} className="space-y-1">
+                      <div className="text-[9px] text-gray-500 uppercase font-bold tracking-wider px-2">
+                        {groupName}
+                      </div>
+                      {items.map((ins) => {
+                        const isSelected = selectedPair === ins.symbol;
+                        const twoLetter = ins.base ? ins.base.slice(0, 2) : ins.symbol.slice(0, 2);
+                        return (
+                          <button
+                            key={ins.symbol}
+                            onClick={() => {
+                              setSelectedPair(ins.symbol);
+                              setShowPairMenu(false);
+                              setSearchQuery('');
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-1.5 text-xs text-left hover:bg-[#202738] rounded cursor-pointer transition-colors ${
+                              isSelected ? 'text-light bg-surface font-semibold' : 'text-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <span className="w-5 h-5 flex items-center justify-center rounded bg-slate-800 text-[#CAAA98] font-bold text-[8px] uppercase">
+                                {twoLetter}
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white font-mono">{ins.symbol}</span>
+                                <span className="text-[10px] text-gray-400 font-sans">{ins.name}</span>
+                              </div>
+                            </div>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-mono text-gray-500 bg-slate-900 leading-none">
+                              {ins.category}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {filteredInstruments.length === 0 && (
+                  <div className="text-center py-4 text-xs text-gray-500 font-mono">
+                    No matching pairs
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

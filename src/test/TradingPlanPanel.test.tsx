@@ -6,7 +6,7 @@ import { useSignalStore } from '../store/useSignalStore';
 describe('TradingPlanPanel Component', () => {
   it('renders all 6 steps in order', () => {
     useSignalStore.setState({ activeSignal: null });
-    render(<TradingPlanPanel />);
+    render(<TradingPlanPanel biasResult={null} />);
     
     // Check titles/steps are rendered
     expect(screen.getByText(/Establish HTF Bias/i)).toBeInTheDocument();
@@ -22,13 +22,13 @@ describe('TradingPlanPanel Component', () => {
       activeSignal: { id: 'sig-test', date: '2026-05-25', pair: 'BTCUSDT', direction: 'Long', result: 'Active', pnl: '+$450', isWin: true },
     });
 
-    render(<TradingPlanPanel />);
+    render(<TradingPlanPanel biasResult={null} />);
     expect(screen.getByTestId('active-signal-card')).toBeInTheDocument();
   });
 
   it('no active signal card when no signal', () => {
     useSignalStore.setState({ activeSignal: null });
-    render(<TradingPlanPanel />);
+    render(<TradingPlanPanel biasResult={null} />);
     expect(screen.queryByTestId('active-signal-card')).not.toBeInTheDocument();
   });
 });

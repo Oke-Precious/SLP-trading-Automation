@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { CurrencyPair, Timeframe } from '../types';
 import { useMarketStore } from '../store/useMarketStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { analytics } from '../lib/analytics';
 import { useAllTickers } from '../hooks/useMarketData';
 import JournalPage from '../app/journal/page';
@@ -57,8 +58,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // Hoisted Settings States (Rules of Hooks compliance)
   const { appStateMode, setAppStateMode, layoutVariant, setLayoutVariant } = useMarketStore();
-  const [mockApiKey, setMockApiKey] = useState('***********************************3A1f');
-  const [mockExchange, setMockExchange] = useState('BINANCE_US');
+  const settingsStore = useSettingsStore();
   const [connectionPhase, setConnectionPhase] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'running' | 'success'>('idle');
 
@@ -570,28 +570,37 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // 9. SETTINGS DASHBOARD PAGE
   if (pageId === 'settings') {
-    const handleTestConnection = () => {
+    const handleTestConnection = async () => {
+      const apiKey = settingsStore.twelveDataApiKey.trim();
+      if (!apiKey) {
+        showToast('Please insert a Twelve Data API Key to execute verification tests!');
+        return;
+      }
       setConnectionStatus('running');
-      setConnectionPhase('Handshaking SSL secure channel...');
+      setConnectionPhase('Handshaking SSL secure tunnels to twelvedata.com...');
       
-      setTimeout(() => {
-        setConnectionPhase('Verifying broker token credentials...');
-      }, 1000);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        setConnectionPhase('Validating account permissions on Twelve Data servers...');
+        
+        await new Promise(resolve => setTimeout(resolve, 700));
+        setConnectionPhase('Synchronizing API usage logs and constraints limit...');
+        
+        const response = await fetch(`https://api.twelvedata.com/utils/api_usage?apikey=${apiKey}`);
+        const data = await response.json();
+        
+        if (data.status === 'error' || data.error) {
+          throw new Error(data.message || data.error || 'API token declined by server');
+        }
 
-      setTimeout(() => {
-        setConnectionPhase('Synchronizing ledger structures...');
-      }, 2000);
-
-      setTimeout(() => {
         setConnectionStatus('success');
-        setConnectionPhase('Secure channel successfully bound!');
-        showToast('API broker connection test completed successfully!');
-      }, 3000);
-
-      setTimeout(() => {
+        setConnectionPhase('Twelve Data secure channel established successfully!');
+        showToast('Twelve Data API Token validated!');
+      } catch (err: any) {
         setConnectionStatus('idle');
-        setConnectionPhase(null);
-      }, 5000);
+        setConnectionPhase(`Exception: ${err.message || 'Verification timed out'}`);
+        showToast('Authorization verification failed.');
+      }
     };
 
     return (
@@ -601,6 +610,26 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
             {toastMessage}
           </div>
         )}
+
+        {/* Dynamic Warning Indicator if API Key is Missing */}
+        {!settingsStore.twelveDataApiKey && (
+          <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-4 rounded-xl flex items-start space-x-3 mb-6 text-xs font-sans">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
+            <div className="flex-1 leading-normal">
+              <span className="font-bold block text-white mb-0.5">Twelve Data API Key Missing</span>
+              Live Forex & Commodity price streams are deactivated. The platform will automatically fall back to high-fidelity simulated SMC market data generation streams.
+            </div>
+            <a 
+              href="https://twelvedata.com/register" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-[10px] bg-amber-500 text-[#111622] font-bold px-2 py-1 rounded inline-block uppercase tracking-wider whitespace-nowrap hover:bg-amber-400 transition-colors"
+            >
+              Sign Up Free
+            </a>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between sm:items-center pb-3 border-b border-[#2C354E] mb-6 gap-2">
           <div>
             <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider font-display">System Settings & preferences</h2>
@@ -616,34 +645,21 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
             <div className="space-y-4">
               <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
                 <Key size={16} className="text-[#CAAA98]" aria-hidden="true" />
-                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Broker Exchange Integrations</span>
+                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Twelve Data Token & Permissions</span>
               </div>
               
               <div>
-                <label htmlFor="settings-exchange-selector" className="block text-[#94A3B8] mb-1 font-semibold">Exchange Origin Connection:</label>
-                <select 
-                  id="settings-exchange-selector"
-                  value={mockExchange}
-                  onChange={(e) => setMockExchange(e.target.value)}
-                  className="w-full bg-[#111622] border border-[#2A2E39] p-2.5 rounded text-xs text-gray-200 focus:outline-none focus:border-[#CAAA98]"
-                >
-                  <option value="BINANCE_US">Binance US (Futures API)</option>
-                  <option value="OANDA">Oanda Forex Services</option>
-                  <option value="BYBIT">Bybit Exchange Algos</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="settings-apikey-input" className="block text-[#94A3B8] mb-1 font-semibold">Secure Integration API Key ID:</label>
+                <label htmlFor="settings-apikey-input" className="block text-[#94A3B8] mb-1 font-semibold">Twelve Data Platform API Key:</label>
                 <input
                   id="settings-apikey-input"
-                  type="text"
-                  disabled
-                  value={mockApiKey}
-                  className="w-full bg-[#111622]/50 border border-[#2A2E39]/80 text-[#CAAA98] p-2.5 rounded text-xs pl-3 font-mono"
+                  type="password"
+                  placeholder="Paste Twelve Data free tier token..."
+                  value={settingsStore.twelveDataApiKey}
+                  onChange={(e) => settingsStore.setSetting('twelveDataApiKey', e.target.value)}
+                  className="w-full bg-[#111622] border border-[#2A2E39] text-[#CAAA98] p-2.5 rounded text-xs pl-3 font-mono focus:outline-none focus:border-[#CAAA98]"
                 />
                 <span className="text-[10px] text-[#94A3B8] mt-1.5 block leading-relaxed">
-                  To replace secrets safely, update your environment variables inside the Platform Secrets Panel in the Google AI Studio settings overlay.
+                  Sign up free on <a href="https://twelvedata.com" target="_blank" rel="noreferrer" className="underline text-[#CAAA98]">Twelve Data</a> to fetch live, real-world indices, gold metals, and major currency pairs.
                 </span>
               </div>
 
@@ -655,7 +671,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
                   disabled={connectionStatus === 'running'}
                   className={`px-4 py-2.5 rounded text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-2 transition-all cursor-pointer ${
                     connectionStatus === 'running'
-                      ? 'bg-slate-800 text-gray-500 border border-slate-700'
+                      ? 'bg-slate-800 text-gray-400 border border-slate-700'
                       : connectionStatus === 'success'
                         ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/40'
                         : 'bg-transparent border border-[#CAAA98] hover:bg-[#CAAA98]/10 text-[#CAAA98]'
@@ -666,10 +682,10 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
                   )}
                   <span>
                     {connectionStatus === 'running'
-                      ? 'Testing Stream...'
+                      ? 'Testing API Key...'
                       : connectionStatus === 'success'
-                        ? 'Connection Active ✓'
-                        : 'Test broker connectivity'}
+                        ? 'Validation Successful ✓'
+                        : 'Test Twelve Data API'}
                   </span>
                 </button>
 
@@ -680,6 +696,44 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
                     <span>{connectionPhase}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Permissions & Local state defaults */}
+              <div className="pt-2 border-t border-gray-800/60 mt-4 space-y-3">
+                <span className="block text-[#94A3B8] font-bold uppercase tracking-wider text-[10px] font-mono">Workspace Continuity Preferences</span>
+                
+                <div className="flex items-center justify-between">
+                  <label htmlFor="settings-default-pair" className="text-gray-400">Default Target Instrument Setup:</label>
+                  <select
+                    id="settings-default-pair"
+                    value={settingsStore.defaultPair}
+                    onChange={(e) => settingsStore.setSetting('defaultPair', e.target.value)}
+                    className="bg-[#111622] border border-[#2A2E39] p-1.5 rounded text-xs text-gray-200 focus:outline-none focus:border-[#CAAA98]"
+                  >
+                    <option value="BTCUSDT">BTCUSDT (Binance)</option>
+                    <option value="ETHUSDT">ETHUSDT (Binance)</option>
+                    <option value="EURUSD">EURUSD (Forex)</option>
+                    <option value="GBPUSD">GBPUSD (Forex)</option>
+                    <option value="XAUUSD">XAUUSD (Gold Metal)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label htmlFor="settings-default-tf" className="text-gray-400">Default Sandbox Timeframe:</label>
+                  <select
+                    id="settings-default-tf"
+                    value={settingsStore.defaultTimeframe}
+                    onChange={(e) => settingsStore.setSetting('defaultTimeframe', e.target.value)}
+                    className="bg-[#111622] border border-[#2A2E39] p-1.5 rounded text-xs text-gray-200 focus:outline-none focus:border-[#CAAA98]"
+                  >
+                    <option value="5m">5 Minutes (5m)</option>
+                    <option value="15m">15 Minutes (15m)</option>
+                    <option value="30m">30 Minutes (30m)</option>
+                    <option value="1H">1 Hour (1H)</option>
+                    <option value="4H">4 Hours (4H)</option>
+                    <option value="1D">Daily (1D)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -718,7 +772,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
             <div className="space-y-4">
               <div className="flex items-center space-x-2 border-b border-gray-800 pb-1.5">
                 <LayoutGrid size={16} className="text-[#CAAA98]" aria-hidden="true" />
-                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Interface Appearance (A/B Test)</span>
+                <span className="text-[#CAAA98] font-bold uppercase tracking-wider text-[11px]">Appearance & Layout Settings</span>
               </div>
 
               <div>
@@ -767,6 +821,90 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
                   </button>
                 </div>
               </div>
+
+              {/* Preferences: notifications, sidebar, format, color theme */}
+              <div className="space-y-4 pt-4 border-t border-gray-800/60 mt-4">
+                <span className="block text-[#94A3B8] font-bold uppercase tracking-wider text-[10px] font-mono">Visual Styling & Alerts preference</span>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Push Browser Alarms:</span>
+                  <button
+                    onClick={() => {
+                      if (!settingsStore.notificationsEnabled) {
+                        Notification.requestPermission().then(perm => {
+                          if (perm === 'granted') {
+                            settingsStore.setSetting('notificationsEnabled', true);
+                            showToast('Push notifications successfully enabled!');
+                          } else {
+                            showToast('Permission blocked by browser.');
+                          }
+                        });
+                      } else {
+                        settingsStore.setSetting('notificationsEnabled', false);
+                        showToast('Browser notifications disabled.');
+                      }
+                    }}
+                    className={`px-3 py-1 rounded text-[10px] font-mono font-bold uppercase cursor-pointer border ${
+                      settingsStore.notificationsEnabled 
+                        ? 'bg-[#26A69A]/10 border-[#26A69A] text-[#26A69A]' 
+                        : 'bg-slate-800 border-[#2A2E39] text-gray-400'
+                    }`}
+                  >
+                    {settingsStore.notificationsEnabled ? "Enabled" : "Disabled"}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 font-sans">Default Sidebar State:</span>
+                  <button
+                    onClick={() => {
+                      settingsStore.setSetting('sidebarDefaultExpanded', !settingsStore.sidebarDefaultExpanded);
+                      showToast('Expanded/collapsed sidebar default swapped!');
+                    }}
+                    className="bg-slate-850 hover:bg-slate-800 border border-[#2A2E39] text-gray-300 px-3 py-1 rounded text-[10px] font-mono uppercase"
+                  >
+                    {settingsStore.sidebarDefaultExpanded ? "Expanded Navigation" : "Collapsed Navigation"}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Ledger Time Format:</span>
+                  <div className="flex space-x-1 bg-[#111622] p-1 rounded border border-[#2A2E39]">
+                    {(['12H', '24H'] as const).map(fmt => (
+                      <button
+                        key={fmt}
+                        onClick={() => {
+                          settingsStore.setSetting('timeFormat', fmt);
+                          showToast(`Time style preference swapped to: ${fmt}`);
+                        }}
+                        className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                          settingsStore.timeFormat === fmt 
+                            ? 'bg-[#CAAA98] text-[#111622]' 
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {fmt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Candlestick Paint Profile:</span>
+                  <select
+                    value={settingsStore.chartTheme}
+                    onChange={(e) => {
+                      settingsStore.setSetting('chartTheme', e.target.value as any);
+                      showToast(`Candles styling swap to: ${e.target.value}`);
+                    }}
+                    className="bg-[#111622] border border-[#2A2E39] p-1.5 rounded text-xs text-gray-200 focus:outline-none focus:border-[#CAAA98]"
+                  >
+                    <option value="emerald-rose">Emerald Green & Rose Red</option>
+                    <option value="green-red">Standard Green & Crimson Red</option>
+                    <option value="blue-orange">Deep Ice Blue & Neon Amber</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Safeguards Block */}
@@ -787,7 +925,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
                 </div>
                 <div className="flex justify-between items-center text-gray-300">
                   <span className="font-medium text-[#E2E8F0]">Push alerts on structural breakout (BOS):</span>
-                  <span className="text-[#26A69A] font-bold uppercase tracking-wider font-mono">ENABLED ENABLED</span>
+                  <span className="text-[#26A69A] font-bold uppercase tracking-wider font-mono">ENABLED</span>
                 </div>
               </div>
 
@@ -807,10 +945,41 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
     );
   }
 
-  // Fallback default frame loader
+  // Fallback default frame loader (Beautiful 404 Page)
   return (
-    <div className="p-8 text-center bg-[#1A1F2C] border border-[#2A2E39] rounded-xl text-xs text-[#94A3B8]">
-      Section view under active construction. Select a sidebar tab to hydrate logs.
+    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center bg-[#1A1F2C] border border-[#2A2E39] rounded-2xl max-w-2xl mx-auto shadow-2xl space-y-6">
+      <div className="p-4 bg-[#CAAA98]/10 text-[#CAAA98] rounded-full border border-[#CAAA98]/20 text-3xl font-mono font-bold w-16 h-16 flex items-center justify-center">
+        404
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-white font-display tracking-tight">Pathway Not Found</h2>
+        <p className="text-xs text-gray-400 mt-2 max-w-md mx-auto leading-relaxed">
+          The structural coordinate or view node you tried to navigate to does not exist or has been relocated by our directional bias algorithm.
+        </p>
+      </div>
+      
+      <div className="w-full max-w-xs relative bg-[#111622] rounded-lg border border-[#2A2E39] p-1 flex items-center">
+        <Compass size={14} className="text-gray-500 ml-2 animate-pulse" />
+        <input
+          type="text"
+          placeholder="Navigate command (e.g., 'dashboard')..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = e.currentTarget.value.trim().toLowerCase();
+              if (val) window.dispatchEvent(new CustomEvent('autoslp_navigate', { detail: val }));
+            }
+          }}
+          className="w-full bg-transparent text-xs text-white pl-2 pr-4 py-1.5 focus:outline-none focus:border-0 font-mono"
+        />
+        <span className="text-[9px] bg-[#1A1F2C] text-gray-500 px-1 rounded font-mono select-none mr-1 whitespace-nowrap">⏎ Enter</span>
+      </div>
+
+      <button 
+        onClick={() => window.dispatchEvent(new CustomEvent('autoslp_navigate', { detail: 'dashboard' }))}
+        className="bg-[#CAAA98] hover:bg-[#CAAA98]/90 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer"
+      >
+        Go Back to Console Dashboard
+      </button>
     </div>
   );
 }

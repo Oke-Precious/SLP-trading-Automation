@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { CurrencyPair, Timeframe } from '../types';
 import { Candle, Ticker } from '../types/market';
 
@@ -32,22 +33,34 @@ const getStoredLayout = (): 'A' | 'B' => {
   return 'A'; // Layout A is default
 };
 
-export const useMarketStore = create<MarketState>((set) => ({
-  selectedPair: 'BTCUSDT',
-  selectedTimeframe: '4H',
-  candles: [],
-  ticker: null,
-  appStateMode: 'healthy',
-  layoutVariant: getStoredLayout(),
-  setSelectedPair: (pair) => set({ selectedPair: pair }),
-  setSelectedTimeframe: (tf) => set({ selectedTimeframe: tf }),
-  setCandles: (candles) => set({ candles }),
-  setTicker: (ticker) => set({ ticker }),
-  setAppStateMode: (mode) => set({ appStateMode: mode }),
-  setLayoutVariant: (variant) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('autoslp_layout_variant', variant);
+export const useMarketStore = create<MarketState>()(
+  persist(
+    (set) => ({
+      selectedPair: 'BTCUSDT',
+      selectedTimeframe: '4H',
+      candles: [],
+      ticker: null,
+      appStateMode: 'healthy',
+      layoutVariant: getStoredLayout(),
+      setSelectedPair: (pair) => set({ selectedPair: pair }),
+      setSelectedTimeframe: (tf) => set({ selectedTimeframe: tf }),
+      setCandles: (candles) => set({ candles }),
+      setTicker: (ticker) => set({ ticker }),
+      setAppStateMode: (mode) => set({ appStateMode: mode }),
+      setLayoutVariant: (variant) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('autoslp_layout_variant', variant);
+        }
+        set({ layoutVariant: variant });
+      },
+    }),
+    {
+      name: 'autoSLP-market',
+      partialize: (state) => ({
+        selectedPair: state.selectedPair,
+        selectedTimeframe: state.selectedTimeframe,
+        layoutVariant: state.layoutVariant,
+      }),
     }
-    set({ layoutVariant: variant });
-  },
-}));
+  )
+);

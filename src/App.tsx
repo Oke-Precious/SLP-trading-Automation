@@ -22,6 +22,7 @@ import Header from './components/Header';
 import DashboardView from './components/DashboardView';
 import OtherViews from './components/OtherViews';
 import SpecsHub from './components/SpecsHub';
+import AppInitializer from './components/AppInitializer';
 import { CurrencyPair, Timeframe } from './types';
 import { useMarketStore } from './store/useMarketStore';
 import { useUIStore } from './store/useUIStore';
@@ -49,6 +50,7 @@ export default function App() {
   const [initialSpecsTab, setInitialSpecsTab] = useState<'spec' | 'personas'>('spec');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
 
   // GDPR Cookie Consent States
   const [showCookieBanner, setShowCookieBanner] = useState(false);
@@ -91,6 +93,32 @@ export default function App() {
       analytics.track('journal_opened');
     }
   }, [activePage, cookieConsent]);
+
+  // Loading progress animation effect
+  useEffect(() => {
+    setLoadingProgress(15);
+    const interval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev === null) return null;
+        if (prev >= 85) return 85; 
+        return prev + Math.floor(Math.random() * 18 + 5);
+      });
+    }, 80);
+
+    const finishTimeout = setTimeout(() => {
+      clearInterval(interval);
+      setLoadingProgress(100);
+      const fadeTimeout = setTimeout(() => {
+        setLoadingProgress(null);
+      }, 200);
+      return () => clearTimeout(fadeTimeout);
+    }, 250);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(finishTimeout);
+    };
+  }, [activePage]);
 
   // Track dynamic asset pair & timeframe toggles
   useEffect(() => {
@@ -216,14 +244,18 @@ export default function App() {
         sidebarExpanded ? 'md:pl-[220px]' : 'md:pl-[64px]'
       } pl-0 pb-20 md:pb-4`}
     >
+      <AppInitializer />
+
+      {loadingProgress !== null && (
+        <div 
+          id="loading-progress-bar"
+          className="fixed top-0 left-0 h-[2px] bg-[#CAAA98] transition-all duration-150 ease-out z-[99999]"
+          style={{ width: `${loadingProgress}%` }}
+        />
+      )}
       
       {/* 1. TOP SUPREME HEADER BAR */}
       <Header 
-        currentPair={currentPair}
-        setCurrentPair={setCurrentPair}
-        currentTimeframe={currentTimeframe}
-        setCurrentTimeframe={setCurrentTimeframe}
-        bias={bias}
         onOpenSpecs={() => { setInitialSpecsTab('spec'); setIsSpecsHubOpen(true); }}
         onOpenSearch={() => setIsSearchOpen(true)}
       />
