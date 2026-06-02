@@ -19,8 +19,8 @@ export async function marketRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['pair', 'timeframe'],
         properties: {
-          pair:      { type: 'string', example: 'BTCUSDT' },
-          timeframe: { type: 'string', example: '1D' },
+          pair:      { type: 'string', description: 'BTCUSDT' },
+          timeframe: { type: 'string', description: '1D' },
           limit:     { type: 'number', default: 500 },
           from:      { type: 'string', format: 'date-time' },
           to:        { type: 'string', format: 'date-time' },
@@ -43,6 +43,18 @@ export async function marketRoutes(fastify: FastifyInstance) {
   fastify.get('/tickers', {
     schema: { tags: ['Market'], summary: 'Get tickers for all pairs' }
   }, marketController.getAllTickers);
+
+  fastify.get('/validate-key', {
+    schema: {
+      tags: ['Market'],
+      summary: 'Validate Twelve Data API Key',
+      querystring: {
+        type: 'object',
+        required: ['apikey'],
+        properties: { apikey: { type: 'string' } }
+      }
+    }
+  }, marketController.validateKey);
 
   // ── AUTHENTICATED ROUTES ───────────────────────────────────────────────
   fastify.get('/bias', {

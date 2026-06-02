@@ -586,11 +586,11 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
         await new Promise(resolve => setTimeout(resolve, 700));
         setConnectionPhase('Synchronizing API usage logs and constraints limit...');
         
-        const response = await fetch(`https://api.twelvedata.com/utils/api_usage?apikey=${apiKey}`);
+        const response = await fetch(`/api/v1/market/validate-key?apikey=${encodeURIComponent(apiKey)}`);
         const data = await response.json();
         
-        if (data.status === 'error' || data.error) {
-          throw new Error(data.message || data.error || 'API token declined by server');
+        if (!response.ok || data.success === false) {
+          throw new Error(data.error || data.message || 'API token declined by server');
         }
 
         setConnectionStatus('success');
