@@ -14,6 +14,7 @@ import {
   updateDoc 
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export interface CreateAlertData {
   pair: string;
@@ -21,8 +22,46 @@ export interface CreateAlertData {
   status?: string;
 }
 
+const DEFAULT_ALERTS: Alert[] = [
+  {
+    id: 'alert-default-1',
+    pair: 'BTCUSDT',
+    condition: 'Price > 69,500',
+    status: 'Active',
+    timestamp: new Date().toISOString()
+  },
+  {
+    id: 'alert-default-2',
+    pair: 'ETHUSDT',
+    condition: 'Price < 3,420',
+    status: 'Triggered',
+    timestamp: new Date(Date.now() - 3600000).toISOString()
+  }
+];
+
+function getLocalAlerts(): Alert[] {
+  if (typeof window === 'undefined') return DEFAULT_ALERTS;
+  const stored = localStorage.getItem('autoslp_local_alerts');
+  if (!stored) {
+    localStorage.setItem('autoslp_local_alerts', JSON.stringify(DEFAULT_ALERTS));
+    return DEFAULT_ALERTS;
+  }
+  return JSON.parse(stored);
+}
+
+function saveLocalAlerts(alerts: Alert[]) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('autoslp_local_alerts', JSON.stringify(alerts));
+  }
+}
+
 export const alertsApi = {
   getAlerts: async (): Promise<Alert[]> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    if (isSandbox) {
+      return getLocalAlerts();
+    }
+
     const path = 'alerts';
     try {
       const currentUser = auth.currentUser;
@@ -53,15 +92,30 @@ export const alertsApi = {
   },
 
   createAlert: async (data: CreateAlertData): Promise<Alert> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    const newId = 'alert-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    const timestamp = new Date().toISOString();
+
+    if (isSandbox) {
+      const newAlert: Alert = {
+        id: newId,
+        pair: data.pair,
+        condition: data.condition,
+        status: 'Active',
+        timestamp: timestamp
+      };
+      const items = getLocalAlerts();
+      items.unshift(newAlert);
+      saveLocalAlerts(items);
+      return newAlert;
+    }
+
     const path = 'alerts';
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('Authentication required');
       }
-
-      const newId = 'alert-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-      const timestamp = new Date().toISOString();
 
       const payload = {
         id: newId,
@@ -90,6 +144,17 @@ export const alertsApi = {
   },
 
   toggleAlert: async (id: string): Promise<Alert> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    if (isSandbox) {
+      const items = getLocalAlerts();
+      const idx = items.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        items[idx].status = items[idx].status === 'Active' ? 'Triggered' : 'Active';
+        saveLocalAlerts(items);
+        return items[idx];
+      }
+    }
+
     const path = `alerts/${id}`;
     try {
       const docRef = doc(db, 'alerts', id);

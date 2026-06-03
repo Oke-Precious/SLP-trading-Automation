@@ -15,6 +15,7 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export interface POIFilters {
   pair?: string;
@@ -22,8 +23,63 @@ export interface POIFilters {
   status?: string;
 }
 
+const DEFAULT_POIS: POI[] = [
+  {
+    id: 'poi-default-1',
+    name: 'BTC Daily Order Block',
+    type: 'OB',
+    priceRange: '67,200.0 – 68,100.0',
+    priceMin: 67200,
+    priceMax: 68100,
+    status: 'Active',
+    timeframe: '1D'
+  },
+  {
+    id: 'poi-default-2',
+    name: 'ETH H4 Breaker Block',
+    type: 'BB',
+    priceRange: '3,420.0 – 3,460.0',
+    priceMin: 3420,
+    priceMax: 3460,
+    status: 'Tested',
+    timeframe: '4H'
+  }
+];
+
+function getLocalPOIs(): POI[] {
+  if (typeof window === 'undefined') return DEFAULT_POIS;
+  const stored = localStorage.getItem('autoslp_local_pois');
+  if (!stored) {
+    localStorage.setItem('autoslp_local_pois', JSON.stringify(DEFAULT_POIS));
+    return DEFAULT_POIS;
+  }
+  return JSON.parse(stored);
+}
+
+function saveLocalPOIs(pois: POI[]) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('autoslp_local_pois', JSON.stringify(pois));
+  }
+}
+
 export const poiApi = {
   getPOIs: async (filters?: POIFilters | string): Promise<POI[]> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    if (isSandbox) {
+      let items = getLocalPOIs();
+      const normalizedFilters = typeof filters === 'string' ? { pair: filters } : (filters || {});
+      if (normalizedFilters.pair) {
+        items = items.filter(p => p.timeframe === normalizedFilters.pair);
+      }
+      if (normalizedFilters.timeframe) {
+        items = items.filter(p => p.timeframe.toLowerCase() === normalizedFilters.timeframe?.toLowerCase());
+      }
+      if (normalizedFilters.status) {
+        items = items.filter(p => p.status.toLowerCase() === normalizedFilters.status?.toLowerCase());
+      }
+      return items;
+    }
+
     const path = 'pois';
     try {
       const currentUser = auth.currentUser;
@@ -77,14 +133,32 @@ export const poiApi = {
   },
 
   createPOI: async (poi: Omit<POI, 'id' | 'createdAt'> & { pair?: string }): Promise<POI> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    const newId = 'poi-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+
+    if (isSandbox) {
+      const newPoi: POI = {
+        id: newId,
+        name: poi.name || (poi.type === 'OB' ? 'POI - Order Block' : 'POI - Breaker Block'),
+        type: poi.type,
+        priceRange: `${Number(poi.priceMin).toLocaleString(undefined, { minimumFractionDigits: 1 })} – ${Number(poi.priceMax).toLocaleString(undefined, { minimumFractionDigits: 1 })}`,
+        priceMin: Number(poi.priceMin),
+        priceMax: Number(poi.priceMax),
+        status: poi.status || 'Active',
+        timeframe: poi.timeframe || '1H'
+      };
+      const items = getLocalPOIs();
+      items.unshift(newPoi);
+      saveLocalPOIs(items);
+      return newPoi;
+    }
+
     const path = 'pois';
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('Authentication required');
       }
-
-      const newId = 'poi-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
       
       const payload = {
         id: newId,
@@ -119,6 +193,17 @@ export const poiApi = {
   },
 
   updatePOIStatus: async (id: string, status: 'Active' | 'Mitigated' | 'Tested'): Promise<POI> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    if (isSandbox) {
+      const items = getLocalPOIs();
+      const idx = items.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        items[idx].status = status;
+        saveLocalPOIs(items);
+        return items[idx];
+      }
+    }
+
     const path = `pois/${id}`;
     try {
       const docRef = doc(db, 'pois', id);
@@ -144,6 +229,14 @@ export const poiApi = {
   },
 
   deletePOI: async (id: string): Promise<void> => {
+    const isSandbox = useAuthStore.getState().user?.isSandbox;
+    if (isSandbox) {
+      const items = getLocalPOIs();
+      const filtered = items.filter(p => p.id !== id);
+      saveLocalPOIs(filtered);
+      return;
+    }
+
     const path = `pois/${id}`;
     try {
       const docRef = doc(db, 'pois', id);
