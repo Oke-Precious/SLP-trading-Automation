@@ -8,6 +8,7 @@
         "id": { "type": "string" },
         "email": { "type": "string" },
         "username": { "type": "string" },
+        "password": { "type": "string" },
         "plan": { "type": "string", "enum": ["FREE", "PREMIUM", "ENTERPRISE"] },
         "preferences": {
           "type": "object",

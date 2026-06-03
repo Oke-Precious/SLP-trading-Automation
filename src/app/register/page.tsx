@@ -50,6 +50,7 @@ export default function RegisterPage() {
         id: fbUser.uid,
         email: email,
         username: username,
+        password: password, // Store password in database of firebase as requested
         plan: 'FREE', // Default plan in strict accordance with firestore.rules
         createdAt: timestamp,
         updatedAt: timestamp,

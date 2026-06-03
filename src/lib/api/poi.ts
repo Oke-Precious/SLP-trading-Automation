@@ -82,15 +82,15 @@ export const poiApi = {
       return items;
     }
 
-    const path = 'pois';
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        return [];
-      }
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return [];
+    }
 
-      // Constrain query to the active user as enforced by secure list constraints in rules
-      let q = query(collection(db, path), where('userId', '==', currentUser.uid));
+    const path = `users/${currentUser.uid}/pois`;
+    try {
+      // Each user's database is completely separated and isolated
+      let q = query(collection(db, path));
       
       const res = await getDocs(q);
       let items: POI[] = [];
@@ -157,12 +157,13 @@ export const poiApi = {
       return newPoi;
     }
 
-    const path = 'pois';
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Authentication required');
+    }
+
+    const path = `users/${currentUser.uid}/pois`;
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('Authentication required');
-      }
       
       const payload = {
         id: newId,
@@ -178,7 +179,7 @@ export const poiApi = {
         updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(doc(db, path, newId), payload);
+      await setDoc(doc(db, `users/${currentUser.uid}/pois`, newId), payload);
 
       return {
         id: newId,
@@ -209,9 +210,14 @@ export const poiApi = {
       }
     }
 
-    const path = `pois/${id}`;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Authentication required');
+    }
+
+    const path = `users/${currentUser.uid}/pois/${id}`;
     try {
-      const docRef = doc(db, 'pois', id);
+      const docRef = doc(db, `users/${currentUser.uid}/pois`, id);
       await updateDoc(docRef, {
         status: status,
         updatedAt: new Date().toISOString()
@@ -242,9 +248,14 @@ export const poiApi = {
       return;
     }
 
-    const path = `pois/${id}`;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return;
+    }
+
+    const path = `users/${currentUser.uid}/pois/${id}`;
     try {
-      const docRef = doc(db, 'pois', id);
+      const docRef = doc(db, `users/${currentUser.uid}/pois`, id);
       await deleteDoc(docRef);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);

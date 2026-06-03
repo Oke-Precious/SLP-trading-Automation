@@ -62,14 +62,14 @@ export const alertsApi = {
       return getLocalAlerts();
     }
 
-    const path = 'alerts';
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        return [];
-      }
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return [];
+    }
 
-      const q = query(collection(db, path), where('userId', '==', currentUser.uid));
+    const path = `users/${currentUser.uid}/alerts`;
+    try {
+      const q = query(collection(db, path));
       const res = await getDocs(q);
       const items: Alert[] = [];
 
@@ -110,12 +110,13 @@ export const alertsApi = {
       return newAlert;
     }
 
-    const path = 'alerts';
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Authentication required');
+    }
+
+    const path = `users/${currentUser.uid}/alerts`;
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('Authentication required');
-      }
 
       const payload = {
         id: newId,
@@ -128,7 +129,7 @@ export const alertsApi = {
         updatedAt: timestamp
       };
 
-      await setDoc(doc(db, path, newId), payload);
+      await setDoc(doc(db, `users/${currentUser.uid}/alerts`, newId), payload);
 
       return {
         id: newId,
@@ -155,9 +156,14 @@ export const alertsApi = {
       }
     }
 
-    const path = `alerts/${id}`;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Authentication required');
+    }
+
+    const path = `users/${currentUser.uid}/alerts/${id}`;
     try {
-      const docRef = doc(db, 'alerts', id);
+      const docRef = doc(db, `users/${currentUser.uid}/alerts`, id);
       
       // Since it's a toggle, normally we will retrieve and switch status in transaction
       // But simple set/update works fine for UI toggle:

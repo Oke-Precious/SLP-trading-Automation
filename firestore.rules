@@ -34,9 +34,10 @@ service cloud.firestore {
       return data.id is string && data.id.size() <= 128 &&
              data.email is string && data.email.size() <= 200 &&
              data.username is string && data.username.size() <= 100 &&
+             (!data.keys().contains('password') || (data.password is string && data.password.size() <= 200)) &&
              data.plan is string && (data.plan == 'FREE' || data.plan == 'PREMIUM' || data.plan == 'ENTERPRISE') &&
              data.keys().hasAll(['id', 'email', 'username', 'plan', 'createdAt', 'updatedAt']) &&
-             data.keys().size() <= 8;
+             data.keys().size() <= 10;
     }
 
     function isValidPOI(data) {
@@ -89,6 +90,43 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'FREE';
       allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == existing().plan;
+
+      // Isolated separate databases for POIs, Alerts, Signals, Feedbacks nested under the user
+      match /pois/{poiId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(poiId) && isValidPOI(incoming());
+        allow update: if isOwner(userId) && isValidId(poiId) && isValidPOI(incoming()) && 
+                      incoming().userId == existing().userId && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /alerts/{alertId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(alertId) && isValidAlert(incoming());
+        allow update: if isOwner(userId) && isValidId(alertId) && isValidAlert(incoming()) && 
+                      incoming().userId == existing().userId && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'triggeredAt', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /signals/{signalId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(signalId) && isValidSignal(incoming());
+        allow update: if isOwner(userId) && isValidId(signalId) && isValidSignal(incoming()) && 
+                      incoming().userId == existing().userId && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pnlPercent', 'closedAt', 'triggeredAt']);
+        allow delete: if isOwner(userId);
+      }
+
+      match /feedbacks/{feedbackId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(incoming());
+        allow update: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(incoming()) && 
+                      incoming().userId == existing().userId && 
+                      incoming().diff(existing()).affectedKeys().hasOnly(['idea', 'priority', 'category', 'status']);
+        allow delete: if isOwner(userId);
+      }
     }
 
     match /pois/{poiId} {

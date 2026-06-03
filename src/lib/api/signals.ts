@@ -71,14 +71,14 @@ export const signalsApi = {
       return items;
     }
 
-    const path = 'signals';
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        return [];
-      }
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return [];
+    }
 
-      const q = query(collection(db, path), where('userId', '==', currentUser.uid));
+    const path = `users/${currentUser.uid}/signals`;
+    try {
+      const q = query(collection(db, path));
       const res = await getDocs(q);
       let items: Signal[] = [];
 
@@ -115,9 +115,14 @@ export const signalsApi = {
       throw new Error('Signal not found');
     }
 
-    const path = `signals/${id}`;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Authentication required');
+    }
+
+    const path = `users/${currentUser.uid}/signals/${id}`;
     try {
-      const docSnap = await getDoc(doc(db, 'signals', id));
+      const docSnap = await getDoc(doc(db, `users/${currentUser.uid}/signals`, id));
       if (!docSnap.exists()) {
         throw new Error('Signal not found');
       }

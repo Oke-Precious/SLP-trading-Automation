@@ -1,4 +1,19 @@
-import { AlertType, AlertStatus } from '@prisma/client';
+export enum AlertType {
+  PRICE_ENTERS_POI = 'PRICE_ENTERS_POI',
+  BIAS_CHANGE = 'BIAS_CHANGE',
+  MSS_DETECTED = 'MSS_DETECTED',
+  PRICE_LEVEL_ABOVE = 'PRICE_LEVEL_ABOVE',
+  PRICE_LEVEL_BELOW = 'PRICE_LEVEL_BELOW',
+  SIGNAL_CREATED = 'SIGNAL_CREATED',
+  PERCENTAGE_MOVE = 'PERCENTAGE_MOVE'
+}
+
+export enum AlertStatus {
+  ACTIVE = 'ACTIVE',
+  TRIGGERED = 'TRIGGERED',
+  DISABLED = 'DISABLED',
+  EXPIRED = 'EXPIRED'
+}
 
 export interface EvaluatableAlert {
   id: string;

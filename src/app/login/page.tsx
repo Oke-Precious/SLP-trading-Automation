@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, TrendingUp } from 'lucide-react';
+import { Eye, EyeOff, TrendingUp, X } from 'lucide-react';
 import { apiClient } from '../../lib/api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
@@ -14,6 +14,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]   = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +64,13 @@ export default function LoginPage() {
 
       if (userSnap.exists()) {
         userData = userSnap.data();
+
+        // STRICT VERIFICATION: Verify input password against the password saved in the Firestore database!
+        if (userData.password && userData.password !== password) {
+          const { signOut } = await import('firebase/auth');
+          await signOut(auth);
+          throw { code: 'auth/wrong-password', message: 'Incorrect password according to database.' };
+        }
       }
 
       const idToken = await fbUser.getIdToken();
@@ -111,6 +121,34 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.error('Please enter your email address.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { sendPasswordResetEmail } = await import('firebase/auth');
+      const { auth } = await import('../../lib/firebase/firebase');
+      await sendPasswordResetEmail(auth, resetEmail);
+      toast.success('Password reset email sent! Please check your inbox.');
+      setShowResetModal(false);
+      setResetEmail('');
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      let errorMsg = err.message || 'Failed to send password reset email.';
+      if (err.code === 'auth/user-not-found') {
+        errorMsg = 'No user found with this email address.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMsg = 'Invalid email address format.';
+      }
+      toast.error(errorMsg);
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -205,7 +243,19 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-[#9AA3B2] uppercase tracking-wider mb-2">Password</label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-xs text-[#9AA3B2] uppercase tracking-wider">Password</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email);
+                    setShowResetModal(true);
+                  }}
+                  className="text-xs text-[#CAAA98] hover:underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'} value={password}
@@ -279,6 +329,56 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-[#1E2433] border border-[#2A2E39] rounded-xl p-6 shadow-2xl w-full max-w-md relative">
+            <button
+              onClick={() => setShowResetModal(false)}
+              className="absolute right-4 top-4 text-[#9AA3B2] hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <h2 className="text-lg font-semibold text-white mb-2 font-display">Reset Password</h2>
+            <p className="text-xs text-[#9AA3B2] mb-5 leading-normal">
+              Enter your email address below, and we'll send you a link to reset your password and regain access to your account.
+            </p>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div>
+                <label className="block text-[10px] text-[#9AA3B2] uppercase tracking-wider mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={e => setResetEmail(e.target.value)}
+                  required
+                  className="w-full bg-[#131722] border border-[#2A2E39] rounded-md px-4 py-2.5
+                             text-white text-sm placeholder-[#4A5568] focus:outline-none
+                             focus:border-[#CAAA98] transition-colors"
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="flex-1 bg-[#131722] hover:bg-[#1c2130] text-white border border-[#2A2E39] font-semibold
+                             py-2.5 rounded-md transition-colors text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-bold uppercase tracking-wider
+                             py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
