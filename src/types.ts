@@ -22,6 +22,7 @@ export interface POI {
   priceMax: number;
   status: 'Active' | 'Mitigated' | 'Tested';
   timeframe: Timeframe;
+  pair?: CurrencyPair;
 }
 
 export interface Signal {

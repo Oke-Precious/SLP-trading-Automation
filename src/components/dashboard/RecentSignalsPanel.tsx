@@ -5,41 +5,22 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api/client';
+import { signalsApi } from '../../lib/api/signals';
 import { useMarketStore } from '../../store/useMarketStore';
 import { Bell, ArrowUpRight, ArrowDownRight, RotateCw } from 'lucide-react';
 import { Skeleton } from '../ui/Skeleton';
+import { Signal } from '../../types';
 
 export const RecentSignalsPanel: React.FC = () => {
   const { selectedPair } = useMarketStore();
 
-  const { data: rawSignals, isLoading, refetch } = useQuery({
-    queryKey: ['signals'],
+  const { data: signals = [], isLoading, refetch } = useQuery<Signal[]>({
+    queryKey: ['signals', selectedPair],
     queryFn: async () => {
-      const { data } = await apiClient.get('/signals', { params: { limit: 10 } });
-      return data?.data ?? data ?? [];
+      return await signalsApi.getSignals({ pair: selectedPair });
     },
     refetchInterval: 30000,
   });
-
-  // Normalize backend algorithmic signal structures safely
-  const signals = Array.isArray(rawSignals) ? rawSignals.map((sig: any) => {
-    const dir = String(sig.direction || 'LONG').toUpperCase();
-    const isLong = dir === 'LONG' || dir === 'BUY';
-    const isWin = sig.isWin ?? (sig.pnl ? parseFloat(sig.pnl) > 0 : String(sig.result || '').includes('+'));
-    const dateFormatted = sig.createdAt || sig.timestamp 
-      ? new Date(sig.createdAt || sig.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : sig.date || 'Recently';
-
-    return {
-      id: String(sig.id),
-      pair: sig.pair || 'BTCUSDT',
-      direction: isLong ? 'Long' : 'Short',
-      date: dateFormatted,
-      result: sig.result || (sig.pnl !== undefined ? `${parseFloat(sig.pnl) > 0 ? '+' : ''}${sig.pnl}R` : 'Pending'),
-      isWin,
-    };
-  }) : [];
 
   return (
     <div className="bg-card border border-border-custom rounded-xl p-5 hover:border-[#3A455E] transition-all duration-300">

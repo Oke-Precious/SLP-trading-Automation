@@ -32,7 +32,8 @@ const DEFAULT_POIS: POI[] = [
     priceMin: 67200,
     priceMax: 68100,
     status: 'Active',
-    timeframe: '1D'
+    timeframe: '1D',
+    pair: 'BTCUSDT'
   },
   {
     id: 'poi-default-2',
@@ -42,7 +43,8 @@ const DEFAULT_POIS: POI[] = [
     priceMin: 3420,
     priceMax: 3460,
     status: 'Tested',
-    timeframe: '4H'
+    timeframe: '4H',
+    pair: 'ETHUSDT'
   }
 ];
 
@@ -69,7 +71,7 @@ export const poiApi = {
       let items = getLocalPOIs();
       const normalizedFilters = typeof filters === 'string' ? { pair: filters } : (filters || {});
       if (normalizedFilters.pair) {
-        items = items.filter(p => p.timeframe === normalizedFilters.pair);
+        items = items.filter(p => p.pair === normalizedFilters.pair);
       }
       if (normalizedFilters.timeframe) {
         items = items.filter(p => p.timeframe.toLowerCase() === normalizedFilters.timeframe?.toLowerCase());
@@ -109,14 +111,15 @@ export const poiApi = {
           priceMin: Number(item.priceFrom !== undefined ? item.priceFrom : 0),
           priceMax: Number(item.priceTo !== undefined ? item.priceTo : 0),
           status: statusMapped,
-          timeframe: item.timeframe || '1H'
+          timeframe: item.timeframe || '1H',
+          pair: item.pair || 'BTCUSDT'
         } as POI);
       });
 
       // Front-end filter handling
       const normalizedFilters = typeof filters === 'string' ? { pair: filters } : (filters || {});
       if (normalizedFilters.pair) {
-        items = items.filter(p => p.timeframe === normalizedFilters.pair); // Some codes treat pair as string in filters input
+        items = items.filter(p => p.pair === normalizedFilters.pair);
       }
       if (normalizedFilters.timeframe) {
         items = items.filter(p => p.timeframe.toLowerCase() === normalizedFilters.timeframe?.toLowerCase());
@@ -145,7 +148,8 @@ export const poiApi = {
         priceMin: Number(poi.priceMin),
         priceMax: Number(poi.priceMax),
         status: poi.status || 'Active',
-        timeframe: poi.timeframe || '1H'
+        timeframe: poi.timeframe || '1H',
+        pair: poi.pair || 'BTCUSDT'
       };
       const items = getLocalPOIs();
       items.unshift(newPoi);
@@ -184,7 +188,8 @@ export const poiApi = {
         priceMin: payload.priceFrom,
         priceMax: payload.priceTo,
         status: poi.status || 'Active',
-        timeframe: payload.timeframe
+        timeframe: payload.timeframe,
+        pair: payload.pair
       };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);

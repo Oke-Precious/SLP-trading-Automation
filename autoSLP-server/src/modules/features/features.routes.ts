@@ -1,5 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient, Plan } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+export enum Plan {
+  FREE = 'FREE',
+  PRO = 'PRO',
+  ENTERPRISE = 'ENTERPRISE'
+}
 
 const prisma = new PrismaClient();
 

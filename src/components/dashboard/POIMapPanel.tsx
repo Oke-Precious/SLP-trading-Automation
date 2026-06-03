@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../../lib/api/client';
+import { poiApi } from '../../lib/api/poi';
 import { usePOIStore } from '../../store/usePOIStore';
 import { useMarketStore } from '../../store/useMarketStore';
 import { Layers, Plus, X, RotateCw } from 'lucide-react';
@@ -26,42 +26,12 @@ export const POIMapPanel: React.FC = () => {
     status: 'Active',
   });
 
-  const { data: rawPois, isLoading, refetch } = useQuery({
+  const { data: pois = [], isLoading, refetch } = useQuery<POI[]>({
     queryKey: ['pois', selectedPair],
     queryFn: async () => {
-      const { data } = await apiClient.get('/pois', { params: { pair: selectedPair } });
-      return data?.data ?? data ?? [];
+      return await poiApi.getPOIs({ pair: selectedPair });
     }
   });
-
-  // Normalize backend / DB items safely to Frontend POI model
-  const pois: POI[] = Array.isArray(rawPois) ? rawPois.map((item: any) => {
-    const typeMapped = (item.type === 'ORDER_BLOCK' || item.type === 'OB') ? 'OB' : 'BB';
-    const rawStatus = String(item.status || '').toUpperCase();
-    let statusMapped: 'Active' | 'Mitigated' | 'Tested' = 'Active';
-    
-    if (rawStatus === 'MITIGATED') {
-      statusMapped = 'Mitigated';
-    } else if (rawStatus === 'TESTED') {
-      statusMapped = 'Tested';
-    }
-
-    // Parse simple ranges or format values
-    const priceFromVal = item.priceFrom !== undefined ? item.priceFrom : (item.priceMin || 0);
-    const priceToVal = item.priceTo !== undefined ? item.priceTo : (item.priceMax || 0);
-    const rangeText = item.priceRange || `$${Number(priceFromVal).toLocaleString()} - $${Number(priceToVal).toLocaleString()}`;
-
-    return {
-      id: String(item.id),
-      name: item.notes || item.name || (typeMapped === 'OB' ? 'Demand OB' : 'Breaker OB'),
-      type: typeMapped,
-      priceRange: rangeText,
-      priceMin: Number(priceFromVal),
-      priceMax: Number(priceToVal),
-      status: statusMapped,
-      timeframe: item.timeframe || '1H'
-    };
-  }) : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,14 +42,15 @@ export const POIMapPanel: React.FC = () => {
       const parsedMin = parseFloat(formData.priceRange.split('-')[0]?.replace(/[^0-9.]/g, '') || '0');
       const parsedMax = parseFloat(formData.priceRange.split('-')[1]?.replace(/[^0-9.]/g, '') || '0') || parsedMin + 100;
 
-      await apiClient.post('/pois', {
+      await poiApi.createPOI({
         pair: selectedPair,
-        timeframe: formData.timeframe,
-        type: formData.type === 'OB' ? 'ORDER_BLOCK' : 'BREAKER_BLOCK',
-        priceFrom: parsedMin,
-        priceTo: parsedMax,
-        status: formData.status.toUpperCase(),
-        notes: formData.name
+        timeframe: formData.timeframe as any,
+        type: formData.type as any,
+        priceMin: parsedMin,
+        priceMax: parsedMax,
+        priceRange: `${parsedMin} - ${parsedMax}`,
+        status: formData.status as any,
+        name: formData.name
       });
       
       await refetch();
