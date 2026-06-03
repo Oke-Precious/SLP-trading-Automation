@@ -31,9 +31,47 @@ import FeedbackWidget from './components/FeedbackWidget';
 import { useAuthStore } from './store/useAuthStore';
 import LoginPage from './app/login/page';
 import RegisterPage from './app/register/page';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './lib/firebase/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function App() {
-  const { isLoggedIn, clearAuth } = useAuthStore();
+  const { isLoggedIn, clearAuth, setAuth } = useAuthStore();
+  
+  // Realtime Firebase Session restoration
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const userSnap = await getDoc(userDocRef);
+          
+          let userData: any = {
+            id: fbUser.uid,
+            email: fbUser.email,
+            username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+            plan: 'FREE',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          if (userSnap.exists()) {
+            userData = userSnap.data();
+          }
+          
+          const token = await fbUser.getIdToken();
+          setAuth(userData, token);
+        } catch (error) {
+          console.error("Firebase auth state synchronization failed:", error);
+        }
+      } else {
+        clearAuth();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [clearAuth, setAuth]);
+
   const [activePage, setActivePage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       if (window.location.pathname.includes('/register')) return 'register';

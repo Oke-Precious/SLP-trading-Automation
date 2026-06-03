@@ -19,22 +19,48 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/login', { email, password });
-      
-      const { user, accessToken, refreshToken } = res.data.data || res.data;
-      
-      // Save in auth store
-      setAuth(user, accessToken);
-      
-      // Sync into client/interceptor token caches
-      localStorage.setItem('autoslp_token', accessToken);
-      localStorage.setItem('autoslp_refresh_token', refreshToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      toast.success(`Welcome back, ${user.username}!`);
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth, db } = await import('../../lib/firebase/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const fbUser = userCredential.user;
+
+      // Retrieve user specifications directly from secure Firestore ruleset
+      const userDocRef = doc(db, 'users', fbUser.uid);
+      const userSnap = await getDoc(userDocRef);
+
+      let userData: any = {
+        id: fbUser.uid,
+        email: fbUser.email,
+        username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+        plan: 'FREE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (userSnap.exists()) {
+        userData = userSnap.data();
+      }
+
+      const idToken = await fbUser.getIdToken();
+
+      // Save in global state
+      setAuth(userData, idToken);
+
+      toast.success(`Welcome back, ${userData.username}!`);
       router.push('/dashboard');
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || err.response?.data?.error || 'Login failed');
+      console.error('Firebase Login Error:', err);
+      let errorMsg = err.message || 'Login failed';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errorMsg = 'Incorrect email or password. Please verify your details.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMsg = 'Invalid email address format.';
+      } else if (errorMsg.includes('auth/operation-not-allowed')) {
+        errorMsg = 'Email/Password Sign-In is disabled in your Firebase Console. Please enable it in the Authentication panel.';
+      }
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

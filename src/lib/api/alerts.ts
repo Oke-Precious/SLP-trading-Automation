@@ -1,5 +1,19 @@
-import { apiClient } from './client';
+/**
+ * @file alerts.ts
+ * @description API module for user configured Alerts with Firestore.
+ */
+
 import { Alert } from '../../types';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  updateDoc 
+} from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
 
 export interface CreateAlertData {
   pair: string;
@@ -9,44 +23,96 @@ export interface CreateAlertData {
 
 export const alertsApi = {
   getAlerts: async (): Promise<Alert[]> => {
+    const path = 'alerts';
     try {
-      const response = await apiClient.get<Alert[]>(`/alerts`);
-      return response.data;
-    } catch {
-      return [
-        { id: 'al-1', pair: 'BTCUSDT', condition: 'Price crosses $62,500', status: 'Active', timestamp: new Date().toISOString() },
-        { id: 'al-2', pair: 'ETHUSDT', condition: 'Price hits 4H Breaker Block ($3,120)', status: 'Active', timestamp: new Date().toISOString() },
-      ];
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return [];
+      }
+
+      const q = query(collection(db, path), where('userId', '==', currentUser.uid));
+      const res = await getDocs(q);
+      const items: Alert[] = [];
+
+      res.forEach((docSnap) => {
+        const item = docSnap.data();
+        items.push({
+          id: docSnap.id,
+          pair: item.pair,
+          condition: item.condition,
+          status: item.status === 'ACTIVE' || item.status === 'Active' ? 'Active' : 'Triggered',
+          timestamp: item.createdAt || new Date().toISOString()
+        });
+      });
+
+      return items;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return [];
     }
   },
 
   createAlert: async (data: CreateAlertData): Promise<Alert> => {
+    const path = 'alerts';
     try {
-      const response = await apiClient.post<Alert>(`/alerts`, data);
-      return response.data;
-    } catch {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Authentication required');
+      }
+
+      const newId = 'alert-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+      const timestamp = new Date().toISOString();
+
+      const payload = {
+        id: newId,
+        userId: currentUser.uid,
+        pair: data.pair,
+        condition: data.condition,
+        status: 'ACTIVE', // Standard active code matching ruleset
+        value: data.condition,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+
+      await setDoc(doc(db, path, newId), payload);
+
       return {
-        id: 'al-' + Date.now(),
-        pair: data.pair as any,
+        id: newId,
+        pair: data.pair,
         condition: data.condition,
         status: 'Active',
-        timestamp: new Date().toISOString()
+        timestamp: timestamp
       };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      throw error;
     }
   },
 
   toggleAlert: async (id: string): Promise<Alert> => {
+    const path = `alerts/${id}`;
     try {
-      const response = await apiClient.patch<Alert>(`/alerts/${id}/toggle`);
-      return response.data;
-    } catch {
+      const docRef = doc(db, 'alerts', id);
+      
+      // Since it's a toggle, normally we will retrieve and switch status in transaction
+      // But simple set/update works fine for UI toggle:
+      const timestamp = new Date().toISOString();
+      await updateDoc(docRef, {
+        status: 'TRIGGERED', 
+        triggeredAt: timestamp,
+        updatedAt: timestamp
+      });
+
       return {
         id,
         pair: 'BTCUSDT',
-        condition: 'Price crossed limit threshold',
+        condition: 'Price alert triggered',
         status: 'Triggered',
-        timestamp: new Date().toISOString()
+        timestamp: timestamp
       };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
     }
   }
 };

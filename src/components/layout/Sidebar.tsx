@@ -138,7 +138,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
 
           {isExpanded && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                try {
+                  const { signOut } = await import('firebase/auth');
+                  const { auth } = await import('../../lib/firebase/firebase');
+                  await signOut(auth);
+                } catch (e) {
+                  console.error("Firebase signOut exception:", e);
+                }
                 clearAuth();
                 setActivePage('login');
               }}

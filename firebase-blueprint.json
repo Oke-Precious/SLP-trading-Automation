@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account schema including trade preferences",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "username": { "type": "string" },
+        "plan": { "type": "string", "enum": ["FREE", "PREMIUM", "ENTERPRISE"] },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "defaultRiskPercentage": { "type": "number" },
+            "selectedPairs": { "type": "array" },
+            "alertChannels": { "type": "object" },
+            "theme": { "type": "string" }
+          },
+          "required": ["theme"]
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "email", "username", "plan"]
+    },
+    "POI": {
+      "title": "Point of Interest",
+      "description": "POI zones entered by the trader",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "pair": { "type": "string" },
+        "timeframe": { "type": "string" },
+        "type": { "type": "string", "enum": ["ORDER_BLOCK", "BREAKER_BLOCK"] },
+        "priceFrom": { "type": "number" },
+        "priceTo": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Mitigated", "Tested"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "pair", "timeframe", "type", "priceFrom", "priceTo", "status"]
+    },
+    "Alert": {
+      "title": "Price / Bias Alert",
+      "description": "Realtime alerts registered by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "pair": { "type": "string" },
+        "condition": { "type": "string" },
+        "value": { "type": "string" },
+        "status": { "type": "string", "enum": ["ACTIVE", "TRIGGERED", "DISABLED"] },
+        "channels": { "type": "object" },
+        "triggeredAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "pair", "condition", "value", "status"]
+    },
+    "Signal": {
+      "title": "Trading Bias Signal",
+      "description": "Biases and recommendation signals generated",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "pair": { "type": "string" },
+        "timeframe": { "type": "string" },
+        "direction": { "type": "string", "enum": ["LONG", "SHORT"] },
+        "entryFrom": { "type": "number" },
+        "entryTo": { "type": "number" },
+        "stopLoss": { "type": "number" },
+        "target1": { "type": "number" },
+        "target2": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "ACTIVE", "HIT_TP1", "HIT_TP2", "STOPPED"] },
+        "confirmationTF": { "type": "string" },
+        "rrRatio": { "type": "number" },
+        "pnlPercent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "pair", "timeframe", "direction", "entryPrice", "status"]
+    },
+    "Feedback": {
+      "title": "User Feedback",
+      "description": "Form responses submitted by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "idea": { "type": "string" },
+        "priority": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "idea", "priority", "category"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "/pois/{poiId}": {
+      "schema": "POI",
+      "description": "Point Of Interest zones"
+    },
+    "/alerts/{alertId}": {
+      "schema": "Alert",
+      "description": "User configuration alerts"
+    },
+    "/signals/{signalId}": {
+      "schema": "Signal",
+      "description": "User bias signals"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User suggestions and feedbacks"
+    }
+  }
+}

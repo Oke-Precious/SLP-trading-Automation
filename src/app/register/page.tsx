@@ -33,22 +33,57 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await apiClient.post('/auth/register', { email, username, password });
-      
-      const { user, accessToken, refreshToken } = res.data.data || res.data;
-      
-      // Save in auth store
-      setAuth(user, accessToken);
-      
-      // Sync into client/interceptor token caches
-      localStorage.setItem('autoslp_token', accessToken);
-      localStorage.setItem('autoslp_refresh_token', refreshToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+      const { auth, db } = await import('../../lib/firebase/firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
 
-      toast.success(`Welcome to AutoSLP, ${user.username}!`);
+      // Create firebase auth user
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const fbUser = userCredential.user;
+
+      // Update auth profile
+      await updateProfile(fbUser, { displayName: username });
+
+      // Save initial user preferences, theme, and selected asset pairs
+      const timestamp = new Date().toISOString();
+      const newUserData = {
+        id: fbUser.uid,
+        email: email,
+        username: username,
+        plan: 'FREE', // Default plan in strict accordance with firestore.rules
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        preferences: {
+          defaultRiskPercentage: 1.5,
+          selectedPairs: ['BTCUSDT', 'ETHUSDT'],
+          alertChannels: { browser: true, telegram: false, discord: false },
+          theme: 'dark'
+        }
+      };
+
+      // Set user profile in Firestore
+      await setDoc(doc(db, 'users', fbUser.uid), newUserData);
+
+      const idToken = await fbUser.getIdToken();
+
+      // Set user registration in Zustand store
+      setAuth(newUserData, idToken);
+
+      toast.success(`Welcome to AutoSLP, ${username}! Your cloud account is fully setup.`);
       router.push('/dashboard');
     } catch (err: any) {
-      toast.error(err.response?.data?.error?.message || err.response?.data?.error || 'Registration failed');
+      console.error('Firebase Registration Error:', err);
+      let errorMsg = err.message || 'Registration failed';
+      if (err.code === 'auth/email-already-in-use') {
+        errorMsg = 'This email is already registered. Please login or try another email.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMsg = 'Weak password. Please choose a stronger password.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMsg = 'Invalid email address format.';
+      } else if (errorMsg.includes('auth/operation-not-allowed')) {
+        errorMsg = 'Email/Password Sign-In is disabled in your Firebase Console. Please enable it in the Authentication panel.';
+      }
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
