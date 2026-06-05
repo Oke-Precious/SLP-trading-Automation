@@ -86,8 +86,8 @@ export const alertsApi = {
 
       return items;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
-      return [];
+      console.warn(`⚠️ [alertsApi] Firestore getDocs failed on "${path}", falling back to Local Storage:`, error);
+      return getLocalAlerts();
     }
   },
 
@@ -139,8 +139,18 @@ export const alertsApi = {
         timestamp: timestamp
       };
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
-      throw error;
+      console.warn(`⚠️ [alertsApi] Firestore setDoc failed on "${path}", saving directly to Local Storage:`, error);
+      const newAlert: Alert = {
+        id: newId,
+        pair: data.pair,
+        condition: data.condition,
+        status: 'Active',
+        timestamp: timestamp
+      };
+      const items = getLocalAlerts();
+      items.unshift(newAlert);
+      saveLocalAlerts(items);
+      return newAlert;
     }
   },
 
@@ -182,8 +192,21 @@ export const alertsApi = {
         timestamp: timestamp
       };
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, path);
-      throw error;
+      console.warn(`⚠️ [alertsApi] Firestore updateDoc failed on "${path}", toggling directly in Local Storage:`, error);
+      const items = getLocalAlerts();
+      const idx = items.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        items[idx].status = items[idx].status === 'Active' ? 'Triggered' : 'Active';
+        saveLocalAlerts(items);
+        return items[idx];
+      }
+      return {
+        id,
+        pair: 'BTCUSDT',
+        condition: 'Price alert toggled',
+        status: 'Triggered',
+        timestamp: new Date().toISOString()
+      };
     }
   }
 };

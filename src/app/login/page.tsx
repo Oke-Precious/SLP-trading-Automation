@@ -54,10 +54,6 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = userCredential.user;
 
-      // Retrieve user specifications directly from secure Firestore ruleset
-      const userDocRef = doc(db, 'users', fbUser.uid);
-      const userSnap = await getDoc(userDocRef);
-
       let userData: any = {
         id: fbUser.uid,
         email: fbUser.email,
@@ -67,20 +63,26 @@ export default function LoginPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      if (userSnap.exists()) {
-        userData = userSnap.data();
+      try {
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap && userSnap.exists()) {
+          userData = userSnap.data();
 
-        // Password Synchronization
-        if (userData.password && userData.password !== password) {
-          try {
-            const { setDoc, doc } = await import('firebase/firestore');
-            await setDoc(doc(db, 'users', fbUser.uid), { password }, { merge: true });
-            userData.password = password;
-            console.log('🔑 [AutoSLP Auth] Restored/reset password synchronized successfully.');
-          } catch (syncErr) {
-            console.warn('[AutoSLP Auth] Local password synchronization failed:', syncErr);
+          // Password Synchronization
+          if (userData.password && userData.password !== password) {
+            try {
+              const { setDoc, doc } = await import('firebase/firestore');
+              await setDoc(doc(db, 'users', fbUser.uid), { password }, { merge: true });
+              userData.password = password;
+              console.log('🔑 [AutoSLP Auth] Restored/reset password synchronized successfully.');
+            } catch (syncErr) {
+              console.warn('[AutoSLP Auth] Local password synchronization failed:', syncErr);
+            }
           }
         }
+      } catch (dbErr) {
+        console.warn("⚠️ [Firebase] Could not access Firestore user document on credential login. Proceeding with Auth fallback:", dbErr);
       }
 
       const idToken = await fbUser.getIdToken();
@@ -173,30 +175,31 @@ export default function LoginPage() {
       const userCredential = await signInWithPopup(auth, provider);
       const fbUser = userCredential.user;
 
-      // Retrieve or create user profile in secure Firestore ruleset
-      const userDocRef = doc(db, 'users', fbUser.uid);
-      const userSnap = await getDoc(userDocRef);
+      let userData: any = {
+        id: fbUser.uid,
+        email: fbUser.email,
+        username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+        plan: 'FREE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        preferences: {
+          defaultRiskPercentage: 1.5,
+          selectedPairs: ['BTCUSDT', 'ETHUSDT'],
+          alertChannels: { browser: true, telegram: false, discord: false },
+          theme: 'dark'
+        }
+      };
 
-      let userData: any;
-      if (userSnap.exists()) {
-        userData = userSnap.data();
-      } else {
-        const timestamp = new Date().toISOString();
-        userData = {
-          id: fbUser.uid,
-          email: fbUser.email,
-          username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
-          plan: 'FREE',
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          preferences: {
-            defaultRiskPercentage: 1.5,
-            selectedPairs: ['BTCUSDT', 'ETHUSDT'],
-            alertChannels: { browser: true, telegram: false, discord: false },
-            theme: 'dark'
-          }
-        };
-        await setDoc(userDocRef, userData);
+      try {
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap && userSnap.exists()) {
+          userData = userSnap.data();
+        } else {
+          await setDoc(userDocRef, userData);
+        }
+      } catch (dbErr) {
+        console.warn("⚠️ [Firebase] Could not access Firestore user document on Google Sign-in. Proceeding with Auth fallback:", dbErr);
       }
 
       const idToken = await fbUser.getIdToken();

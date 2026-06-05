@@ -130,8 +130,19 @@ export const poiApi = {
 
       return items;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
-      return [];
+      console.warn(`⚠️ [poiApi] Firestore getDocs failed on "${path}", falling back to Local Storage:`, error);
+      let items = getLocalPOIs();
+      const normalizedFilters = typeof filters === 'string' ? { pair: filters } : (filters || {});
+      if (normalizedFilters.pair) {
+        items = items.filter(p => p.pair === normalizedFilters.pair);
+      }
+      if (normalizedFilters.timeframe) {
+        items = items.filter(p => p.timeframe.toLowerCase() === normalizedFilters.timeframe?.toLowerCase());
+      }
+      if (normalizedFilters.status) {
+        items = items.filter(p => p.status.toLowerCase() === normalizedFilters.status?.toLowerCase());
+      }
+      return items;
     }
   },
 
@@ -193,8 +204,22 @@ export const poiApi = {
         pair: payload.pair
       };
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
-      throw error;
+      console.warn(`⚠️ [poiApi] Firestore setDoc failed on "${path}", saving directly to Local Storage:`, error);
+      const newPoi: POI = {
+        id: newId,
+        name: poi.name || (poi.type === 'OB' ? 'POI - Order Block' : 'POI - Breaker Block'),
+        type: poi.type,
+        priceRange: `${Number(poi.priceMin).toLocaleString(undefined, { minimumFractionDigits: 1 })} – ${Number(poi.priceMax).toLocaleString(undefined, { minimumFractionDigits: 1 })}`,
+        priceMin: Number(poi.priceMin),
+        priceMax: Number(poi.priceMax),
+        status: poi.status || 'Active',
+        timeframe: poi.timeframe || '1H',
+        pair: poi.pair || 'BTCUSDT'
+      };
+      const items = getLocalPOIs();
+      items.unshift(newPoi);
+      saveLocalPOIs(items);
+      return newPoi;
     }
   },
 
@@ -234,8 +259,24 @@ export const poiApi = {
         timeframe: '1H'
       };
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, path);
-      throw error;
+      console.warn(`⚠️ [poiApi] Firestore updateDoc failed on "${path}", saving directly to Local Storage:`, error);
+      const items = getLocalPOIs();
+      const idx = items.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        items[idx].status = status;
+        saveLocalPOIs(items);
+        return items[idx];
+      }
+      return {
+        id,
+        name: 'Updated OB Zone',
+        type: 'OB',
+        priceRange: '',
+        priceMin: 0,
+        priceMax: 0,
+        status,
+        timeframe: '1H'
+      };
     }
   },
 
@@ -258,7 +299,10 @@ export const poiApi = {
       const docRef = doc(db, `users/${currentUser.uid}/pois`, id);
       await deleteDoc(docRef);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, path);
+      console.warn(`⚠️ [poiApi] Firestore deleteDoc failed on "${path}", deleting directly from Local Storage:`, error);
+      const items = getLocalPOIs();
+      const filtered = items.filter(p => p.id !== id);
+      saveLocalPOIs(filtered);
     }
   }
 };

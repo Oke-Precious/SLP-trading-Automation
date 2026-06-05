@@ -16,6 +16,7 @@ import { CurrencyPair, Timeframe } from '../../types';
 import { useMarketStore } from '../../store/useMarketStore';
 import { useBiasStore } from '../../store/useBiasStore';
 import { useUIStore } from '../../store/useUIStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { onSignalCreated, onAlertTriggered, onPOIStatusChange } from '../../lib/websocket/client';
 import { useRealtimeTicker } from '../../hooks/useRealtimeTicker';
 import { ALL_INSTRUMENTS, formatPrice } from '../../lib/market/marketDataService';
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch
 }) => {
   const { selectedPair, setSelectedPair, selectedTimeframe, setSelectedTimeframe } = useMarketStore();
+  const { user, clearAuth } = useAuthStore();
   const { ticker } = useRealtimeTicker(selectedPair);
   const { biasMap } = useBiasStore();
   
@@ -401,16 +403,16 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className="flex items-center space-x-1 focus:outline-none cursor-pointer p-1 rounded-md hover:bg-[#2A3245]"
           >
-            <div className="w-7 h-7 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-bold text-xs">
-              M
+            <div className="w-7 h-7 rounded-full bg-slate-700 border border-[#CAAA98] flex items-center justify-center text-white font-bold text-xs uppercase">
+              {(user?.username || 'Trader')[0]}
             </div>
             <ChevronDown size={12} className="text-gray-400" />
           </button>
 
           {userMenuOpen && (
-            <div className="absolute right-0 mt-2 w-44 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-1">
-              <div className="px-3 py-1.5 border-b border-[#2A2E39] text-[10px] text-gray-500 font-mono">
-                MARCUS VANCE
+            <div className="absolute right-0 mt-2 w-48 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-1">
+              <div className="px-3 py-1.5 border-b border-[#2A2E39] text-[10px] text-gray-400 font-mono uppercase">
+                {user?.username || 'Marcus Vance'}
               </div>
               <button
                 onClick={() => {
@@ -421,14 +423,21 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 Trader Personas
               </button>
-              <div className="w-[calc(100%-8px)] mx-1 my-1 px-3 py-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 font-bold uppercase tracking-wider rounded select-none">
-                PRO PLAN ACTIVE
+              <div className="w-[calc(100%-8px)] mx-1 my-1 px-3 py-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 font-bold uppercase tracking-wider rounded select-none text-center">
+                {user?.plan || 'PRO PLAN'} ACTIVE
               </div>
               <div className="border-t border-[#2A2E39] my-1" />
               <button
-                onClick={() => {
+                onClick={async () => {
                   setUserMenuOpen(false);
-                  alert("Logged out successfully! (Mock Simulation Only)");
+                  try {
+                    const { signOut } = await import('firebase/auth');
+                    const { auth } = await import('../../lib/firebase/firebase');
+                    await signOut(auth);
+                  } catch (e) {
+                    console.error("Firebase signOut exception in Header:", e);
+                  }
+                  clearAuth();
                 }}
                 className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#202738] rounded cursor-pointer"
               >

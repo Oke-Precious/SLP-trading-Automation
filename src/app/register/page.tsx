@@ -90,8 +90,12 @@ export default function RegisterPage() {
         }
       };
 
-      // Set user profile in Firestore
-      await setDoc(doc(db, 'users', fbUser.uid), newUserData);
+      // Set user profile in Firestore (best effort)
+      try {
+        await setDoc(doc(db, 'users', fbUser.uid), newUserData);
+      } catch (dbErr) {
+        console.warn("⚠️ [Firebase] Could not create Firestore user document, registration completed on Auth only:", dbErr);
+      }
 
       const idToken = await fbUser.getIdToken();
 
@@ -143,30 +147,31 @@ export default function RegisterPage() {
       const userCredential = await signInWithPopup(auth, provider);
       const fbUser = userCredential.user;
 
-      // Retrieve or create user profile in secure Firestore ruleset
-      const userDocRef = doc(db, 'users', fbUser.uid);
-      const userSnap = await getDoc(userDocRef);
+      let userData: any = {
+        id: fbUser.uid,
+        email: fbUser.email,
+        username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+        plan: 'FREE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        preferences: {
+          defaultRiskPercentage: 1.5,
+          selectedPairs: ['BTCUSDT', 'ETHUSDT'],
+          alertChannels: { browser: true, telegram: false, discord: false },
+          theme: 'dark'
+        }
+      };
 
-      let userData: any;
-      if (userSnap.exists()) {
-        userData = userSnap.data();
-      } else {
-        const timestamp = new Date().toISOString();
-        userData = {
-          id: fbUser.uid,
-          email: fbUser.email,
-          username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
-          plan: 'FREE',
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          preferences: {
-            defaultRiskPercentage: 1.5,
-            selectedPairs: ['BTCUSDT', 'ETHUSDT'],
-            alertChannels: { browser: true, telegram: false, discord: false },
-            theme: 'dark'
-          }
-        };
-        await setDoc(userDocRef, userData);
+      try {
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap && userSnap.exists()) {
+          userData = userSnap.data();
+        } else {
+          await setDoc(userDocRef, userData);
+        }
+      } catch (dbErr) {
+        console.warn("⚠️ [Firebase] Could not access Firestore user document on Google Registration. Proceeding with Auth fallback:", dbErr);
       }
 
       const idToken = await fbUser.getIdToken();

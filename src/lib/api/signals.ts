@@ -101,8 +101,12 @@ export const signalsApi = {
 
       return items;
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
-      return [];
+      console.warn(`⚠️ [signalsApi] Firestore getDocs failed on "${path}", falling back to Local Storage:`, error);
+      let items = getLocalSignals();
+      if (filters?.pair) {
+        items = items.filter(s => s.pair === filters.pair);
+      }
+      return items;
     }
   },
 
@@ -138,7 +142,10 @@ export const signalsApi = {
         isWin: item.status === 'HIT_TP1' || item.status === 'HIT_TP2'
       };
     } catch (error) {
-      handleFirestoreError(error, OperationType.GET, path);
+      console.warn(`⚠️ [signalsApi] Firestore getDoc failed on "${path}", falling back to Local Storage:`, error);
+      const items = getLocalSignals();
+      const signal = items.find(s => s.id === id);
+      if (signal) return signal;
       throw error;
     }
   }

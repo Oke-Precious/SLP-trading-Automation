@@ -42,27 +42,30 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
+        let userData: any = {
+          id: fbUser.uid,
+          email: fbUser.email,
+          username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+          plan: 'FREE',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
         try {
           const userDocRef = doc(db, 'users', fbUser.uid);
           const userSnap = await getDoc(userDocRef);
-          
-          let userData: any = {
-            id: fbUser.uid,
-            email: fbUser.email,
-            username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
-            plan: 'FREE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          if (userSnap.exists()) {
+          if (userSnap && userSnap.exists()) {
             userData = userSnap.data();
           }
-          
+        } catch (error) {
+          console.warn("⚠️ [Firebase] Could not fetch user profile from Firestore (offline, permissions, or database has not been created yet). Falling back to auth metadata:", error);
+        }
+        
+        try {
           const token = await fbUser.getIdToken();
           setAuth(userData, token);
-        } catch (error) {
-          console.error("Firebase auth state synchronization failed:", error);
+        } catch (tokenErr) {
+          console.error("Failed to retrieve auth ID token:", tokenErr);
         }
       } else {
         clearAuth();
