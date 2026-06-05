@@ -4,20 +4,40 @@ import {
   initializeFirestore, 
   persistentLocalCache, 
   persistentMultipleTabManager,
+  getFirestore,
   doc, 
-  getDoc 
+  getDoc,
+  getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Resilient Firestore configuration with local persistent offline caching
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-}, firebaseConfig.firestoreDatabaseId);
+// Resilient Firestore configuration with local persistent offline caching and HTTP long polling fallback
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    }),
+    experimentalForceLongPolling: true
+  }, firebaseConfig.firestoreDatabaseId);
+  console.log('🔥 [Firebase] Firestore initialized successfully with robust long-polling and persistent cache.');
+} catch (error) {
+  console.warn('⚠️ [Firebase] Failed to initialize Firestore with persistent offline cache. Falling back to memory-only representation:', error);
+  try {
+    dbInstance = initializeFirestore(app, {
+      experimentalForceLongPolling: true
+    }, firebaseConfig.firestoreDatabaseId);
+  } catch (errInner) {
+    console.error('❌ [Firebase] Failed standard Firestore initialization:', errInner);
+    // Explicitly fallback to default getFirestore
+    dbInstance = getFirestore(app);
+  }
+}
+
+export const db = dbInstance;
 
 export const auth = getAuth();
 
@@ -73,11 +93,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Validation Connection to Firestore on Boot, as strictly mandated
 async function testConnection() {
   try {
-    // Attempt cached retrieval to check client-resilience and verify connection settings
-    await getDoc(doc(db, 'test', 'connection'));
+    // Attempt getDocFromServer to verify connection settings
+    await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    // Gracefully handle any startup connectivity check failures silently since persistent offline cache is active
-    console.warn('[Firebase] Startup connection validation resolved gracefully with persistent caching active.');
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
+    } else {
+      console.warn('[Firebase] Startup connection validation resolved gracefully with offline-first support active.');
+    }
   }
 }
 

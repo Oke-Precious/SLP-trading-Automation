@@ -17,9 +17,11 @@ export default function RegisterPage() {
   
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null);
 
     if (password.length < 8) {
       toast.error('Password must be at least 8 characters long');
@@ -75,62 +77,25 @@ export default function RegisterPage() {
     } catch (err: any) {
       console.error('Firebase Registration Error:', err);
       let errorMsg = err.message || 'Registration failed';
+      const errorCode = err.code || 'unknown';
       if (err.code === 'auth/email-already-in-use') {
         errorMsg = 'This email is already registered. Please login or try another email.';
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else if (err.code === 'auth/weak-password') {
         errorMsg = 'Weak password. Please choose a stronger password.';
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else if (err.code === 'auth/invalid-email') {
         errorMsg = 'Invalid email address format.';
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else if (err.code === 'auth/operation-not-allowed' || errorMsg.includes('auth/operation-not-allowed')) {
-        // Automatically enter local Sandbox Mode to prevent Firebase restrictions from blocking the beginner user
-        try {
-          const storedUsers = typeof window !== 'undefined' ? localStorage.getItem('autoslp_sandbox_users') : null;
-          const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
-          
-          if (localUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase())) {
-            toast.error('This email is already registered locally in Sandbox Mode! Try signing in.');
-            setLoading(false);
-            return;
-          }
-
-          const timestamp = new Date().toISOString();
-          const sandboxUserData = {
-            id: 'sandbox-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-            email: email,
-            username: username,
-            plan: 'FREE',
-            isSandbox: true,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            preferences: {
-              defaultRiskPercentage: 1.5,
-              selectedPairs: ['BTCUSDT', 'ETHUSDT'],
-              alertChannels: { browser: true, telegram: false, discord: false },
-              theme: 'dark'
-            }
-          };
-
-          localUsers.push({ email, username, password, userData: sandboxUserData });
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('autoslp_sandbox_users', JSON.stringify(localUsers));
-          }
-
-          toast.loading('Firebase email signup disabled. Initializing safe Local Sandbox Session...', { id: 'sandbox-init', duration: 3000 });
-          
-          setTimeout(() => {
-            // Sign user in using Sandbox credentials
-            setAuth(sandboxUserData, 'sandbox-token-session-' + Date.now());
-            toast.success(`Welcome to AutoSLP Sandbox, ${username}! Your local login is active.`, { id: 'sandbox-init' });
-            router.push('/dashboard');
-          }, 1500);
-        } catch (storageErr) {
-          console.error("Local register fallback error:", storageErr);
-          toast.error("An error occurred during local registration fallback.");
-        }
+        errorMsg = 'Email/Password registration is currently not enabled in your Firebase console.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error('Email & Password provider is disabled. Follow the guide on your screen to enable it!', { duration: 6000 });
       } else {
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       }
     } finally {
@@ -140,6 +105,7 @@ export default function RegisterPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setAuthError(null);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
       const { auth, db } = await import('../../lib/firebase/firebase');
@@ -184,10 +150,15 @@ export default function RegisterPage() {
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
+      const errorCode = err.code || 'unknown';
+      let errorMsg = err.message || 'Google Sign-In failed';
       if (err.code === 'auth/popup-closed-by-user' || err.message?.includes('popup-closed-by-user')) {
-        toast.error('Google popup was closed or blocked. Manual signup with details is enabled below as a robust fallback!', { duration: 6000 });
+        errorMsg = 'Google authentication popup was closed before completion. If popups are restricted in this embedded preview frame, we highly recommend launching the app in a new tab.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error('Sign-in popup closed. Tap "Open App in New Tab" at top right to bypass iframe limits.', { duration: 7000 });
       } else {
-        toast.error(err.message || 'Google Sign-In failed');
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error(errorMsg);
       }
     } finally {
       setLoading(false);
@@ -210,11 +181,59 @@ export default function RegisterPage() {
         <div className="bg-[#1E2433] border border-[#2A2E39] rounded-xl p-8 shadow-2xl">
           <h1 className="text-xl font-semibold text-white mb-6 font-display">Create Account</h1>
 
-          {/* Helpful sandbox sandbox/iframe alert */}
-          <div className="mb-5 p-3.5 bg-[#131722]/60 border border-[#2A2E39]/80 rounded-md text-xs text-[#9AA3B2] leading-relaxed">
-            <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">💡 Running in Preview Mode?</span>
-            If the Google Sign-In popup gets blocked or closed, simply **register manually** with your details below! AutoSLP will set up a local sandbox session instantly.
-          </div>
+          {/* Dynamic Interactive Troubleshooting Alert */}
+          {authError ? (
+            <div className="mb-5 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs leading-relaxed animate-fadeIn text-amber-200">
+              <span className="text-amber-400 font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans">
+                ⚠️ Connection Helper ({authError.code})
+              </span>
+              
+              {authError.code === 'auth/operation-not-allowed' ? (
+                <div className="space-y-2 text-[#C8D1E0]">
+                  <p className="text-[#F1F5F9] font-medium font-sans">
+                    Email/Password registration is not enabled in your Firebase Console.
+                  </p>
+                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Quick Setup Steps:</p>
+                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
+                    <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline hover:text-amber-300">Firebase Console</a>.</li>
+                    <li>Click <strong>Authentication</strong> in the left menu.</li>
+                    <li>Navigate to the <strong>Sign-in method</strong> tab.</li>
+                    <li>Click <strong>Add new provider</strong>, select <strong>Email/Password</strong>, choose <strong>Enable</strong>, and click <strong>Save</strong>!</li>
+                  </ol>
+                  <p className="text-[10px] text-[#718096] italic mt-2">
+                    (Once enabled in Firebase, you can register or sign-in with any custom email instantly.)
+                  </p>
+                </div>
+              ) : authError.code === 'auth/popup-closed-by-user' ? (
+                <div className="space-y-2 text-[#C8D1E0]">
+                  <p className="text-[#F1F5F9] font-medium font-sans">
+                    Google sign-up popup was blocked or closed before completion.
+                  </p>
+                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Resolution Steps:</p>
+                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
+                    <li>Look at the very top-right of your AI Studio/preview screen panel.</li>
+                    <li>Click the <strong className="text-white">"Open App in New Tab" ↗</strong> button.</li>
+                    <li>In the standalone tab, complete Google Sign-In flawlessly in 1 click!</li>
+                  </ol>
+                </div>
+              ) : (
+                <p className="text-[#C8D1E0]">{authError.message}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setAuthError(null)}
+                className="mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block text-[#CAAA98] hover:text-[#e4cfc2] uppercase tracking-wider bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 px-2 py-1 rounded w-full text-center border border-[#CAAA98]/20 transition-all"
+              >
+                Dismiss Error Help
+              </button>
+            </div>
+          ) : (
+            <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed animate-fadeIn">
+              <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">🔒 Create Real Account</span>
+              Sign up securely with your Google Account as your primary, 1-click option. If you prefer to register standard Email/Password accounts, make sure "Email/Password" is enabled in your Firebase console.
+            </div>
+          )}
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div>

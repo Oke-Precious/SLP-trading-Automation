@@ -56,11 +56,18 @@ export async function createServer(): Promise<FastifyInstance> {
     reply.header('X-Content-Type-Options', 'nosniff');
   });
 
-  // 3. CORS: Allow only NEXT_PUBLIC_APP_URL origin (allow undefined origins exclusively for tests / internal requests)
+  // 3. CORS: Allow only NEXT_PUBLIC_APP_URL origin (allow development, sandbox, or loopback origins robustly)
   const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL;
   await server.register(cors, {
     origin: (origin, cb) => {
-      if (!origin || !allowedOrigin || origin === allowedOrigin) {
+      if (
+        !origin || 
+        !allowedOrigin || 
+        origin === allowedOrigin || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1') || 
+        origin.includes('run.app')
+      ) {
         cb(null, true);
         return;
       }

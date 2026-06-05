@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from './auth.service.js';
 import { redisClient } from '../../shared/utils/cache.js';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/db.js';
 import { 
   encrypt, 
   decrypt, 
@@ -17,7 +17,6 @@ import { limitRate } from '../../shared/utils/rate-limit.js';
 import QRCode from 'qrcode';
 
 const authService = new AuthService();
-const prisma = new PrismaClient();
 
 export async function authRoutes(server: FastifyInstance) {
 

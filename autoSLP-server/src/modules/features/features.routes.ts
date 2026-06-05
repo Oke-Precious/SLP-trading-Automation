@@ -1,13 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/db.js';
 
 export enum Plan {
   FREE = 'FREE',
   PRO = 'PRO',
   ENTERPRISE = 'ENTERPRISE'
 }
-
-const prisma = new PrismaClient();
 
 // Hashed evaluation algorithm for stable user rollouts
 function isRolloutActiveForUser(userId: string, rolloutPercentage: number): boolean {

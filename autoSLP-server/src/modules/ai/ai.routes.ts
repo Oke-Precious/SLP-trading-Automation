@@ -1,9 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/db.js';
 import { detectMarketPatterns } from './pattern.recognition.js';
 import { limitRate } from '../../shared/utils/rate-limit.js';
-
-const prisma = new PrismaClient();
 
 export async function aiRoutes(server: FastifyInstance) {
   // Authorization check middleware/helper

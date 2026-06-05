@@ -1,9 +1,7 @@
 import crypto from 'crypto';
 import { TOTP, verifySync, generateSecret } from 'otplib';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import fs from 'fs/promises';
-
-const prisma = new PrismaClient();
 const totp = new TOTP();
 
 // -------------------------------------------------------------

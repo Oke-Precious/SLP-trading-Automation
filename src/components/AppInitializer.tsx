@@ -5,12 +5,17 @@ import { alertEngine } from '../lib/alerts/alertEngine';
 import { useUIStore } from '../store/useUIStore';
 
 export const AppInitializer: React.FC = () => {
-  const { alerts, updateAlert } = useAlertStore();
+  const alerts = useAlertStore((s) => s.alerts);
+  const updateAlert = useAlertStore((s) => s.updateAlert);
   const setConnectionStatus = useUIStore((s) => s.setConnectionStatus);
 
+  // Derive a stable primitive dependency key for active alert updates to avoid infinite loops
+  const alertsKey = alerts.map((a) => `${a.id}:${a.status}`).join(',');
+
   useEffect(() => {
+    const currentAlerts = useAlertStore.getState().alerts;
     // 1. Alert monitoring activation
-    alertEngine.startMonitoring(alerts, alerts, updateAlert);
+    alertEngine.startMonitoring(currentAlerts, currentAlerts, updateAlert);
 
     // 2. Alert callbacks (toaster popup)
     const unsub = alertEngine.onTrigger((triggeredAlert) => {
@@ -41,14 +46,14 @@ export const AppInitializer: React.FC = () => {
       }
     }
 
-    console.log('🤖 [AutoSLP] Engine initialized. Alerts registered:', alerts.filter(a => a.status === 'ACTIVE').length);
+    console.log('🤖 [AutoSLP] Engine initialized. Alerts registered:', currentAlerts.filter(a => a.status === 'ACTIVE').length);
 
     return () => {
       alertEngine.stopAll();
       unsub();
       clearTimeout(connectTimer);
     };
-  }, [alerts, updateAlert, setConnectionStatus]);
+  }, [alertsKey, updateAlert, setConnectionStatus]);
 
   return null;
 };

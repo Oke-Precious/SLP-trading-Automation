@@ -1,15 +1,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/db.js';
+import { limitRate } from '../../shared/utils/rate-limit.js';
+import { sanitizeString } from '../../shared/utils/security.js';
 
 export enum Plan {
   FREE = 'FREE',
   PRO = 'PRO',
   ENTERPRISE = 'ENTERPRISE'
 }
-import { limitRate } from '../../shared/utils/rate-limit.js';
-import { sanitizeString } from '../../shared/utils/security.js';
-
-const prisma = new PrismaClient();
 
 // In-memory fallbacks to maintain pristine reliability if database is temporarily down
 let offlineFeedback: any[] = [];

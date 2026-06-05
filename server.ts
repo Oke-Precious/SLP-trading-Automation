@@ -20,7 +20,7 @@ async function startServer() {
   // Import and boot the Fastify backend programmatically in the same Node.js runtime process
   try {
     console.log('[Unified Server] Attempting programmatic boot of autoSLP-server Fastify backend...');
-    await import('./autoSLP-server/src/index.js');
+    await import('./autoSLP-server/src/index.ts');
     console.log('[Unified Server] autoSLP-server Fastify backend booted successfully on port 3002!');
   } catch (error) {
     console.error('[Unified Server] CRITICAL WARNING: Fastify backend failed to boot programmatically.', error);

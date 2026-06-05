@@ -17,29 +17,12 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    // Check local Sandbox Users backup database FIRST
-    try {
-      const storedUsers = typeof window !== 'undefined' ? localStorage.getItem('autoslp_sandbox_users') : null;
-      const localUsers = storedUsers ? JSON.parse(storedUsers) : [];
-      const match = localUsers.find((u: any) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-      
-      if (match) {
-        toast.loading('Logging into local Sandbox session...', { id: 'sandbox-init-login', duration: 1500 });
-        setTimeout(() => {
-          setAuth(match.userData, 'sandbox-token-session-' + Date.now());
-          toast.success(`Welcome back, ${match.userData.username}! (Sandbox Mode)`, { id: 'sandbox-init-login' });
-          router.push('/dashboard');
-        }, 1000);
-        return;
-      }
-    } catch (storageErr) {
-      console.error('Local Users lookup error:', storageErr);
-    }
+    setAuthError(null);
 
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
@@ -65,11 +48,16 @@ export default function LoginPage() {
       if (userSnap.exists()) {
         userData = userSnap.data();
 
-        // STRICT VERIFICATION: Verify input password against the password saved in the Firestore database!
+        // Password Synchronization
         if (userData.password && userData.password !== password) {
-          const { signOut } = await import('firebase/auth');
-          await signOut(auth);
-          throw { code: 'auth/wrong-password', message: 'Incorrect password according to database.' };
+          try {
+            const { setDoc, doc } = await import('firebase/firestore');
+            await setDoc(doc(db, 'users', fbUser.uid), { password }, { merge: true });
+            userData.password = password;
+            console.log('🔑 [AutoSLP Auth] Restored/reset password synchronized successfully.');
+          } catch (syncErr) {
+            console.warn('[AutoSLP Auth] Local password synchronization failed:', syncErr);
+          }
         }
       }
 
@@ -83,40 +71,21 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error('Firebase Login Error:', err);
       let errorMsg = err.message || 'Login failed';
-      if (err.code === 'auth/operation-not-allowed' || errorMsg.includes('auth/operation-not-allowed') || (email === 'demo@autoslp.com' && password === 'Demo@1234')) {
-        // Automatically activate Sandbox fallback session using custom login email or demo
-        toast.loading('Initializing local Sandbox user session...', { id: 'sandbox-init-login', duration: 3000 });
-        
-        setTimeout(() => {
-          const timestamp = new Date().toISOString();
-          const targetUsername = email === 'demo@autoslp.com' ? 'Demo Trader' : email.split('@')[0];
-          const sandboxUserData = {
-            id: 'sandbox-' + Math.random().toString(36).substring(2, 9),
-            email: email,
-            username: targetUsername,
-            plan: 'FREE',
-            isSandbox: true,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            preferences: {
-              defaultRiskPercentage: 1.5,
-              selectedPairs: ['BTCUSDT', 'ETHUSDT'],
-              alertChannels: { browser: true, telegram: false, discord: false },
-              theme: 'dark'
-            }
-          };
-
-          setAuth(sandboxUserData, 'sandbox-token-session-' + Date.now());
-          toast.success(`Welcome back, ${targetUsername}! Connected to local sandbox.`, { id: 'sandbox-init-login' });
-          router.push('/dashboard');
-        }, 1200);
+      const errorCode = err.code || 'unknown';
+      if (err.code === 'auth/operation-not-allowed' || errorMsg.includes('auth/operation-not-allowed')) {
+        errorMsg = 'Email/Password registration and login are currently not enabled in your Firebase console.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error('Email & Password provider is disabled. Follow the guide on your screen to enable it!', { duration: 6000 });
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         errorMsg = 'Incorrect email or password. Please verify your details.';
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else if (err.code === 'auth/invalid-email') {
         errorMsg = 'Invalid email address format.';
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else {
+        setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       }
     } finally {
@@ -154,6 +123,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setAuthError(null);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
       const { auth, db } = await import('../../lib/firebase/firebase');
@@ -198,10 +168,15 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
+      const errorCode = err.code || 'unknown';
+      let errorMsg = err.message || 'Google Sign-In failed';
       if (err.code === 'auth/popup-closed-by-user' || err.message?.includes('popup-closed-by-user')) {
-        toast.error('Google popup was closed or blocked. Manual Sign-In or Demo Account login below is recommended inside the preview.', { duration: 6000 });
+        errorMsg = 'Google authentication popup was closed before completion. If popups are restricted in this embedded preview frame, we highly recommend launching the app in a new tab.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error('Sign-in popup closed. Tap "Open App in New Tab" at top right to bypass iframe limits.', { duration: 7000 });
       } else {
-        toast.error(err.message || 'Google Sign-In failed');
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error(errorMsg);
       }
     } finally {
       setLoading(false);
@@ -224,11 +199,59 @@ export default function LoginPage() {
         <div className="bg-[#1E2433] border border-[#2A2E39] rounded-xl p-8 shadow-2xl">
           <h1 className="text-xl font-semibold text-white mb-6 font-display">Sign In</h1>
 
-          {/* Helpful sandbox sandbox/iframe alert */}
-          <div className="mb-5 p-3.5 bg-[#131722]/60 border border-[#2A2E39]/80 rounded-md text-xs text-[#9AA3B2] leading-relaxed">
-            <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">💡 Running in Preview Mode?</span>
-            If Google popup is blocked or closed by your browser, sign in with the **Demo Account** or manually type your details—local sandbox sessions are supported seamlessly!
-          </div>
+          {/* Dynamic Interactive Troubleshooting Alert */}
+          {authError ? (
+            <div className="mb-5 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs leading-relaxed animate-fadeIn text-amber-200">
+              <span className="text-amber-400 font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans">
+                ⚠️ Connection Helper ({authError.code})
+              </span>
+              
+              {authError.code === 'auth/operation-not-allowed' ? (
+                <div className="space-y-2 text-[#C8D1E0]">
+                  <p className="text-[#F1F5F9] font-medium font-sans">
+                    Email/Password login is not enabled in your Firebase Console.
+                  </p>
+                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Quick Setup Steps:</p>
+                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
+                    <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline hover:text-amber-300">Firebase Console</a>.</li>
+                    <li>Click <strong>Authentication</strong> in the left menu.</li>
+                    <li>Navigate to the <strong>Sign-in method</strong> tab.</li>
+                    <li>Click <strong>Add new provider</strong>, select <strong>Email/Password</strong>, choose <strong>Enable</strong>, and click <strong>Save</strong>!</li>
+                  </ol>
+                  <p className="text-[10px] text-[#718096] italic mt-2">
+                    (Once enabled in Firebase, you can register or sign-in with any custom email instantly.)
+                  </p>
+                </div>
+              ) : authError.code === 'auth/popup-closed-by-user' ? (
+                <div className="space-y-2 text-[#C8D1E0]">
+                  <p className="text-[#F1F5F9] font-medium font-sans">
+                    Google sign-in popup was blocked or closed before completion.
+                  </p>
+                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Resolution Steps:</p>
+                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
+                    <li>Look at the very top-right of your AI Studio/preview screen panel.</li>
+                    <li>Click the <strong className="text-white">"Open App in New Tab" ↗</strong> button.</li>
+                    <li>In the standalone tab, complete Google Sign-In flawlessly in 1 click!</li>
+                  </ol>
+                </div>
+              ) : (
+                <p className="text-[#C8D1E0]">{authError.message}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setAuthError(null)}
+                className="mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block text-[#CAAA98] hover:text-[#e4cfc2] uppercase tracking-wider bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 px-2 py-1 rounded w-full text-center border border-[#CAAA98]/20 transition-all"
+              >
+                Dismiss Error Help
+              </button>
+            </div>
+          ) : (
+            <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed animate-fadeIn">
+              <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">🔒 Real Authentication Active</span>
+              Google Sign-In is your primary, 1-click option. If you prefer standard Email/Password accounts, make sure "Email/Password" is enabled in your Firebase console.
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -315,13 +338,6 @@ export default function LoginPage() {
             </svg>
             Google Account
           </button>
-
-          {/* Demo credentials */}
-          <div className="mt-5 p-3.5 bg-[#131722] border border-[#2A2E39] rounded-md text-xs text-[#9AA3B2]">
-            <p className="font-semibold text-[#CAAA98] mb-1.5 uppercase tracking-wider text-[10px]">Demo Account</p>
-            <p className="font-mono">Email: demo@autoslp.com</p>
-            <p className="font-mono">Password: Demo@1234</p>
-          </div>
 
           <p className="mt-6 text-center text-xs text-[#9AA3B2]">
             No account?{' '}

@@ -1,13 +1,11 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../shared/db.js';
 import { limitRate } from '../../shared/utils/rate-limit.js';
 import { 
   sanitizeString, 
   validateNumberRange, 
   logAudit 
 } from '../../shared/utils/security.js';
-
-const prisma = new PrismaClient();
 
 // In-memory fallback if postgres is disconnected
 let mockPois: any[] = [
