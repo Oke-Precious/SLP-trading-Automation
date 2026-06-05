@@ -6,6 +6,7 @@ import { Eye, EyeOff, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
+import { motion } from 'motion/react';
 
 export default function RegisterPage() {
   const router  = useRouter();
@@ -18,18 +19,43 @@ export default function RegisterPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
 
+    // Clean client-side pre-validation to avoid hitting backend if details are incorrectly structured
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      const errorMsg = 'Please enter a valid email address format.';
+      setAuthError({ code: 'client/invalid-email', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
+      return;
+    }
+
+    if (!username || username.trim().length < 3) {
+      const errorMsg = 'Username must be at least 3 characters.';
+      setAuthError({ code: 'client/invalid-username', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
+      return;
+    }
+
     if (password.length < 8) {
-      toast.error('Password must be at least 8 characters long');
+      const errorMsg = 'Password must be at least 8 characters long.';
+      setAuthError({ code: 'client/weak-password', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('Passwords do not match');
+      const errorMsg = 'Passwords do not match.';
+      setAuthError({ code: 'client/password-mismatch', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
       return;
     }
 
@@ -78,6 +104,8 @@ export default function RegisterPage() {
       console.error('Firebase Registration Error:', err);
       let errorMsg = err.message || 'Registration failed';
       const errorCode = err.code || 'unknown';
+      setShakeKey(prev => prev + 1);
+
       if (err.code === 'auth/email-already-in-use') {
         errorMsg = 'This email is already registered. Please login or try another email.';
         setAuthError({ code: errorCode, message: errorMsg });
@@ -183,9 +211,31 @@ export default function RegisterPage() {
 
           {/* Dynamic Interactive Troubleshooting Alert */}
           {authError ? (
-            <div className="mb-5 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs leading-relaxed animate-fadeIn text-amber-200">
-              <span className="text-amber-400 font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans">
-                ⚠️ Connection Helper ({authError.code})
+            <motion.div
+              key={shakeKey}
+              initial={{ x: 0, opacity: 0, scale: 0.95 }}
+              animate={{ 
+                x: [0, -10, 10, -10, 10, -5, 5, 0],
+                opacity: 1, 
+                scale: 1 
+              }}
+              transition={{ 
+                x: { duration: 0.4, ease: "easeInOut" },
+                opacity: { duration: 0.2 },
+                scale: { duration: 0.2 }
+              }}
+              className={`mb-5 p-4 rounded-lg text-xs leading-relaxed border ${
+                authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+              }`}
+            >
+              <span className={`font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans ${
+                authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
+                  ? 'text-red-400'
+                  : 'text-amber-400'
+              }`}>
+                ⚠️ {authError.code.startsWith('client/') ? 'Validation Error' : 'Connection Helper'} ({authError.code})
               </span>
               
               {authError.code === 'auth/operation-not-allowed' ? (
@@ -207,7 +257,7 @@ export default function RegisterPage() {
               ) : authError.code === 'auth/popup-closed-by-user' ? (
                 <div className="space-y-2 text-[#C8D1E0]">
                   <p className="text-[#F1F5F9] font-medium font-sans">
-                    Google sign-up popup was blocked or closed before completion.
+                    Google sign-in popup was blocked or closed before completion.
                   </p>
                   <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Resolution Steps:</p>
                   <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
@@ -217,17 +267,21 @@ export default function RegisterPage() {
                   </ol>
                 </div>
               ) : (
-                <p className="text-[#C8D1E0]">{authError.message}</p>
+                <p className="text-[#E2E8F0] font-sans">{authError.message}</p>
               )}
 
               <button
                 type="button"
                 onClick={() => setAuthError(null)}
-                className="mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block text-[#CAAA98] hover:text-[#e4cfc2] uppercase tracking-wider bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 px-2 py-1 rounded w-full text-center border border-[#CAAA98]/20 transition-all"
+                className={`mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block uppercase tracking-wider px-2 py-1.5 rounded w-full text-center border transition-all ${
+                  authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
+                    ? 'text-red-300 bg-red-500/10 hover:bg-red-500/20 border-red-500/20'
+                    : 'text-[#CAAA98] bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 border-[#CAAA98]/20'
+                }`}
               >
                 Dismiss Error Help
               </button>
-            </div>
+            </motion.div>
           ) : (
             <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed animate-fadeIn">
               <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">🔒 Create Real Account</span>

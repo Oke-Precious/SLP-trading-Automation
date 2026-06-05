@@ -6,6 +6,7 @@ import { Eye, EyeOff, TrendingUp, X } from 'lucide-react';
 import { apiClient } from '../../lib/api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
+import { motion } from 'motion/react';
 
 export default function LoginPage() {
   const router  = useRouter();
@@ -17,13 +18,34 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<boolean>(false);
   const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setAuthError(null);
 
+    // Clean client-side pre-validation to avoid hitting backend if details are incorrectly structured
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      const errorMsg = 'Please enter a valid email address format.';
+      setAuthError({ code: 'client/invalid-email', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      const errorMsg = 'Password must be at least 6 characters.';
+      setAuthError({ code: 'client/invalid-password', message: errorMsg });
+      setShakeKey(prev => prev + 1);
+      toast.error(errorMsg);
+      return;
+    }
+
+    setLoading(true);
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       const { auth, db } = await import('../../lib/firebase/firebase');
@@ -72,6 +94,8 @@ export default function LoginPage() {
       console.error('Firebase Login Error:', err);
       let errorMsg = err.message || 'Login failed';
       const errorCode = err.code || 'unknown';
+      setShakeKey(prev => prev + 1); // Animate and shake on any backend error too!
+
       if (err.code === 'auth/operation-not-allowed' || errorMsg.includes('auth/operation-not-allowed')) {
         errorMsg = 'Email/Password registration and login are currently not enabled in your Firebase console.';
         setAuthError({ code: errorCode, message: errorMsg });
@@ -82,6 +106,14 @@ export default function LoginPage() {
         toast.error(errorMsg);
       } else if (err.code === 'auth/invalid-email') {
         errorMsg = 'Invalid email address format.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error(errorMsg);
+      } else if (err.code === 'auth/user-disabled') {
+        errorMsg = 'This account has been disabled. Please contact support.';
+        setAuthError({ code: errorCode, message: errorMsg });
+        toast.error(errorMsg);
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMsg = 'Too many failed login attempts. Please reset your password or try again later.';
         setAuthError({ code: errorCode, message: errorMsg });
         toast.error(errorMsg);
       } else {
@@ -95,26 +127,34 @@ export default function LoginPage() {
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetEmail) {
-      toast.error('Please enter your email address.');
+    setResetError(null);
+    setResetSuccess(false);
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!resetEmail || !emailRegex.test(resetEmail)) {
+      setResetError('Please enter a valid email address format.');
+      toast.error('Please enter a valid email address.');
       return;
     }
+
     setResetLoading(true);
     try {
       const { sendPasswordResetEmail } = await import('firebase/auth');
       const { auth } = await import('../../lib/firebase/firebase');
       await sendPasswordResetEmail(auth, resetEmail);
       toast.success('Password reset email sent! Please check your inbox.');
-      setShowResetModal(false);
-      setResetEmail('');
+      setResetSuccess(true);
     } catch (err: any) {
       console.error('Password reset error:', err);
       let errorMsg = err.message || 'Failed to send password reset email.';
       if (err.code === 'auth/user-not-found') {
-        errorMsg = 'No user found with this email address.';
+        errorMsg = 'No registered user was found with this email address.';
       } else if (err.code === 'auth/invalid-email') {
         errorMsg = 'Invalid email address format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMsg = 'Too many password reset requests. Please wait a moment and try again.';
       }
+      setResetError(errorMsg);
       toast.error(errorMsg);
     } finally {
       setResetLoading(false);
@@ -201,15 +241,37 @@ export default function LoginPage() {
 
           {/* Dynamic Interactive Troubleshooting Alert */}
           {authError ? (
-            <div className="mb-5 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs leading-relaxed animate-fadeIn text-amber-200">
-              <span className="text-amber-400 font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans">
-                ⚠️ Connection Helper ({authError.code})
+            <motion.div
+              key={shakeKey}
+              initial={{ x: 0, opacity: 0, scale: 0.95 }}
+              animate={{ 
+                x: [0, -10, 10, -10, 10, -5, 5, 0],
+                opacity: 1, 
+                scale: 1 
+              }}
+              transition={{ 
+                x: { duration: 0.4, ease: "easeInOut" },
+                opacity: { duration: 0.2 },
+                scale: { duration: 0.2 }
+              }}
+              className={`mb-5 p-4 rounded-lg text-xs leading-relaxed border ${
+                authError.code.startsWith('client/') || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password' || authError.code === 'auth/user-not-found'
+                  ? 'bg-red-500/10 border-red-500/30 text-red-200'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+              }`}
+            >
+              <span className={`font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans ${
+                authError.code.startsWith('client/') || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password' || authError.code === 'auth/user-not-found'
+                  ? 'text-red-400'
+                  : 'text-amber-400'
+              }`}>
+                ⚠️ {authError.code.startsWith('client/') ? 'Validation Error' : 'Connection Helper'} ({authError.code})
               </span>
               
               {authError.code === 'auth/operation-not-allowed' ? (
                 <div className="space-y-2 text-[#C8D1E0]">
                   <p className="text-[#F1F5F9] font-medium font-sans">
-                    Email/Password login is not enabled in your Firebase Console.
+                    Email/Password registration and login are currently not enabled in your Firebase console.
                   </p>
                   <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Quick Setup Steps:</p>
                   <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
@@ -235,17 +297,21 @@ export default function LoginPage() {
                   </ol>
                 </div>
               ) : (
-                <p className="text-[#C8D1E0]">{authError.message}</p>
+                <p className="text-[#E2E8F0] font-sans">{authError.message}</p>
               )}
 
               <button
                 type="button"
                 onClick={() => setAuthError(null)}
-                className="mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block text-[#CAAA98] hover:text-[#e4cfc2] uppercase tracking-wider bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 px-2 py-1 rounded w-full text-center border border-[#CAAA98]/20 transition-all"
+                className={`mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block uppercase tracking-wider px-2 py-1.5 rounded w-full text-center border transition-all ${
+                  authError.code.startsWith('client/') || authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password' || authError.code === 'auth/user-not-found'
+                    ? 'text-red-300 bg-red-500/10 hover:bg-red-500/20 border-red-500/20'
+                    : 'text-[#CAAA98] bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 border-[#CAAA98]/20'
+                }`}
               >
                 Dismiss Error Help
               </button>
-            </div>
+            </motion.div>
           ) : (
             <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed animate-fadeIn">
               <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">🔒 Real Authentication Active</span>
@@ -350,48 +416,91 @@ export default function LoginPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-[#1E2433] border border-[#2A2E39] rounded-xl p-6 shadow-2xl w-full max-w-md relative">
             <button
-              onClick={() => setShowResetModal(false)}
+              onClick={() => {
+                setShowResetModal(false);
+                setResetError(null);
+                setResetSuccess(false);
+              }}
               className="absolute right-4 top-4 text-[#9AA3B2] hover:text-white transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
             <h2 className="text-lg font-semibold text-white mb-2 font-display">Reset Password</h2>
-            <p className="text-xs text-[#9AA3B2] mb-5 leading-normal">
-              Enter your email address below, and we'll send you a link to reset your password and regain access to your account.
-            </p>
-            <form onSubmit={handlePasswordReset} className="space-y-4">
-              <div>
-                <label className="block text-[10px] text-[#9AA3B2] uppercase tracking-wider mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={e => setResetEmail(e.target.value)}
-                  required
-                  className="w-full bg-[#131722] border border-[#2A2E39] rounded-md px-4 py-2.5
-                             text-white text-sm placeholder-[#4A5568] focus:outline-none
-                             focus:border-[#CAAA98] transition-colors"
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
+            
+            {resetSuccess ? (
+              <div className="space-y-4 py-2">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs leading-relaxed text-emerald-200">
+                  <span className="text-emerald-400 font-bold block mb-1 uppercase tracking-wider text-[10px]">
+                    ✓ Email Despatched Successfully
+                  </span>
+                  We have sent a secure password reset link to <strong className="text-white">{resetEmail}</strong>. Please check your inbox and follow instructions to reset your password.
+                </div>
                 <button
                   type="button"
-                  onClick={() => setShowResetModal(false)}
-                  className="flex-1 bg-[#131722] hover:bg-[#1c2130] text-white border border-[#2A2E39] font-semibold
-                             py-2.5 rounded-md transition-colors text-xs uppercase tracking-wider cursor-pointer"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    setResetSuccess(false);
+                    setResetError(null);
+                  }}
+                  className="w-full bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-bold uppercase tracking-wider py-2.5 rounded-md transition-colors text-xs cursor-pointer"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetLoading}
-                  className="flex-1 bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-bold uppercase tracking-wider
-                             py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs"
-                >
-                  {resetLoading ? 'Sending...' : 'Send Link'}
+                  Close Window
                 </button>
               </div>
-            </form>
+            ) : (
+              <>
+                <p className="text-xs text-[#9AA3B2] mb-5 leading-normal">
+                  Enter your email address below, and we'll send you a link to reset your password and regain access to your account.
+                </p>
+
+                {resetError && (
+                  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs leading-relaxed text-red-200 animate-fadeIn">
+                    <span className="text-red-400 font-bold block mb-1 uppercase tracking-wider text-[9px]">
+                      ⚠️ Reset Error
+                    </span>
+                    {resetError}
+                  </div>
+                )}
+
+                <form onSubmit={handlePasswordReset} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] text-[#9AA3B2] uppercase tracking-wider mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={e => setResetEmail(e.target.value)}
+                      required
+                      className="w-full bg-[#131722] border border-[#2A2E39] rounded-md px-4 py-2.5
+                                 text-white text-sm placeholder-[#4A5568] focus:outline-none
+                                 focus:border-[#CAAA98] transition-colors"
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowResetModal(false);
+                        setResetError(null);
+                        setResetSuccess(false);
+                      }}
+                      className="flex-1 bg-[#131722] hover:bg-[#1c2130] text-white border border-[#2A2E39] font-semibold
+                                 py-2.5 rounded-md transition-colors text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resetLoading}
+                      className="flex-1 bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-bold uppercase tracking-wider
+                                 py-2.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs"
+                    >
+                      {resetLoading ? 'Sending...' : 'Send Link'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
