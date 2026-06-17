@@ -26,6 +26,7 @@ interface Props {
 
 export default function CandlestickChart({ height = 480 }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const chartApi = useRef<IChartApi | null>(null);
   const candleSeries = useRef<any>(null);
   const volumeSeries = useRef<any>(null);
@@ -445,12 +446,118 @@ export default function CandlestickChart({ height = 480 }: Props) {
     });
   }, [candles, chartInitialized]);
 
+  // ── High-Fidelity Custom Tooltip ───────────────────────
+  useEffect(() => {
+    if (!chartApi.current || !chartRef.current) return;
+    
+    const handleCrosshairMove = (param: any) => {
+      if (!chartRef.current || !tooltipRef.current) return;
+      
+      const chartWidth = chartRef.current.clientWidth;
+      const chartHeight = Math.floor(height * 0.8);
+      
+      if (!param.point || !param.time || param.point.x < 0 || param.point.x > chartWidth || param.point.y < 0 || param.point.y > chartHeight) {
+        tooltipRef.current.style.display = "none";
+        return;
+      }
+      
+      const candleData = param.seriesData.get(candleSeries.current) as any;
+      const volumeData = volumeSeries.current ? (param.seriesData.get(volumeSeries.current) as any) : null;
+      if (!candleData) {
+        tooltipRef.current.style.display = "none";
+        return;
+      }
+
+      tooltipRef.current.style.display = "block";
+      
+      const date = new Date((param.time as number) * 1000);
+      let smcText = "";
+      
+      if (smcResult) {
+        const timeNum = param.time as number;
+        const activeOB = smcResult.orderBlocks.find((ob: any) => timeNum >= ob.startTime && timeNum <= ob.endTime);
+        const thisBOS = smcResult.bosEvents.find((bos: any) => timeNum === bos.breakTime);
+        const thisFVG = smcResult.fvgs.find((fvg: any) => timeNum === fvg.time);
+        
+        if (activeOB) {
+          smcText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${activeOB.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">${activeOB.type === 'BULLISH' ? 'Bull OB' : 'Bear OB'} Zone</div>`;
+        }
+        if (thisBOS) {
+          smcText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">${thisBOS.type} Broken Here</div>`;
+        }
+        if (thisFVG) {
+          smcText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisFVG.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">FVG</div>`;
+        }
+      }
+      
+      const isBullish = candleData.close >= candleData.open;
+      const color = isBullish ? '#26A69A' : '#EF5350';
+
+      const content = `
+        <div style="font-weight: 600; color: #E2E8F0; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #2A2E39; display: flex; justify-content: space-between;">
+          <span>${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}</span>
+          <span style="color: #9AA3B2;">${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>O</span> <span style="color: ${color}; font-weight: 500;">${candleData.open.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>H</span> <span style="color: ${color}; font-weight: 500;">${candleData.high.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>L</span> <span style="color: ${color}; font-weight: 500;">${candleData.low.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>C</span> <span style="color: ${color}; font-weight: 500;">${candleData.close.toFixed(2)}</span></div>
+        ${volumeData ? `<div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #2A2E39;"><span>Vol</span> <span>${volumeData.value.toFixed(2)}</span></div>` : ''}
+        ${smcText}
+      `;
+      
+      tooltipRef.current.innerHTML = content;
+      
+      let left = param.point.x + 20;
+      let top = param.point.y + 20;
+      
+      const tooltipWidth = tooltipRef.current.offsetWidth;
+      const tooltipHeight = tooltipRef.current.offsetHeight;
+      
+      if (left + tooltipWidth > chartWidth - 10) {
+        left = param.point.x - tooltipWidth - 20;
+      }
+      if (top + tooltipHeight > chartHeight - 10) {
+        top = param.point.y - tooltipHeight - 20;
+      }
+      
+      tooltipRef.current.style.left = left + 'px';
+      tooltipRef.current.style.top = top + 'px';
+    };
+
+    chartApi.current.subscribeCrosshairMove(handleCrosshairMove);
+    return () => {
+      chartApi.current?.unsubscribeCrosshairMove(handleCrosshairMove);
+    }
+  }, [chartInitialized, smcResult, height]);
+
   return (
     <div
       id="candlestick-chart-wrapper"
       className="relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39]"
       style={{ height }}
     >
+      <div
+        ref={tooltipRef}
+        style={{
+          position: "absolute",
+          display: "none",
+          padding: "10px",
+          boxSizing: "border-box",
+          fontSize: "12px",
+          textAlign: "left",
+          zIndex: 1000,
+          pointerEvents: "none",
+          background: "rgba(13, 17, 23, 0.90)",
+          backdropFilter: "blur(4px)",
+          border: "1px solid #2A2E39",
+          borderRadius: "6px",
+          color: "#9AA3B2",
+          fontFamily: "'JetBrains Mono', monospace",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+          minWidth: "140px",
+        }}
+      />
       {/* Loading Overlay */}
       {isLoading && (
         <div
