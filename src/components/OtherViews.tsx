@@ -31,6 +31,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { analytics } from '../lib/analytics';
 import { useAllTickers } from '../hooks/useMarketData';
 import JournalPage from '../app/journal/page';
+import DirectionalBiasView from './DirectionalBiasView';
 
 interface OtherViewsProps {
   pageId: string;
@@ -211,66 +212,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
 
   // 2. DIRECTIONAL BIAS MATRIX
   if (pageId === 'directional-bias') {
-    const matrix = [
-      { pair: 'BTCUSDT', d1: 'BULLISH', h4: 'BULLISH', h1: 'BULLISH', m30: 'BEARISH', m15: 'BULLISH', strength: 'Strong Bullish' },
-      { pair: 'ETHUSDT', d1: 'BULLISH', h4: 'BULLISH', h1: 'BEARISH', m30: 'BEARISH', m15: 'BEARISH', strength: 'Moderate Bullish' },
-      { pair: 'EURUSD', d1: 'BULLISH', h4: 'BEARISH', h1: 'BULLISH', m30: 'BULLISH', m15: 'BULLISH', strength: 'Moderate Bullish' },
-      { pair: 'GBPUSD', d1: 'BULLISH', h4: 'BULLISH', h1: 'BULLISH', m30: 'BULLISH', m15: 'BULLISH', strength: 'Strong Bullish' },
-      { pair: 'USDJPY', d1: 'BEARISH', h4: 'BEARISH', h1: 'BEARISH', m30: 'BEARISH', m15: 'BULLISH', strength: 'Strong Bearish' },
-      { pair: 'XAUUSD', d1: 'BEARISH', h4: 'BULLISH', h1: 'BEARISH', m30: 'BEARISH', m15: 'BEARISH', strength: 'Moderate Bearish' }
-    ];
-
-    return (
-      <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5">
-        <div className="flex justify-between items-center mb-6 pb-2 border-b border-[#2A2E39]">
-          <div>
-            <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider font-display">Multi-Timeframe Structure Matrix</h2>
-            <p className="text-xs text-gray-400 mt-1">Simultaneous alignment matrix verifying SMC macro elements across all resolutions.</p>
-          </div>
-          <span className="text-[9px] text-[#CAAA98] border border-[#CAAA98]/30 px-2 py-0.5 rounded font-mono font-bold uppercase">100% Core Matrix Aligned</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead>
-              <tr className="border-b border-[#2A2E39] text-gray-500 uppercase text-[10px]">
-                <th className="py-3 px-4">ASSET PAIR</th>
-                <th className="py-3 px-4">DAILY (1D)</th>
-                <th className="py-3 px-4">4 HOURS (4H)</th>
-                <th className="py-3 px-4">1 HOUR (1H)</th>
-                <th className="py-3 px-4">30 MINS (30m)</th>
-                <th className="py-3 px-4">15 MINS (15m)</th>
-                <th className="py-3 px-4 text-right">OVERALL BIAS</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#2A2E39] text-gray-300">
-              {matrix.map((row) => (
-                <tr key={row.pair} className="hover:bg-[#111622]/50 transition-colors">
-                  <td className="py-4 px-4 font-bold text-[#CAAA98]">{row.pair}</td>
-                  {[row.d1, row.h4, row.h1, row.m30, row.m15].map((cell, cIdx) => (
-                    <td key={cIdx} className="py-4 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        cell === 'BULLISH' ? 'bg-[#26A69A]/10 text-[#26A69A]' : 'bg-[#EF5350]/10 text-[#EF5350]'
-                      }`}>
-                        {cell}
-                      </span>
-                    </td>
-                  ))}
-                  <td className="py-4 px-4 font-sans font-semibold text-right">
-                    <span className={`inline-flex items-center space-x-1 ${
-                      row.strength.includes('Bullish') ? 'text-[#26A69A]' : 'text-[#EF5350]'
-                    }`}>
-                      <span>&bull;</span>
-                      <span>{row.strength}</span>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return <DirectionalBiasView />;
   }
 
   // 3. POI MAP PAGE

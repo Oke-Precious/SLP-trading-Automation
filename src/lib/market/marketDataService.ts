@@ -233,33 +233,100 @@ export async function fetchForexTicker(symbol: string): Promise<Ticker | null> {
 // UNIFIED FETCH — auto-routes by instrument type
 // ════════════════════════════════════════════════════════
 
-export async function fetchCandles(
+export async function fetchCandlesWithFlag(
   symbol: string,
   timeframe: string,
   limit: number = 200
-): Promise<Candle[]> {
+): Promise<{candles: Candle[], isRealData: boolean}> {
   try {
     const { data: res } = await apiClient.get('/market/candles', {
       params: { pair: symbol, timeframe, limit }
     })
     const list = res?.data ?? res
     if (Array.isArray(list) && list.length > 0) {
-      return list.map((c: any) => ({
-        time: Math.floor(new Date(c.timestamp || c.time * 1000).getTime() / 1000),
-        open: Number(c.open),
-        high: Number(c.high),
-        low: Number(c.low),
-        close: Number(c.close),
-        volume: Number(c.volume),
-      }))
+      return {
+        isRealData: true,
+        candles: list.map((c: any) => ({
+          time: Math.floor(new Date(c.timestamp || c.time * 1000).getTime() / 1000),
+          open: Number(c.open),
+          high: Number(c.high),
+          low: Number(c.low),
+          close: Number(c.close),
+          volume: Number(c.volume),
+        }))
+      }
     }
   } catch (backendErr) {
     console.warn(`[Backend Cache Bypass] Failed to load candles from proxy backend for ${symbol}:`, backendErr)
   }
 
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
-  if (isCrypto) return fetchCryptoCandles(symbol, timeframe, limit)
-  return fetchForexCandles(symbol, timeframe, limit)
+  
+  if (isCrypto) {
+     const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
+     try {
+       const url = `${BINANCE}/klines?symbol=${symbol.toUpperCase()}&interval=${tfBinance}&limit=${limit}`
+       const { data } = await axios.get(url)
+       return {
+         isRealData: true,
+         candles: data.map((d: any) => ({
+           time:   Math.floor(d[0] / 1000),
+           open:   parseFloat(d[1]),
+           high:   parseFloat(d[2]),
+           low:    parseFloat(d[3]),
+           close:  parseFloat(d[4]),
+           volume: parseFloat(d[5]),
+         }))
+       }
+     } catch (err) {
+       console.error(`[Binance] Failed ${symbol} ${timeframe}:`, err)
+       return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+     }
+  }
+  
+  const key = getTwelveDataKey()
+  if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
+    return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+  }
+
+  const tf = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
+  const url = `${TWELVE}/time_series?symbol=${symbol}&interval=${tf}&outputsize=${limit}&apikey=${key}`
+  
+  try {
+    const { data } = await axios.get(url, {
+      headers: {
+        'apikey': key,
+        'Authorization': `apikey ${key}`
+      }
+    })
+    if (data.status === 'error' || !data.values) {
+      console.error('[TwelveData] Error:', data.message)
+      return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+    }
+    return {
+      isRealData: true,
+      candles: data.values.reverse().map((v: any) => ({
+        time:   Math.floor(new Date(v.datetime).getTime() / 1000),
+        open:   parseFloat(v.open),
+        high:   parseFloat(v.high),
+        low:    parseFloat(v.low),
+        close:  parseFloat(v.close),
+        volume: parseFloat(v.volume || '0'),
+      }))
+    }
+  } catch (err) {
+    console.error(`[TwelveData] Failed ${symbol} ${timeframe}:`, err)
+    return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+  }
+}
+
+export async function fetchCandles(
+  symbol: string,
+  timeframe: string,
+  limit: number = 200
+): Promise<Candle[]> {
+  const result = await fetchCandlesWithFlag(symbol, timeframe, limit);
+  return result.candles;
 }
 
 export async function fetchTicker(symbol: string): Promise<Ticker | null> {

@@ -5,7 +5,7 @@
 
 import { CurrencyPair, Timeframe } from '../types';
 
-export type BiasValue = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+export type BiasValue = 'BULLISH' | 'BEARISH' | 'RANGING';
 
 export interface StructuralPhase {
   pair: CurrencyPair;

@@ -9,10 +9,12 @@ import {
   RotateCcw, 
   Activity, 
   TrendingUp,
-  X 
+  X,
+  Settings
 } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI } from '../types';
 import CandlestickChart from './chart/CandlestickChart';
+import ChartSettingsPanel from './chart/ChartSettingsPanel';
 import { useMarketStore } from '../store/useMarketStore';
 
 interface DashboardChartProps {
@@ -56,6 +58,7 @@ export default function DashboardChart({
   const [hoveredCandleIndex, setHoveredCandleIndex] = useState<number | null>(null);
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
   const [chartViewMode, setChartViewMode] = useState<'live' | 'drawing'>('live');
+  const [showSettings, setShowSettings] = useState(false);
 
   const chartOuterRef = useRef<SVGSVGElement | null>(null);
   const ticker = useMarketStore(state => state.ticker);
@@ -208,6 +211,16 @@ export default function DashboardChart({
           <div className="h-4 w-[1px] bg-[#2A2E39] mx-1" />
 
           <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+              showSettings ? 'bg-[#CAAA98] text-[#111622]' : 'text-gray-400 hover:text-white hover:bg-slate-800'
+            }`}
+            title="Chart Settings"
+          >
+            <Settings size={14} />
+          </button>
+
+          <button
             id="btn-tool-fullscreen"
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-1.5 rounded-md hover:bg-slate-800 transition-colors text-gray-400 hover:text-white cursor-pointer"
@@ -223,6 +236,7 @@ export default function DashboardChart({
       </div>
 
       <div className="relative flex-1 flex flex-col justify-between overflow-hidden">
+        {showSettings && <ChartSettingsPanel onClose={() => setShowSettings(false)} />}
         {chartViewMode === 'live' ? (
           <div className="w-full h-full flex flex-col justify-center">
             <CandlestickChart height={isFullscreen ? 540 : 370} />

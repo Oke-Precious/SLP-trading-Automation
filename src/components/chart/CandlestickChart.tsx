@@ -16,6 +16,7 @@ import {
 import { useRealtimeCandles } from "../../hooks/useRealtimeCandles";
 import { useMarketStore } from "../../store/useMarketStore";
 import { usePOIStore } from "../../store/usePOIStore";
+import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSMCAnalysis } from "../../lib/analysis/smcEngine";
 import { formatPrice } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
@@ -35,6 +36,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
   const { selectedPair, selectedTimeframe } = useMarketStore();
   const { pois } = usePOIStore();
+  const { settings } = useChartSettingsStore();
   const [chartInitialized, setChartInitialized] = useState(0);
   const { candles, isLoading, isConnected, error, refetch } =
     useRealtimeCandles(selectedPair, selectedTimeframe);
@@ -101,12 +103,10 @@ export default function CandlestickChart({ height = 480 }: Props) {
     setChartInitialized((prev) => prev + 1);
 
     // Responsive resize
-    const ro = new ResizeObserver(() => {
+    const ro = new ResizeObserver((entries) => {
       if (chartRef.current && chartApi.current) {
-        chartApi.current.resize(
-          chartRef.current.clientWidth,
-          Math.floor(height * 0.8),
-        );
+        const { width, height: elHeight } = entries[0].contentRect;
+        chartApi.current.resize(width, elHeight > 0 ? elHeight : height);
       }
     });
     ro.observe(chartRef.current);
@@ -116,6 +116,33 @@ export default function CandlestickChart({ height = 480 }: Props) {
       chartApi.current?.remove();
     };
   }, [height]);
+
+  useEffect(() => {
+    if (!chartApi.current || !candleSeries.current) return;
+    
+    chartApi.current.applyOptions({
+      layout: { background: { color: settings.backgroundColor } },
+      grid: {
+        vertLines: { color: settings.gridColor },
+        horzLines: { color: settings.gridColor },
+      },
+    });
+
+    candleSeries.current.applyOptions({
+      upColor: settings.upCandleColor,
+      downColor: settings.downCandleColor,
+      borderUpColor: settings.upCandleColor,
+      borderDownColor: settings.downCandleColor,
+      wickUpColor: settings.upWickColor,
+      wickDownColor: settings.downWickColor,
+    });
+    
+    if (volumeSeries.current) {
+      volumeSeries.current.applyOptions({
+        visible: settings.showVolume,
+      });
+    }
+  }, [settings, chartInitialized]);
 
   // ── Update candle data when pair/timeframe changes ─────
   useEffect(() => {
@@ -137,11 +164,17 @@ export default function CandlestickChart({ height = 480 }: Props) {
         time: c.time as Time,
         value: c.volume,
         color:
-          c.close >= c.open ? "rgba(38,166,154,0.5)" : "rgba(239,83,80,0.5)",
+          c.close >= c.open ? settings.upCandleColor + "80" : settings.downCandleColor + "80", // 80 is 50% opacity
       })),
     );
 
-    chartApi.current?.timeScale().fitContent();
+    const timeScale = chartApi.current?.timeScale();
+    if (timeScale) {
+       timeScale.fitContent();
+       if (candles.length > 100) {
+           timeScale.applyOptions({ barSpacing: 6, rightOffset: 5 });
+       }
+    }
   }, [candles, chartInitialized]);
 
   // ── Render POI zones as price lines ───────────────────
@@ -223,171 +256,188 @@ export default function CandlestickChart({ height = 480 }: Props) {
     const allMarkers: any[] = [];
 
     // BOS / CHoCH / MSS
-    smcResult.bosEvents.forEach((bos) => {
-      const color = bos.direction === "BULLISH" ? "#26A69A" : "#EF5350";
-      const lineSeries = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
+    if (settings.showBOS || settings.showCHoCH || settings.showMSS) {
+      smcResult.bosEvents.forEach((bos) => {
+        if (bos.type === 'BOS' && !settings.showBOS) return;
+        if (bos.type === 'CHOCH' && !settings.showCHoCH) return;
+        if (bos.type === 'MSS' && !settings.showMSS) return;
+        
+        let color = bos.direction === "BULLISH" ? settings.bosUpColor : settings.bosDownColor;
+        if (bos.type === 'CHOCH') color = settings.chochColor;
+        if (bos.type === 'MSS') color = settings.mssColor;
+        
+        const lineSeries = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        lineSeries.setData([
+          { time: bos.swingTime as Time, value: bos.price },
+          { time: bos.breakTime as Time, value: bos.price },
+        ]);
+        allMarkers.push({
+          time: bos.breakTime as Time,
+          position: bos.direction === "BULLISH" ? "belowBar" : "aboveBar",
+          color,
+          shape: "circle",
+          text: bos.type,
+          size: 0.6,
+        });
+        smcOverlayRefs.current.seriesList.push(lineSeries);
       });
-      lineSeries.setData([
-        { time: bos.swingTime as Time, value: bos.price },
-        { time: bos.breakTime as Time, value: bos.price },
-      ]);
-      allMarkers.push({
-        time: bos.breakTime as Time,
-        position: bos.direction === "BULLISH" ? "belowBar" : "aboveBar",
-        color,
-        shape: "circle",
-        text: bos.type,
-        size: 0.6,
-      });
-      smcOverlayRefs.current.seriesList.push(lineSeries);
-    });
+    }
 
     // Order Blocks
-    smcResult.orderBlocks.forEach((ob) => {
-      const color =
-        ob.type === "BULLISH" ? "rgba(38,166,154,0.12)" : "rgba(239,83,80,0.12)";
-      const borderCol = ob.type === "BULLISH" ? "#26A69A" : "#EF5350";
+    if (settings.showOrderBlocks || settings.showBreakerBlocks) {
+      smcResult.orderBlocks.forEach((ob) => {
+        if (ob.isBroken && !settings.showBreakerBlocks) return;
+        if (!ob.isBroken && !settings.showOrderBlocks) return;
+        
+        const borderCol = ob.isBroken ? settings.breakerColor : (ob.type === "BULLISH" ? settings.bullOBColor : settings.bearOBColor);
+        const color = ob.isBroken ? settings.breakerColor + "20" : (ob.type === "BULLISH" ? settings.bullOBColor + "20" : settings.bearOBColor + "20"); // 20 is Low Opacity hex
 
-      const obSeries = chartApi.current!.addSeries(HistogramSeries, {
-        color,
-        priceFormat: { type: "price" },
-        priceScaleId: "right",
-        priceLineVisible: false,
-        lastValueVisible: false,
-      });
-      const obCandles = candles.filter(
-        (c) => c.time >= ob.startTime && c.time <= ob.endTime
-      );
-      obSeries.setData(
-        obCandles.map((c) => ({
-          time: c.time as Time,
-          value: ob.top,
+        const obSeries = chartApi.current!.addSeries(HistogramSeries, {
           color,
-        }))
-      );
+          priceFormat: { type: "price" },
+          priceScaleId: "right",
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        const obCandles = candles.filter(
+          (c) => c.time >= ob.startTime && c.time <= ob.endTime
+        );
+        obSeries.setData(
+          obCandles.map((c) => ({
+            time: c.time as Time,
+            value: ob.top,
+            color,
+          }))
+        );
 
-      const topLine = chartApi.current!.addSeries(LineSeries, {
-        color: borderCol,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      topLine.setData([
-        { time: ob.startTime as Time, value: ob.top },
-        { time: candles[candles.length - 1].time as Time, value: ob.top },
-      ]);
-      allMarkers.push({
-        time: ob.startTime as Time,
-        position: "aboveBar",
-        color: borderCol,
-        shape: "circle",
-        text: ob.isBroken
-          ? "BB"
-          : ob.type === "BULLISH"
-          ? "Bull OB"
-          : "Bear OB",
-        size: 0.5,
-      });
+        const topLine = chartApi.current!.addSeries(LineSeries, {
+          color: borderCol,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        topLine.setData([
+          { time: ob.startTime as Time, value: ob.top },
+          { time: candles[candles.length - 1].time as Time, value: ob.top },
+        ]);
+        allMarkers.push({
+          time: ob.startTime as Time,
+          position: "aboveBar",
+          color: borderCol,
+          shape: "circle",
+          text: ob.isBroken
+            ? "BB"
+            : ob.type === "BULLISH"
+            ? "Bull OB"
+            : "Bear OB",
+          size: 0.5,
+        });
 
-      const botLine = chartApi.current!.addSeries(LineSeries, {
-        color: borderCol,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      botLine.setData([
-        { time: ob.startTime as Time, value: ob.bottom },
-        { time: candles[candles.length - 1].time as Time, value: ob.bottom },
-      ]);
+        const botLine = chartApi.current!.addSeries(LineSeries, {
+          color: borderCol,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        botLine.setData([
+          { time: ob.startTime as Time, value: ob.bottom },
+          { time: candles[candles.length - 1].time as Time, value: ob.bottom },
+        ]);
 
-      smcOverlayRefs.current.seriesList.push(obSeries, topLine, botLine);
-    });
+        smcOverlayRefs.current.seriesList.push(obSeries, topLine, botLine);
+      });
+    }
 
     // Liquidity Levels
-    smcResult.liquidityLevels.forEach((liq) => {
-      // @ts-ignore
-      const color = liq.type === "BUY_SIDE" ? "#F0B90B" : "#9A8678";
+    if (settings.showLiquidity) {
+      smcResult.liquidityLevels.forEach((liq) => {
+        // @ts-ignore
+        const color = liq.type === "BUY_SIDE" ? settings.bslColor : settings.sslColor;
 
-      const liqLine = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: liq.swept ? 1 : 2,
-        lineStyle: LineStyle.Dotted,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
+        const liqLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: liq.swept ? 1 : 2,
+          lineStyle: LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        liqLine.setData([
+          { time: liq.time as Time, value: liq.price },
+          { time: candles[candles.length - 1].time as Time, value: liq.price },
+        ]);
+        allMarkers.push({
+          time: liq.time as Time,
+          // @ts-ignore
+          position: liq.type === "BUY_SIDE" ? "aboveBar" : "belowBar",
+          color,
+          shape: "circle",
+          // @ts-ignore
+          text: liq.swept
+            ? liq.type === "BUY_SIDE"
+              ? "BSL ✓"
+              : "SSL ✓"
+            : liq.type === "BUY_SIDE"
+            ? `BSL×${liq.strength}`
+            : `SSL×${liq.strength}`,
+          size: 0.5,
+        });
+        smcOverlayRefs.current.seriesList.push(liqLine);
       });
-      liqLine.setData([
-        { time: liq.time as Time, value: liq.price },
-        { time: candles[candles.length - 1].time as Time, value: liq.price },
-      ]);
-      allMarkers.push({
-        time: liq.time as Time,
-        // @ts-ignore
-        position: liq.type === "BUY_SIDE" ? "aboveBar" : "belowBar",
-        color,
-        shape: "circle",
-        // @ts-ignore
-        text: liq.swept
-          ? liq.type === "BUY_SIDE"
-            ? "BSL ✓"
-            : "SSL ✓"
-          : liq.type === "BUY_SIDE"
-          ? `BSL×${liq.strength}`
-          : `SSL×${liq.strength}`,
-        size: 0.5,
-      });
-      smcOverlayRefs.current.seriesList.push(liqLine);
-    });
+    }
 
     // FVGs
-    smcResult.fvgs.forEach((fvg) => {
-      const color = fvg.type === "BULLISH" ? "#26A69A" : "#EF5350";
+    if (settings.showFVG) {
+      smcResult.fvgs.forEach((fvg) => {
+        const color = fvg.type === "BULLISH" ? settings.fvgBullColor : settings.fvgBearColor;
 
-      const topLine = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      topLine.setData([
-        { time: fvg.time as Time, value: fvg.top },
-        { time: candles[candles.length - 1].time as Time, value: fvg.top },
-      ]);
-      allMarkers.push({
-        time: fvg.time as Time,
-        position: "aboveBar",
-        color,
-        shape: "circle",
-        text: fvg.type === "BULLISH" ? "FVG ↑" : "FVG ↓",
-        size: 0.5,
-      });
+        const topLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        topLine.setData([
+          { time: fvg.time as Time, value: fvg.top },
+          { time: candles[candles.length - 1].time as Time, value: fvg.top },
+        ]);
+        allMarkers.push({
+          time: fvg.time as Time,
+          position: "aboveBar",
+          color,
+          shape: "circle",
+          text: fvg.type === "BULLISH" ? "FVG ↑" : "FVG ↓",
+          size: 0.5,
+        });
 
-      const botLine = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dotted,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
+        const botLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        botLine.setData([
+          { time: fvg.time as Time, value: fvg.bottom },
+          { time: candles[candles.length - 1].time as Time, value: fvg.bottom },
+        ]);
+        smcOverlayRefs.current.seriesList.push(topLine, botLine);
       });
-      botLine.setData([
-        { time: fvg.time as Time, value: fvg.bottom },
-        { time: candles[candles.length - 1].time as Time, value: fvg.bottom },
-      ]);
-      smcOverlayRefs.current.seriesList.push(topLine, botLine);
-    });
+    }
 
     // Convert swingHighs and swingLows directly to HH/HL markers like before
     // We already have them from smcResult if we wanted to
@@ -395,7 +445,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
       allMarkers.push({
         time: h.time as Time,
         position: "aboveBar",
-        color: "#EF5350",
+        color: settings.downCandleColor,
         shape: "arrowDown",
         text: "SH",
         size: 0.5,
@@ -405,27 +455,29 @@ export default function CandlestickChart({ height = 480 }: Props) {
       allMarkers.push({
         time: l.time as Time,
         position: "belowBar",
-        color: "#26A69A",
+        color: settings.upCandleColor,
         shape: "arrowUp",
         text: "SL",
         size: 0.5,
       });
     });
 
-    smcResult.inducements.forEach((indu) => {
-      allMarkers.push({
-        time: indu.time as Time,
-        position: indu.type === "BULLISH" ? "belowBar" : "aboveBar",
-        color: "#9A8678",
-        shape: "circle",
-        text: "INDU",
-        size: 0.8,
+    if (settings.showInducement) {
+      smcResult.inducements.forEach((indu) => {
+        allMarkers.push({
+          time: indu.time as Time,
+          position: indu.type === "BULLISH" ? "belowBar" : "aboveBar",
+          color: "#9A8678",
+          shape: "circle",
+          text: "INDU",
+          size: 0.8,
+        });
       });
-    });
+    }
 
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
     markersPluginRef.current?.setMarkers(allMarkers);
-  }, [smcResult, chartInitialized]);
+  }, [smcResult, chartInitialized, settings]);
 
   // Live Price Line
   const livePriceLineRef = useRef<any>(null);
@@ -534,8 +586,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
   return (
     <div
       id="candlestick-chart-wrapper"
-      className="relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39]"
-      style={{ height }}
+      className="relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39] flex flex-col w-full h-full"
     >
       <div
         ref={tooltipRef}
@@ -654,14 +705,13 @@ export default function CandlestickChart({ height = 480 }: Props) {
       <div
         id="candlestick-chart-container"
         ref={chartRef}
-        style={{ width: "100%", height: Math.floor(height * 0.8) }}
+        className="w-full flex-1 min-h-0"
       />
 
       {/* SMC Live Summary Panel */}
       {smcResult && (
         <div
-          style={{ height: Math.ceil(height * 0.2) }}
-          className="w-full bg-[#0D1117] border-t border-[#2A2E39] p-3 overflow-y-auto flex gap-4 text-xs font-mono scrollbar-thin scrollbar-thumb-[#2A3245] scrollbar-track-transparent"
+          className="w-full h-32 shrink-0 bg-[#0D1117] border-t border-[#2A2E39] p-3 overflow-y-auto flex gap-4 text-xs font-mono scrollbar-thin scrollbar-thumb-[#2A3245] scrollbar-track-transparent"
         >
           <div className="flex-1 min-w-[200px]">
             <h4 className="text-gray-400 font-bold mb-1 border-b border-[#2A2E39] pb-1 uppercase text-[10px]">
