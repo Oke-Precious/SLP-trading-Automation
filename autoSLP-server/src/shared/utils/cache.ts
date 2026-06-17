@@ -12,6 +12,17 @@ export class MockRedisCache {
     return 'OK';
   }
 
+  async publish(channel: string, message: string) {
+    // Basic mock of publish, just returns 0 since there are no subscribers
+    return 0;
+  }
+
+  async setex(key: string, seconds: number, value: string) {
+    const expiry = Date.now() + seconds * 1000;
+    this.store.set(key, { value, expiry });
+    return 'OK';
+  }
+
   async get(key: string): Promise<string | null> {
     const entry = this.store.get(key);
     if (!entry) return null;
@@ -56,7 +67,8 @@ if (isTesting) {
     redisClient = new Redis(config.REDIS_URL, {
       maxRetriesPerRequest: 0,
       connectTimeout: 500,
-      lazyConnect: true
+      lazyConnect: false,
+      retryStrategy: () => null // Stop retrying immediately if it fails
     });
     redisClient.on('error', () => {
       logger.warn('Redis unreachable. Transitioning auth sessions to safety fallback engine.');

@@ -8,11 +8,9 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
-  doc, 
-  getDoc 
+  doc 
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDocWithTimeout, getDocsWithTimeout } from '../firebase/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export interface SignalFilters {
@@ -79,7 +77,7 @@ export const signalsApi = {
     const path = `users/${currentUser.uid}/signals`;
     try {
       const q = query(collection(db, path));
-      const res = await getDocs(q);
+      const res = await getDocsWithTimeout(q);
       let items: Signal[] = [];
 
       res.forEach((docSnap) => {
@@ -126,7 +124,7 @@ export const signalsApi = {
 
     const path = `users/${currentUser.uid}/signals/${id}`;
     try {
-      const docSnap = await getDoc(doc(db, `users/${currentUser.uid}/signals`, id));
+      const docSnap = await getDocWithTimeout(doc(db, `users/${currentUser.uid}/signals`, id));
       if (!docSnap.exists()) {
         throw new Error('Signal not found');
       }

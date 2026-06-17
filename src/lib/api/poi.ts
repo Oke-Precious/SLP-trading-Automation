@@ -8,13 +8,12 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
   doc, 
   setDoc, 
   updateDoc, 
   deleteDoc 
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDocsWithTimeout } from '../firebase/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export interface POIFilters {
@@ -92,7 +91,7 @@ export const poiApi = {
       // Each user's database is completely separated and isolated
       let q = query(collection(db, path));
       
-      const res = await getDocs(q);
+      const res = await getDocsWithTimeout(q);
       let items: POI[] = [];
 
       res.forEach((docSnap) => {

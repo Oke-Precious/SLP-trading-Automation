@@ -29,18 +29,27 @@ import { useUIStore } from './store/useUIStore';
 import { analytics } from './lib/analytics';
 import FeedbackWidget from './components/FeedbackWidget';
 import { useAuthStore } from './store/useAuthStore';
+import { usePOIStore } from './store/usePOIStore';
+import { useJournalStore } from './store/useJournalStore';
+import { useAlertStore } from './store/useAlertStore';
 import LoginPage from './app/login/page';
 import RegisterPage from './app/register/page';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from './lib/firebase/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth, db, getDocWithTimeout } from './lib/firebase/firebase';
+import { doc } from 'firebase/firestore';
 
 export default function App() {
   const { isLoggedIn, clearAuth, setAuth } = useAuthStore();
   
   // Realtime Firebase Session restoration
   useEffect(() => {
+    let syncUnsubscribes: (() => void)[] = [];
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      // Unsubscribe any previous sync listeners to prevent overlaps/memory leaks
+      syncUnsubscribes.forEach(unsub => unsub());
+      syncUnsubscribes = [];
+
       if (fbUser) {
         let userData: any = {
           id: fbUser.uid,
@@ -53,7 +62,7 @@ export default function App() {
 
         try {
           const userDocRef = doc(db, 'users', fbUser.uid);
-          const userSnap = await getDoc(userDocRef);
+          const userSnap = await getDocWithTimeout(userDocRef);
           if (userSnap && userSnap.exists()) {
             userData = userSnap.data();
           }
@@ -64,24 +73,75 @@ export default function App() {
         try {
           const token = await fbUser.getIdToken();
           setAuth(userData, token);
+
+          // Sync data stores with Firestore realtime collections
+          const unsubPOI = usePOIStore.getState().syncWithFirebase(fbUser.uid);
+          const unsubJournal = useJournalStore.getState().syncWithFirebase(fbUser.uid);
+          const unsubAlert = useAlertStore.getState().syncWithFirebase(fbUser.uid);
+          syncUnsubscribes = [unsubPOI, unsubJournal, unsubAlert];
         } catch (tokenErr) {
           console.error("Failed to retrieve auth ID token:", tokenErr);
         }
       } else {
         clearAuth();
+        // Clear sensitive, per-user cached store state
+        usePOIStore.getState().clearUserPOIs();
+        useJournalStore.getState().clearTrades();
+        useAlertStore.getState().clearAlerts();
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      syncUnsubscribes.forEach(unsub => unsub());
+    };
   }, [clearAuth, setAuth]);
 
   const [activePage, setActivePage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      if (window.location.pathname.includes('/register')) return 'register';
-      if (window.location.pathname.includes('/login')) return 'login';
+      const path = window.location.pathname.replace(/^\//, '');
+      if (path === 'register') return 'register';
+      if (path === 'login') return 'login';
+      if ([
+        'dashboard', 'market-overview', 'directional-bias', 'poi-map-page',
+        'trade-setups', 'positions', 'alerts', 'backtest', 'journal', 'settings'
+      ].includes(path)) {
+        return path;
+      }
     }
     return 'dashboard';
   });
+
+  // Sync URL with activePage state changes & listen for back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname.replace(/^\//, '');
+        if ([
+          'dashboard', 'market-overview', 'directional-bias', 'poi-map-page',
+          'trade-setups', 'positions', 'alerts', 'backtest', 'journal', 'settings', 'login', 'register'
+        ].includes(path)) {
+          setActivePage(path);
+        } else {
+          setActivePage('dashboard');
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname.replace(/^\//, '');
+      if (currentPath !== activePage) {
+        window.history.pushState(null, '', '/' + activePage);
+      }
+    }
+  }, [activePage]);
   const sidebarExpanded = useUIStore((state) => state.sidebarExpanded);
   const currentPair = useMarketStore((state) => state.selectedPair);
   const setCurrentPair = useMarketStore((state) => state.setSelectedPair);

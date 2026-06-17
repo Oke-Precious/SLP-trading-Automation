@@ -54,10 +54,12 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
           if (lastIdx >= 0 && updated[lastIdx].time === newCandle.time) {
             // Update the current open candle
             updated[lastIdx] = newCandle
-          } else if (isClosed) {
-            // Add newly closed candle + trim to 200
+          } else if (lastIdx >= 0 && newCandle.time > updated[lastIdx].time) {
+            // It's a new candle that just opened
             updated.push(newCandle)
             if (updated.length > 200) updated.shift()
+          } else if (lastIdx === -1) {
+             updated.push(newCandle)
           }
           candlesRef.current = updated
           return updated
@@ -68,6 +70,27 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
 
     return () => unsubscribe()
   }, [symbol, timeframe])
+
+  // Fallback Polling if WebSocket fails or for Forex pairs
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+    
+    // Always poll for Forex (since WS is crypto only). 
+    // For crypto, poll if not connected to websocket.
+    const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
+    if (!isCrypto || (!isConnected && !isLoading)) {
+      intervalId = setInterval(() => {
+        fetchCandles(symbol, timeframe, 200).then(data => {
+          candlesRef.current = data
+          setCandles(data)
+        }).catch(() => {})
+      }, 5000); // Polling every 5 seconds
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    }
+  }, [symbol, timeframe, isConnected, isLoading])
 
   const refetch = () => {
     setIsLoading(true)

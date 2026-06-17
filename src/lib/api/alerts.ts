@@ -8,12 +8,11 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
   doc, 
   setDoc, 
   updateDoc 
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase/firebase';
+import { auth, db, handleFirestoreError, OperationType, getDocsWithTimeout } from '../firebase/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export interface CreateAlertData {
@@ -70,7 +69,7 @@ export const alertsApi = {
     const path = `users/${currentUser.uid}/alerts`;
     try {
       const q = query(collection(db, path));
-      const res = await getDocs(q);
+      const res = await getDocsWithTimeout(q);
       const items: Alert[] = [];
 
       res.forEach((docSnap) => {

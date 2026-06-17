@@ -40,7 +40,7 @@ export async function aiRoutes(server: FastifyInstance) {
       candlesFromDb = candlesFromDb.reverse();
 
       // If we don't have enough candles, generate mock candles so Gemini still analyzes successfully
-      let candlesToPass = candlesFromDb.map(c => ({
+      let candlesToPass = candlesFromDb.map((c: any) => ({
         open: Number(c.open),
         high: Number(c.high),
         low: Number(c.low),

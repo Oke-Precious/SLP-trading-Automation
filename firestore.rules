@@ -2,167 +2,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Safety Net: default deny
+    // Global Safety Net: default deny everything
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- REUSABLE SECURITY PRIMITIVES ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // --- ENTITY-LEVEL VALIDATION BLUEPRINTS ---
-
-    function isValidUser(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.email is string && data.email.size() <= 200 &&
-             data.username is string && data.username.size() <= 100 &&
-             (!data.keys().contains('password') || (data.password is string && data.password.size() <= 200)) &&
-             data.plan is string && (data.plan == 'FREE' || data.plan == 'PREMIUM' || data.plan == 'ENTERPRISE') &&
-             data.keys().hasAll(['id', 'email', 'username', 'plan', 'createdAt', 'updatedAt']) &&
-             data.keys().size() <= 10;
-    }
-
-    function isValidPOI(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.userId == request.auth.uid &&
-             data.pair is string && data.pair.size() <= 50 &&
-             data.timeframe is string && data.timeframe.size() <= 20 &&
-             data.type is string && (data.type == 'ORDER_BLOCK' || data.type == 'BREAKER_BLOCK') &&
-             data.priceFrom is number &&
-             data.priceTo is number &&
-             data.status is string && (data.status == 'Active' || data.status == 'Mitigated' || data.status == 'Tested') &&
-             data.keys().hasAll(['id', 'userId', 'pair', 'timeframe', 'type', 'priceFrom', 'priceTo', 'status']) &&
-             data.keys().size() <= 12;
-    }
-
-    function isValidAlert(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.userId == request.auth.uid &&
-             data.pair is string && data.pair.size() <= 50 &&
-             data.condition is string && data.condition.size() <= 50 &&
-             data.status is string && (data.status == 'ACTIVE' || data.status == 'TRIGGERED' || data.status == 'DISABLED') &&
-             data.keys().hasAll(['id', 'userId', 'pair', 'condition', 'value', 'status']) &&
-             data.keys().size() <= 10;
-    }
-
-    function isValidSignal(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.userId == request.auth.uid &&
-             data.pair is string && data.pair.size() <= 50 &&
-             data.timeframe is string && data.timeframe.size() <= 20 &&
-             data.direction is string && (data.direction == 'LONG' || data.direction == 'SHORT') &&
-             data.status is string && (data.status == 'PENDING' || data.status == 'ACTIVE' || data.status == 'HIT_TP1' || data.status == 'HIT_TP2' || data.status == 'STOPPED') &&
-             data.keys().hasAll(['id', 'userId', 'pair', 'timeframe', 'direction', 'status']) &&
-             data.keys().size() <= 16;
-    }
-
-    function isValidFeedback(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.userId == request.auth.uid &&
-             data.idea is string && data.idea.size() <= 1000 &&
-             data.priority is string && data.priority.size() <= 50 &&
-             data.category is string && data.category.size() <= 50 &&
-             data.keys().hasAll(['id', 'userId', 'idea', 'priority', 'category']) &&
-             data.keys().size() <= 9;
-    }
-
-    // --- SECURITY RULE MATCH BLOCKS ---
-
+    // Rules for users and their subcollections (POIs, Trades, Alerts, Settings)
+    // - Enforces robust, strict data isolation per-user
+    // - Users can ONLY read and write their own documents across all subpaths
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == 'FREE';
-      allow update: if isOwner(userId) && isValidUser(incoming()) && incoming().plan == existing().plan;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Isolated separate databases for POIs, Alerts, Signals, Feedbacks nested under the user
-      match /pois/{poiId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(poiId) && isValidPOI(incoming());
-        allow update: if isOwner(userId) && isValidId(poiId) && isValidPOI(incoming()) && 
-                      incoming().userId == existing().userId && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt']);
-        allow delete: if isOwner(userId);
+      match /{subPath=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
-
-      match /alerts/{alertId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(alertId) && isValidAlert(incoming());
-        allow update: if isOwner(userId) && isValidId(alertId) && isValidAlert(incoming()) && 
-                      incoming().userId == existing().userId && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'triggeredAt', 'updatedAt']);
-        allow delete: if isOwner(userId);
-      }
-
-      match /signals/{signalId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(signalId) && isValidSignal(incoming());
-        allow update: if isOwner(userId) && isValidId(signalId) && isValidSignal(incoming()) && 
-                      incoming().userId == existing().userId && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pnlPercent', 'closedAt', 'triggeredAt']);
-        allow delete: if isOwner(userId);
-      }
-
-      match /feedbacks/{feedbackId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(incoming());
-        allow update: if isOwner(userId) && isValidId(feedbackId) && isValidFeedback(incoming()) && 
-                      incoming().userId == existing().userId && 
-                      incoming().diff(existing()).affectedKeys().hasOnly(['idea', 'priority', 'category', 'status']);
-        allow delete: if isOwner(userId);
-      }
-    }
-
-    match /pois/{poiId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(poiId) && isValidPOI(incoming());
-      allow update: if isSignedIn() && isValidId(poiId) && isValidPOI(incoming()) && 
-                    incoming().userId == existing().userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes', 'updatedAt']);
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    match /alerts/{alertId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming());
-      allow update: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming()) && 
-                    incoming().userId == existing().userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'triggeredAt', 'updatedAt']);
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    match /signals/{signalId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(signalId) && isValidSignal(incoming());
-      allow update: if isSignedIn() && isValidId(signalId) && isValidSignal(incoming()) && 
-                    incoming().userId == existing().userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pnlPercent', 'closedAt', 'triggeredAt']);
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    match /feedbacks/{feedbackId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(feedbackId) && isValidFeedback(incoming());
-      allow update: if isSignedIn() && isValidId(feedbackId) && isValidFeedback(incoming()) && 
-                    incoming().userId == existing().userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['idea', 'priority', 'category', 'status']);
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }

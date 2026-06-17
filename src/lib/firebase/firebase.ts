@@ -41,6 +41,46 @@ export const db = dbInstance;
 
 export const auth = getAuth();
 
+// --- Non-blocking Firestore operations with ultra-low timeouts ---
+export async function getDocWithTimeout(docRef: any, timeoutMs = 1500): Promise<any> {
+  try {
+    const { getDocFromCache } = await import('firebase/firestore');
+    const cacheSnap = await getDocFromCache(docRef);
+    if (cacheSnap.exists()) {
+      return cacheSnap;
+    }
+  } catch (e) {
+    // Cache miss / not available, fall through
+  }
+
+  const serverPromise = getDoc(docRef);
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Firestore fetch timeout')), timeoutMs)
+  );
+
+  return Promise.race([serverPromise, timeoutPromise]);
+}
+
+export async function getDocsWithTimeout(queryRef: any, timeoutMs = 1500): Promise<any> {
+  try {
+    const { getDocsFromCache } = await import('firebase/firestore');
+    const cacheSnap = await getDocsFromCache(queryRef);
+    if (cacheSnap && !cacheSnap.empty) {
+      return cacheSnap;
+    }
+  } catch (e) {
+    // Cache miss / not available, fall through
+  }
+
+  const { getDocs } = await import('firebase/firestore');
+  const serverPromise = getDocs(queryRef);
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Firestore fetch timeout')), timeoutMs)
+  );
+
+  return Promise.race([serverPromise, timeoutPromise]);
+}
+
 // --- Firestore Error Handling Schema & Utility ---
 
 export enum OperationType {

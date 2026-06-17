@@ -48,8 +48,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { signInWithEmailAndPassword } = await import('firebase/auth');
-      const { auth, db } = await import('../../lib/firebase/firebase');
-      const { doc, getDoc } = await import('firebase/firestore');
+      const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
+      const { doc } = await import('firebase/firestore');
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const fbUser = userCredential.user;
@@ -65,7 +65,7 @@ export default function LoginPage() {
 
       try {
         const userDocRef = doc(db, 'users', fbUser.uid);
-        const userSnap = await getDoc(userDocRef);
+        const userSnap = await getDocWithTimeout(userDocRef);
         if (userSnap && userSnap.exists()) {
           userData = userSnap.data();
 
@@ -168,8 +168,8 @@ export default function LoginPage() {
     setAuthError(null);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
-      const { auth, db } = await import('../../lib/firebase/firebase');
-      const { doc, getDoc, setDoc } = await import('firebase/firestore');
+      const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
 
       const provider = new GoogleAuthProvider();
       const userCredential = await signInWithPopup(auth, provider);
@@ -192,7 +192,7 @@ export default function LoginPage() {
 
       try {
         const userDocRef = doc(db, 'users', fbUser.uid);
-        const userSnap = await getDoc(userDocRef);
+        const userSnap = await getDocWithTimeout(userDocRef);
         if (userSnap && userSnap.exists()) {
           userData = userSnap.data();
         } else {
@@ -298,6 +298,18 @@ export default function LoginPage() {
                     <li>Click the <strong className="text-white">"Open App in New Tab" ↗</strong> button.</li>
                     <li>In the standalone tab, complete Google Sign-In flawlessly in 1 click!</li>
                   </ol>
+                </div>
+              ) : authError.code === 'auth/invalid-credential' || authError.code === 'auth/wrong-password' || authError.code === 'auth/user-not-found' ? (
+                <div className="space-y-2 text-[#C8D1E0]">
+                  <p className="text-[#F1F5F9] font-medium font-sans">
+                    The credentials supplied are incorrect or do not match any registered email/password account.
+                  </p>
+                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">💡 Troubleshooting & Resolution:</p>
+                  <ul className="list-disc pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
+                    <li><strong>Google Account:</strong> If you registered using Google Account, please use the <strong>Google Account</strong> button below to log in instantly.</li>
+                    <li><strong>New Account:</strong> If you don't have an email/password account yet, click <Link href="/register" className="text-[#CAAA98] underline font-bold hover:text-white">Create one</Link> first.</li>
+                    <li><strong>Incorrect Password:</strong> Double check your credentials or reset your password using the <strong>Forgot Password?</strong> option above the password input.</li>
+                  </ul>
                 </div>
               ) : (
                 <p className="text-[#E2E8F0] font-sans">{authError.message}</p>

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { apiClient } from '../api/client'
+import { useSettingsStore } from '../../store/useSettingsStore'
 
 // ── SUPPORTED INSTRUMENTS ────────────────────────────────
 export const CRYPTO_PAIRS = [
@@ -144,23 +145,39 @@ export async function fetchAllCryptoTickers(): Promise<Ticker[]> {
 // ════════════════════════════════════════════════════════
 
 const TWELVE = process.env.NEXT_PUBLIC_TWELVE_DATA_REST || 'https://api.twelvedata.com'
-const TWELVE_KEY = process.env.NEXT_PUBLIC_TWELVE_DATA_KEY || ''
+
+function getTwelveDataKey(): string {
+  const storeKey = useSettingsStore.getState().twelveDataApiKey?.trim()
+  if (storeKey) return storeKey
+  return (
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_TWELVE_DATA_KEY) ||
+    (import.meta as any).env?.NEXT_PUBLIC_TWELVE_DATA_KEY ||
+    (import.meta as any).env?.VITE_TWELVE_DATA_KEY ||
+    ''
+  )
+}
 
 export async function fetchForexCandles(
   symbol: string,
   interval: string,
   outputsize: number = 200
 ): Promise<Candle[]> {
-  if (!TWELVE_KEY || TWELVE_KEY === 'YOUR_TWELVE_DATA_KEY_HERE') {
+  const key = getTwelveDataKey()
+  if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
     console.warn('[TwelveData] No API key — returning generated data')
     return generateFallbackCandles(symbol, outputsize)
   }
 
   const tf = TIMEFRAME_MAP[interval as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
-  const url = `${TWELVE}/time_series?symbol=${symbol}&interval=${tf}&outputsize=${outputsize}&apikey=${TWELVE_KEY}`
+  const url = `${TWELVE}/time_series?symbol=${symbol}&interval=${tf}&outputsize=${outputsize}&apikey=${key}`
   
   try {
-    const { data } = await axios.get(url)
+    const { data } = await axios.get(url, {
+      headers: {
+        'apikey': key,
+        'Authorization': `apikey ${key}`
+      }
+    })
     if (data.status === 'error' || !data.values) {
       console.error('[TwelveData] Error:', data.message)
       return generateFallbackCandles(symbol, outputsize)
@@ -180,17 +197,23 @@ export async function fetchForexCandles(
 }
 
 export async function fetchForexTicker(symbol: string): Promise<Ticker | null> {
-  if (!TWELVE_KEY || TWELVE_KEY === 'YOUR_TWELVE_DATA_KEY_HERE') {
+  const key = getTwelveDataKey()
+  if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
     return generateFallbackTicker(symbol, 'forex')
   }
   try {
-    const { data } = await axios.get(
-      `${TWELVE}/price?symbol=${symbol}&apikey=${TWELVE_KEY}`
-    )
-    const priceRes = await axios.get(
-      `${TWELVE}/quote?symbol=${symbol}&apikey=${TWELVE_KEY}`
-    )
-    const q = priceRes.data
+    const [priceRes, quoteRes] = await Promise.all([
+      axios.get(`${TWELVE}/price?symbol=${symbol}&apikey=${key}`, {
+        headers: { 'apikey': key, 'Authorization': `apikey ${key}` }
+      }),
+      axios.get(`${TWELVE}/quote?symbol=${symbol}&apikey=${key}`, {
+        headers: { 'apikey': key, 'Authorization': `apikey ${key}` }
+      })
+    ])
+
+    const data = priceRes.data
+    const q = quoteRes.data
+    
     return {
       symbol,
       price:        parseFloat(data.price || q.close),

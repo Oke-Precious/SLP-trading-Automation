@@ -140,8 +140,8 @@ export default function RegisterPage() {
     setAuthError(null);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
-      const { auth, db } = await import('../../lib/firebase/firebase');
-      const { doc, getDoc, setDoc } = await import('firebase/firestore');
+      const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
 
       const provider = new GoogleAuthProvider();
       const userCredential = await signInWithPopup(auth, provider);
@@ -164,7 +164,7 @@ export default function RegisterPage() {
 
       try {
         const userDocRef = doc(db, 'users', fbUser.uid);
-        const userSnap = await getDoc(userDocRef);
+        const userSnap = await getDocWithTimeout(userDocRef);
         if (userSnap && userSnap.exists()) {
           userData = userSnap.data();
         } else {

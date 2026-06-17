@@ -15,12 +15,34 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach access token to every request
+// Attach access token to every request and inject Twelve Data API keys for Twelve Data endpoints
 apiClient.interceptors.request.use((config) => {
+  // 1. Attach standard autoSLP JWT Bearer token if present
   const token = useAuthStore.getState().accessToken;
-  if (token) {
+  if (token && !config.url?.includes('twelvedata.com')) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // 2. Identify if this is a Twelve Data endpoint request and inject permission keys robustly
+  const isTwelveData = config.url && (config.url.includes('twelvedata.com') || config.url.includes('api.twelvedata.com'));
+  if (isTwelveData) {
+    // Correct base URL verification logic
+    if (config.url.startsWith('http:') && config.url.includes('twelvedata.com')) {
+      config.url = config.url.replace('http:', 'https:');
+    }
+    
+    const twelveKey = 
+      (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_TWELVE_DATA_KEY) ||
+      (import.meta as any).env?.NEXT_PUBLIC_TWELVE_DATA_KEY ||
+      (import.meta as any).env?.VITE_TWELVE_DATA_KEY ||
+      '';
+
+    if (twelveKey) {
+      config.headers['apikey'] = twelveKey;
+      config.headers['Authorization'] = `apikey ${twelveKey}`;
+    }
+  }
+
   return config;
 });
 

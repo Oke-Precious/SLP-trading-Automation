@@ -1,5 +1,12 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { useAuthStore } from './useAuthStore';
+import {
+  saveTrade as firebaseSaveTrade,
+  updateTrade as firebaseUpdateTrade,
+  deleteTrade as firebaseDeleteTrade,
+  listenToTrades
+} from '../lib/firebase/firestoreService';
 
 export interface JournalTrade {
   id:          string
@@ -51,6 +58,9 @@ interface JournalStore {
   deleteTrade: (id: string) => void
   getStats:    () => JournalStats
   getByMonth:  (year: number, month: number) => JournalTrade[]
+  setTrades:   (trades: JournalTrade[]) => void
+  clearTrades: () => void
+  syncWithFirebase: (uid: string) => () => void
 }
 
 function calcPnL(trade: { direction: 'LONG' | 'SHORT'; entryPrice: number; exitPrice: number; size: number }): number {
@@ -153,40 +163,121 @@ export const useJournalStore = create<JournalStore>()(
         }
       ],
 
-      addTrade: (t) => set(s => ({
-        trades: [...s.trades, { ...t, id: `trade-${Date.now()}` }]
-      })),
+      addTrade: (t) => {
+        const id = `trade-${Date.now()}`;
+        const newTrade = { ...t, id };
+        set(s => ({
+          trades: [...s.trades, newTrade]
+        }));
 
-      updateTrade: (id, changes) => set(s => ({
-        trades: s.trades.map(t => t.id === id ? { ...t, ...changes } : t)
-      })),
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          firebaseSaveTrade(uid, newTrade).catch(err =>
+            console.error('[Firestore] Failed to save trade:', err)
+          );
+        }
+      },
 
-      closeTrade: (id, exitPrice, exitDate) => set(s => ({
-        trades: s.trades.map(t => {
-          if (t.id !== id) return t
-          const pnl = calcPnL({ direction: t.direction, entryPrice: t.entryPrice, exitPrice, size: t.size })
-          const pnlPct = ((exitPrice - t.entryPrice) / t.entryPrice) *
-                         (t.direction === 'LONG' ? 100 : -100)
-          
-          let rr = 0
-          const denominator = Math.abs(t.entryPrice - t.stopLoss)
-          if (denominator > 0) {
-            rr = (exitPrice - t.entryPrice) / (t.direction === 'LONG' ? (t.entryPrice - t.stopLoss) : (t.stopLoss - t.entryPrice))
-          }
+      updateTrade: (id, changes) => {
+        set(s => ({
+          trades: s.trades.map(t => t.id === id ? { ...t, ...changes } : t)
+        }));
 
-          return {
-            ...t, 
-            exitPrice, 
-            exitDate, 
-            pnl, 
-            pnlPercent: pnlPct, 
-            rrAchieved: rr,
-            status: pnl > 0 ? 'CLOSED' : 'STOPPED',
-          }
-        })
-      })),
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          firebaseUpdateTrade(uid, id, changes).catch(err =>
+            console.error('[Firestore] Failed to update trade:', err)
+          );
+        }
+      },
 
-      deleteTrade: (id) => set(s => ({ trades: s.trades.filter(t => t.id !== id) })),
+      closeTrade: (id, exitPrice, exitDate) => {
+        let updatedTradeItem: JournalTrade | null = null;
+        set(s => {
+          const updatedTrades = s.trades.map(t => {
+            if (t.id !== id) return t;
+            const pnl = calcPnL({ direction: t.direction, entryPrice: t.entryPrice, exitPrice, size: t.size })
+            const pnlPct = ((exitPrice - t.entryPrice) / t.entryPrice) *
+                           (t.direction === 'LONG' ? 100 : -100)
+            
+            let rr = 0
+            const denominator = Math.abs(t.entryPrice - t.stopLoss)
+            if (denominator > 0) {
+              rr = (exitPrice - t.entryPrice) / (t.direction === 'LONG' ? (t.entryPrice - t.stopLoss) : (t.stopLoss - t.entryPrice))
+            }
+
+            const updated = {
+              ...t, 
+              exitPrice, 
+              exitDate, 
+              pnl, 
+              pnlPercent: pnlPct, 
+              rrAchieved: rr,
+              status: (pnl > 0 ? 'CLOSED' : 'STOPPED') as 'CLOSED' | 'STOPPED',
+            };
+            updatedTradeItem = updated;
+            return updated;
+          });
+          return { trades: updatedTrades };
+        });
+
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid && updatedTradeItem) {
+          firebaseUpdateTrade(uid, id, updatedTradeItem).catch(err =>
+            console.error('[Firestore] Failed to sync closed trade:', err)
+          );
+        }
+      },
+
+      deleteTrade: (id) => {
+        set(s => ({ trades: s.trades.filter(t => t.id !== id) }));
+
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          firebaseDeleteTrade(uid, id).catch(err =>
+            console.error('[Firestore] Failed to delete trade:', err)
+          );
+        }
+      },
+
+      setTrades: (tradesList) => set({ trades: tradesList }),
+
+      clearTrades: () => set({ trades: [] }),
+
+      syncWithFirebase: (uid) => {
+        const unsubscribe = listenToTrades(uid, (tradesFromFirebase) => {
+          const parsed = tradesFromFirebase.map(t => ({
+            id: t.id,
+            pair: t.pair || 'BTCUSDT',
+            direction: t.direction || 'LONG',
+            entryPrice: t.entryPrice || 0,
+            exitPrice: t.exitPrice,
+            size: t.size || 0,
+            stopLoss: t.stopLoss || 0,
+            target1: t.target1 || 0,
+            target2: t.target2,
+            status: t.status || 'OPEN',
+            pnl: t.pnl,
+            pnlPercent: t.pnlPercent,
+            rrAchieved: t.rrAchieved,
+            entryDate: t.entryDate || new Date().toISOString(),
+            exitDate: t.exitDate,
+            session: t.session || 'LONDON',
+            setupType: t.setupType || 'OTHER',
+            notes: t.notes || '',
+            tags: t.tags || [],
+            bias: t.bias || 'BULLISH',
+            timeframe: t.timeframe || '1H',
+            grade: t.grade || null
+          }));
+          get().setTrades(parsed);
+        });
+        return unsubscribe;
+      },
 
       getStats: () => {
         const { trades } = get()

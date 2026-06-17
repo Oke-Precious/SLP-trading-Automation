@@ -48,40 +48,41 @@ export const marketService = {
   getSupportedPairs: () => SUPPORTED_PAIRS,
 
   async getCandles(pair: string, timeframe: string, limit: number, from?: string, to?: string) {
-    // First try to get from DB (for closed candles)
+    let candles;
+    try {
+      if (isCrypto(pair)) {
+        candles = await binance.fetchHistoricalCandles(pair, timeframe, limit);
+      } else {
+        candles = await twelveData.fetchHistoricalCandles(toForexSymbol(pair), timeframe, limit);
+      }
+
+      if (candles && candles.length > 0) {
+        // Run upsert async without blocking
+         Promise.all(candles.map((c: any) => 
+          prisma.candle.upsert({
+            where:  { pair_timeframe_timestamp: { pair: c.pair, timeframe: c.timeframe, timestamp: c.timestamp } },
+            update: { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume },
+            create: c,
+          }).catch((err: any) => console.error('DB Insert Error', err))
+        ));
+        return candles;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch candles from API, falling back to DB proxy:', err);
+    }
+
     const where: any = { pair, timeframe };
     if (from) where.timestamp = { ...where.timestamp, gte: new Date(from) };
     if (to)   where.timestamp = { ...where.timestamp, lte: new Date(to) };
 
     const dbCandles = await prisma.candle.findMany({
       where,
-      orderBy: { timestamp: 'asc' },
+      orderBy: { timestamp: 'desc' },
       take:    limit,
     });
 
-    // If we have enough data, return from DB
-    if (dbCandles.length >= Math.min(limit * 0.9, 100)) {
-      return dbCandles;
-    }
-
-    // Otherwise fetch fresh and seed DB
-    let candles;
-    if (isCrypto(pair)) {
-      candles = await binance.fetchHistoricalCandles(pair, timeframe, limit);
-    } else {
-      candles = await twelveData.fetchHistoricalCandles(toForexSymbol(pair), timeframe, limit);
-    }
-
-    // Upsert into DB
-    for (const c of candles) {
-      await prisma.candle.upsert({
-        where:  { pair_timeframe_timestamp: { pair: c.pair, timeframe: c.timeframe, timestamp: c.timestamp } },
-        update: { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume },
-        create: c,
-      });
-    }
-
-    return candles;
+    dbCandles.reverse();
+    return dbCandles;
   },
 
   async getTicker(pair: string) {

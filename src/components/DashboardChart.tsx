@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI } from '../types';
 import CandlestickChart from './chart/CandlestickChart';
+import { useMarketStore } from '../store/useMarketStore';
 
 interface DashboardChartProps {
   currentPair: CurrencyPair;
@@ -57,6 +58,7 @@ export default function DashboardChart({
   const [chartViewMode, setChartViewMode] = useState<'live' | 'drawing'>('live');
 
   const chartOuterRef = useRef<SVGSVGElement | null>(null);
+  const ticker = useMarketStore(state => state.ticker);
 
   const isCrypto = currentPair.includes('USDT');
   const currencySymbol = isCrypto ? '$' : '';
@@ -65,6 +67,8 @@ export default function DashboardChart({
       ? val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
       : val.toFixed(4);
   };
+  
+  const realPrice = ticker?.price || (pivotBase + coinStep * 1.5);
 
   const candleArray = [
     { id: 1, open: pivotBase - coinStep * 4, close: pivotBase - coinStep * 1, low: pivotBase - coinStep * 5, high: pivotBase, volume: 82, isBullish: true, type: 'HL', label: 'HL' },
@@ -363,6 +367,41 @@ export default function DashboardChart({
             />
           )}
 
+          {/* SMC Smart Money Concept Overlays */}
+          <g>
+            {/* BOS Line (Break of Structure from Candle 3 to 10) */}
+            <line x1="110" y1="150" x2="330" y2="150" stroke="#26A69A" strokeWidth="1" strokeDasharray="3 2" />
+            <text x="220" y="146" textAnchor="middle" className="font-mono text-[9px] fill-[#26A69A] font-bold select-none">BOS ↑</text>
+            
+            {/* CHoCH Line (Change of Character from Candle 1 to 6) */}
+            <line x1="50" y1="240" x2="200" y2="240" stroke="#F0B90B" strokeWidth="1" strokeDasharray="2 2" />
+            <text x="125" y="236" textAnchor="middle" className="font-mono text-[9px] fill-[#F0B90B] font-bold select-none">CHoCH ↑</text>
+
+            {/* MSS (Market Structure Shift from Candle 6 dropping below Candle 5) */}
+            <line x1="200" y1="225" x2="260" y2="225" stroke="#CAAA98" strokeWidth="1" strokeDasharray="4 2" />
+            <text x="230" y="221" textAnchor="middle" className="font-mono text-[9px] fill-[#CAAA98] font-bold select-none">MSS ↓</text>
+
+            {/* Order Block (OB at bottom of Candle 1) */}
+            <rect x="40" y="255" width="28" height="20" fill="#26A69A" fillOpacity="0.2" stroke="#26A69A" strokeWidth="1" />
+            <text x="54" y="270" textAnchor="middle" className="font-mono text-[8px] fill-[#26A69A] font-bold pointer-events-none">OB</text>
+
+            {/* Breaker Block (BB at Candle 6 drop) */}
+            <rect x="230" y="165" width="28" height="20" fill="#1565C0" fillOpacity="0.2" stroke="#1565C0" strokeWidth="1" strokeDasharray="1 1" />
+            <text x="244" y="180" textAnchor="middle" className="font-mono text-[8px] fill-[#42A5F5] font-bold pointer-events-none">BB</text>
+
+            {/* FVG (Fair Value Gap between Candle 2 and 4) */}
+            <rect x="135" y="165" width="40" height="15" fill="#26A69A" fillOpacity="0.1" />
+            <text x="155" y="175" textAnchor="middle" className="font-mono text-[7px] fill-[#26A69A] pointer-events-none">FVG</text>
+
+            {/* Liquidity Sweep (BSL at Candle 10) */}
+            <line x1="320" y1="120" x2="350" y2="120" stroke="#F0B90B" strokeWidth="1.5" strokeDasharray="1 1" />
+            <text x="335" y="115" textAnchor="middle" className="font-mono text-[9px] fill-[#F0B90B] font-bold">BSL</text>
+
+            {/* Inducement (INDU at Candle 8) */}
+            <circle cx="270" cy="330" r="3" fill="#9A8678" />
+            <text x="270" y="340" textAnchor="middle" className="font-mono text-[8px] fill-[#9A8678]">INDU</text>
+          </g>
+
           {/* Candlesticks loop */}
           {candleArray.map((c, idx) => {
             const candleWidth = 14;
@@ -370,10 +409,10 @@ export default function DashboardChart({
             const offsetLeft = 40;
             const x = offsetLeft + idx * (candleWidth + spacing);
             
-            const highY = 240 - (c.high - pivotBase) * (110 / coinStep);
-            const lowY = 240 - (c.low - pivotBase) * (110 / coinStep);
-            const openY = 240 - (c.open - pivotBase) * (110 / coinStep);
-            const closeY = 240 - (c.close - pivotBase) * (110 / coinStep);
+            const highY = 240 - (c.high - pivotBase) * (15 / coinStep);
+            const lowY = 240 - (c.low - pivotBase) * (15 / coinStep);
+            const openY = 240 - (c.open - pivotBase) * (15 / coinStep);
+            const closeY = 240 - (c.close - pivotBase) * (15 / coinStep);
             
             const topOb = Math.min(openY, closeY);
             const tallOb = Math.max(1, Math.abs(openY - closeY));
@@ -466,7 +505,7 @@ export default function DashboardChart({
               y="150" 
               className="font-mono text-[9px] font-bold fill-white animate-pulse"
             >
-              LIVE PRICE: {currencySymbol}{priceFormatter(pivotBase + coinStep * 1.5)}
+              LIVE PRICE: {currencySymbol}{priceFormatter(realPrice)}
             </text>
           </g>
 
