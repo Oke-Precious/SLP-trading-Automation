@@ -170,9 +170,19 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
     const timeScale = chartApi.current?.timeScale();
     if (timeScale) {
-       timeScale.fitContent();
-       if (candles.length > 100) {
-           timeScale.applyOptions({ barSpacing: 6, rightOffset: 5 });
+       // TradingView like default zoom behavior
+       const spacing = Math.max(4, Math.min(15, chartRef.current!.clientWidth / Math.max(1, candles.length)));
+       
+       timeScale.applyOptions({ 
+           rightOffset: 12,    // Push chart to the left to show empty space
+           barSpacing: spacing // Ensure candles aren't squished too much
+       });
+       
+       if (candles.length > 200) {
+         timeScale.scrollToRealTime();
+       } else {
+         timeScale.fitContent();
+         timeScale.applyOptions({ rightOffset: 12 });
        }
     }
   }, [candles, chartInitialized]);

@@ -235,11 +235,11 @@ export default function DashboardChart({
         </div>
       </div>
 
-      <div className="relative flex-1 flex flex-col justify-between overflow-hidden">
+      <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
         {showSettings && <ChartSettingsPanel onClose={() => setShowSettings(false)} />}
         {chartViewMode === 'live' ? (
-          <div className="w-full h-full flex flex-col justify-center">
-            <CandlestickChart height={isFullscreen ? 540 : 370} />
+          <div className="w-full flex-1 flex min-h-0">
+            <CandlestickChart height={isFullscreen ? 800 : 400} />
           </div>
         ) : (
           <svg 

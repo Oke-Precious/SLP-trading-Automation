@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Target, Check } from 'lucide-react';
 
 interface DashboardPlanProps {
@@ -20,6 +20,10 @@ export default function DashboardPlan({
   signalSpec,
   currencySymbol
 }: DashboardPlanProps) {
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [accountBalance, setAccountBalance] = useState<number>(10000);
+  const [riskPercent, setRiskPercent] = useState<number>(1);
+  const [stopLossDistance, setStopLossDistance] = useState<number>(500);
   if (appStateMode === 'empty') {
     return (
       <section className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl flex flex-col justify-between h-[520px] overflow-hidden">
@@ -131,9 +135,70 @@ export default function DashboardPlan({
             </div>
           </div>
 
+          <div className="mt-3 pt-3 border-t border-[#26A69A]/15">
+            <button 
+              onClick={() => setShowCalculator(!showCalculator)}
+              className="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-200 hover:text-white transition-colors focus:outline-none cursor-pointer"
+            >
+              <div className="flex items-center space-x-2">
+                <Target size={14} className="text-blue-400" />
+                <span>POSITION SIZE CALCULATOR</span>
+              </div>
+              <span className="text-[10px]">{showCalculator ? '▲' : '▼'}</span>
+            </button>
+            
+            {showCalculator && (
+              <div className="mt-3 space-y-2 bg-[#1A1E29] p-2.5 rounded-lg border border-gray-800 text-[10px]">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-gray-400 uppercase tracking-wider block mb-1">Account Bal ($)</label>
+                    <input 
+                      type="number" 
+                      value={accountBalance}
+                      onChange={(e) => setAccountBalance(Number(e.target.value))}
+                      className="w-full bg-[#111622] border border-gray-700 rounded p-1.5 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-400 uppercase tracking-wider block mb-1">Risk (%)</label>
+                    <input 
+                      type="number"
+                      step="0.1" 
+                      value={riskPercent}
+                      onChange={(e) => setRiskPercent(Number(e.target.value))}
+                      className="w-full bg-[#111622] border border-gray-700 rounded p-1.5 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-gray-400 uppercase tracking-wider block mb-1">SL Distance (Price diff/Pips)</label>
+                    <input 
+                      type="number" 
+                      value={stopLossDistance}
+                      onChange={(e) => setStopLossDistance(Number(e.target.value))}
+                      className="w-full bg-[#111622] border border-gray-700 rounded p-1.5 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between items-center bg-[#2A3245]/20 p-2 rounded">
+                  <span className="text-gray-400 uppercase tracking-wider">Position Size (Units)</span>
+                  <span className="text-[11px] font-bold text-blue-400 font-mono">
+                    {stopLossDistance > 0 ? ((accountBalance * (riskPercent / 100)) / stopLossDistance).toFixed(4) : "0.0000"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center p-1 px-2">
+                  <span className="text-gray-400 uppercase tracking-wider">Risk Amount</span>
+                  <span className="font-medium text-red-400 font-mono">
+                    ${(accountBalance * (riskPercent / 100)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => showToast(`Limit order parameters synchronized to terminal: Entry ${currencySymbol}${signalSpec.entry}!`)}
-            className="w-full mt-2 bg-[#26A69A] hover:bg-emerald-600 text-slate-950 py-1 rounded font-bold text-[10px] transition-colors cursor-pointer text-center block uppercase"
+            className="w-full mt-3 bg-[#26A69A] hover:bg-emerald-600 text-slate-950 py-1.5 rounded font-bold text-[10px] transition-colors cursor-pointer text-center block uppercase"
           >
             Deploy Order Limit &rarr;
           </button>

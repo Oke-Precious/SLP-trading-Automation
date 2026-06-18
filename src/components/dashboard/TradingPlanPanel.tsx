@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { CheckSquare, Square, Flame } from 'lucide-react';
+import { CheckSquare, Square, Flame, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePOIStore } from '../../store/usePOIStore';
 import { BiasResult } from '../../lib/analysis/biasEngine';
 import { ActiveSignalCard } from './ActiveSignalCard';
@@ -22,6 +22,11 @@ export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult }
     5: false,
     6: false,
   });
+
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [accountBalance, setAccountBalance] = useState<number>(10000);
+  const [riskPercent, setRiskPercent] = useState<number>(1);
+  const [stopLossDistance, setStopLossDistance] = useState<number>(500); // e.g. difference in price or pips
 
   const { pois } = usePOIStore();
   const hasActivePois = pois.some(p => p.status === 'Active');
@@ -114,6 +119,67 @@ export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult }
             );
           })}
         </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-[#2D313E]/60">
+        <button 
+          onClick={() => setShowCalculator(!showCalculator)}
+          className="flex items-center justify-between w-full text-xs font-bold uppercase text-gray-200 hover:text-white transition-colors focus:outline-none"
+        >
+          <div className="flex items-center space-x-2">
+            <Calculator size={16} className="text-blue-400" />
+            <span>Position Size Calculator</span>
+          </div>
+          {showCalculator ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        
+        {showCalculator && (
+          <div className="mt-3 space-y-3 bg-[#131722] p-3 rounded-lg border border-gray-800">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Account ($)</label>
+                <input 
+                  type="number" 
+                  value={accountBalance}
+                  onChange={(e) => setAccountBalance(Number(e.target.value))}
+                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Risk (%)</label>
+                <input 
+                  type="number"
+                  step="0.1" 
+                  value={riskPercent}
+                  onChange={(e) => setRiskPercent(Number(e.target.value))}
+                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">SL Distance (Price diff/Pips)</label>
+                <input 
+                  type="number" 
+                  value={stopLossDistance}
+                  onChange={(e) => setStopLossDistance(Number(e.target.value))}
+                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between items-center">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Position Size (Units)</span>
+              <span className="text-sm font-bold text-blue-400">
+                {stopLossDistance > 0 ? ((accountBalance * (riskPercent / 100)) / stopLossDistance).toFixed(4) : "0.0000"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Risk Amount</span>
+              <span className="text-xs font-medium text-red-400">
+                ${(accountBalance * (riskPercent / 100)).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {hasActivePois && (

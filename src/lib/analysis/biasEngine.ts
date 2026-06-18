@@ -81,6 +81,7 @@ export function classifyStructure(highs: SwingPoint[], lows: SwingPoint[], curre
   const isHigherHigh = h2.price > h1.price;
   const isHigherLow = l2.price > l1.price;
 
+  // First establish underlying trend based on previous swings
   if (isHigherHigh && isHigherLow) {
     bias = 'BULLISH';
     structure = 'Higher Highs & Higher Lows';
@@ -95,15 +96,32 @@ export function classifyStructure(highs: SwingPoint[], lows: SwingPoint[], curre
     structure = 'Expanding Structure (Volatility)';
   }
 
-  // Fallback to recent momentum if ranging but we have current price
-  if (bias === 'RANGING' && currentPrice) {
-     if (currentPrice < l2.price && currentPrice < l1.price) {
+  // Aggressive override using current price (Real-time Bias)
+  if (currentPrice) {
+    if (bias === 'BULLISH' && currentPrice < l2.price) {
         bias = 'BEARISH';
-        structure = 'Structure Breakdown';
-     } else if (currentPrice > h2.price && currentPrice > h1.price) {
+        structure = 'Bearish CHoCH (Structure Break Down)';
+    } else if (bias === 'BEARISH' && currentPrice > h2.price) {
         bias = 'BULLISH';
-        structure = 'Structure Breakout';
-     }
+        structure = 'Bullish CHoCH (Structure Break Up)';
+    } else if (bias === 'RANGING') {
+        if (currentPrice > h2.price) {
+            bias = 'BULLISH';
+            structure = 'Bullish Outbreak';
+        } else if (currentPrice < l2.price) {
+            bias = 'BEARISH';
+            structure = 'Bearish Breakdown';
+        }
+    }
+
+    // Absolute dominance overrides
+    if (currentPrice < l1.price && currentPrice < l2.price) {
+       bias = 'BEARISH';
+       if (!structure.includes('Bearish')) structure = 'Strong Bearish Impulse';
+    } else if (currentPrice > h1.price && currentPrice > h2.price) {
+       bias = 'BULLISH';
+       if (!structure.includes('Bullish')) structure = 'Strong Bullish Impulse';
+    }
   }
 
   return {
