@@ -98,7 +98,7 @@ export class TwelveDataService {
       
       return candles.slice(-limit);
     } catch (err: any) {
-      logger.warn(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
+      logger.debug(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }
@@ -142,7 +142,7 @@ export class TwelveDataService {
         quoteVol: (meta.regularMarketVolume || 420000) * price,
       };
     } catch (err: any) {
-      logger.warn(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
+      logger.debug(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }
@@ -156,7 +156,7 @@ export class TwelveDataService {
       try {
         return await this.fetchYahooCandles(symbol, timeframe, limit);
       } catch (err) {
-        logger.warn(`Yahoo Finance direct fetch failed. Falling back to simulated candles for ${symbol}: ${err}`);
+        logger.info(`Yahoo Finance direct fetch failed. Falling back to simulated candles for ${symbol}: ${err}`);
         return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
       }
     }
@@ -170,11 +170,11 @@ export class TwelveDataService {
 
       const data = await response.json();
       if (!data.values || !Array.isArray(data.values)) {
-        logger.warn(`TwelveData returned invalid format or API limit hit. Falling back to Yahoo Finance.`);
+        logger.info(`TwelveData returned invalid format or API limit hit. Falling back to Yahoo Finance.`);
         try {
           return await this.fetchYahooCandles(symbol, timeframe, limit);
         } catch (yahooErr) {
-          logger.warn(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
+          logger.info(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
           return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
         }
       }
@@ -194,7 +194,7 @@ export class TwelveDataService {
       try {
         return await this.fetchYahooCandles(symbol, timeframe, limit);
       } catch (yahooErr) {
-        logger.warn(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
+        logger.info(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
         return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
       }
     }

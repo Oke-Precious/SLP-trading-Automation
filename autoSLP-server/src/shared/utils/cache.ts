@@ -71,7 +71,7 @@ if (isTesting) {
       retryStrategy: () => null // Stop retrying immediately if it fails
     });
     redisClient.on('error', () => {
-      logger.warn('Redis unreachable. Transitioning auth sessions to safety fallback engine.');
+      logger.info('Redis unreachable. Transitioning auth sessions to safety fallback engine.');
       redisClient = new MockRedisCache();
     });
   } catch {
