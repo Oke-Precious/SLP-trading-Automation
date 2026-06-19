@@ -197,8 +197,9 @@ export function listenToAlerts(uid: string, callback: (alerts: any[]) => void) {
 export async function saveUserSettings(uid: string, settings: any) {
   const path = `users/${uid}/settings/preferences`;
   try {
+    const { updatedAt, ...serializableSettings } = settings;
     await setDoc(userDoc(uid, 'settings', 'preferences'), {
-      ...settings,
+      ...serializableSettings,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -214,6 +215,83 @@ export async function getUserSettings(uid: string) {
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, path);
   }
+}
+
+export function listenToUserSettings(uid: string, callback: (settings: any) => void) {
+  const path = `users/${uid}/settings/preferences`;
+  return onSnapshot(
+    userDoc(uid, 'settings', 'preferences'),
+    (snap) => {
+      if (snap.exists()) {
+        callback(snap.data());
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+}
+
+// ════════════════════════════════════════
+// USER BIAS
+// ════════════════════════════════════════
+
+export async function saveUserBias(uid: string, biasMap: any) {
+  const path = `users/${uid}/settings/bias`;
+  try {
+    await setDoc(userDoc(uid, 'settings', 'bias'), {
+      biasMap,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export function listenToUserBias(uid: string, callback: (biasMap: any) => void) {
+  const path = `users/${uid}/settings/bias`;
+  return onSnapshot(
+    userDoc(uid, 'settings', 'bias'),
+    (snap) => {
+      if (snap.exists() && snap.data()?.biasMap) {
+        callback(snap.data().biasMap);
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
+}
+
+// ════════════════════════════════════════
+// CHART SETTINGS
+// ════════════════════════════════════════
+
+export async function saveUserChartSettings(uid: string, settings: any) {
+  const path = `users/${uid}/settings/chart`;
+  try {
+    await setDoc(userDoc(uid, 'settings', 'chart'), {
+      settings,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export function listenToUserChartSettings(uid: string, callback: (settings: any) => void) {
+  const path = `users/${uid}/settings/chart`;
+  return onSnapshot(
+    userDoc(uid, 'settings', 'chart'),
+    (snap) => {
+      if (snap.exists() && snap.data()?.settings) {
+        callback(snap.data().settings);
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, path);
+    }
+  );
 }
 
 // ════════════════════════════════════════

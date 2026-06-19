@@ -98,7 +98,7 @@ export class TwelveDataService {
       
       return candles.slice(-limit);
     } catch (err: any) {
-      logger.error(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
+      logger.warn(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }
@@ -142,7 +142,7 @@ export class TwelveDataService {
         quoteVol: (meta.regularMarketVolume || 420000) * price,
       };
     } catch (err: any) {
-      logger.error(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
+      logger.warn(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useAuthStore } from './useAuthStore';
+import { saveUserChartSettings, listenToUserChartSettings } from '../lib/firebase/firestoreService';
 
 export interface ChartSettings {
   // Background
@@ -87,19 +89,63 @@ interface ChartSettingsStore {
   updateSetting: <K extends keyof ChartSettings>(key: K, value: ChartSettings[K]) => void;
   applyPreset: (preset: keyof typeof PRESETS) => void;
   resetToDefaults: () => void;
+  setSettings: (settings: ChartSettings) => void;
+  syncWithFirebase: (uid: string) => () => void;
 }
 
 export const useChartSettingsStore = create<ChartSettingsStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       settings: DEFAULTS,
-      updateSetting: (key, value) => set(s => ({
-        settings: { ...s.settings, [key]: value, preset: 'custom' }
-      })),
-      applyPreset: (preset) => set(s => ({
-        settings: { ...s.settings, ...PRESETS[preset], preset: preset as any }
-      })),
-      resetToDefaults: () => set({ settings: DEFAULTS }),
+      
+      updateSetting: (key, value) => {
+        const nextSettings = { ...get().settings, [key]: value, preset: 'custom' as const };
+        set({ settings: nextSettings });
+
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          saveUserChartSettings(uid, nextSettings).catch(err =>
+            console.error('[Firestore] Failed to save chart settings:', err)
+          );
+        }
+      },
+
+      applyPreset: (preset) => {
+        const nextSettings = { ...get().settings, ...PRESETS[preset], preset: preset as any };
+        set({ settings: nextSettings });
+
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          saveUserChartSettings(uid, nextSettings).catch(err =>
+            console.error('[Firestore] Failed to apply chart preset settings:', err)
+          );
+        }
+      },
+
+      resetToDefaults: () => {
+        set({ settings: DEFAULTS });
+
+        const user = useAuthStore.getState().user;
+        const uid = user?.uid || user?.id;
+        if (uid) {
+          saveUserChartSettings(uid, DEFAULTS).catch(err =>
+            console.error('[Firestore] Failed to reset chart settings:', err)
+          );
+        }
+      },
+
+      setSettings: (settings) => set({ settings }),
+
+      syncWithFirebase: (uid) => {
+        const unsubscribe = listenToUserChartSettings(uid, (firebaseSettings) => {
+          if (firebaseSettings) {
+            get().setSettings(firebaseSettings);
+          }
+        });
+        return unsubscribe;
+      }
     }),
     { name: 'autoSLP-chart-settings' }
   )

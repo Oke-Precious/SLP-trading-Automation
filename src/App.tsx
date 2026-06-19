@@ -32,6 +32,9 @@ import { useAuthStore } from './store/useAuthStore';
 import { usePOIStore } from './store/usePOIStore';
 import { useJournalStore } from './store/useJournalStore';
 import { useAlertStore } from './store/useAlertStore';
+import { useSettingsStore } from './store/useSettingsStore';
+import { useBiasStore } from './store/useBiasStore';
+import { useChartSettingsStore } from './store/useChartSettingsStore';
 import LoginPage from './app/login/page';
 import RegisterPage from './app/register/page';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -78,7 +81,10 @@ export default function App() {
           const unsubPOI = usePOIStore.getState().syncWithFirebase(fbUser.uid);
           const unsubJournal = useJournalStore.getState().syncWithFirebase(fbUser.uid);
           const unsubAlert = useAlertStore.getState().syncWithFirebase(fbUser.uid);
-          syncUnsubscribes = [unsubPOI, unsubJournal, unsubAlert];
+          const unsubSettings = useSettingsStore.getState().syncWithFirebase(fbUser.uid);
+          const unsubBias = useBiasStore.getState().syncWithFirebase(fbUser.uid);
+          const unsubChartSettings = useChartSettingsStore.getState().syncWithFirebase(fbUser.uid);
+          syncUnsubscribes = [unsubPOI, unsubJournal, unsubAlert, unsubSettings, unsubBias, unsubChartSettings];
         } catch (tokenErr) {
           console.error("Failed to retrieve auth ID token:", tokenErr);
         }
