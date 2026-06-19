@@ -21,14 +21,16 @@ try {
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     }),
-    experimentalForceLongPolling: true
+    experimentalForceLongPolling: true,
+    ignoreUndefinedProperties: true
   }, firebaseConfig.firestoreDatabaseId);
   console.log('🔥 [Firebase] Firestore initialized successfully with robust long-polling and persistent cache.');
 } catch (error) {
   console.warn('⚠️ [Firebase] Failed to initialize Firestore with persistent offline cache. Falling back to memory-only representation:', error);
   try {
     dbInstance = initializeFirestore(app, {
-      experimentalForceLongPolling: true
+      experimentalForceLongPolling: true,
+      ignoreUndefinedProperties: true
     }, firebaseConfig.firestoreDatabaseId);
   } catch (errInner) {
     console.error('❌ [Firebase] Failed standard Firestore initialization:', errInner);

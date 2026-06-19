@@ -1,6 +1,6 @@
 import {
   collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
-  getDocs, getDoc, onSnapshot, query, orderBy, where,
+  getDocs, getDoc, onSnapshot, query, where,
   serverTimestamp
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firebase';
@@ -12,6 +12,28 @@ const userCol = (uid: string, col: string) =>
 const userDoc = (uid: string, col: string, docId: string) =>
   doc(db, 'users', uid, col, docId);
 
+// Recursive helper to remove properties with undefined values
+// (Firestore throws exceptions on fields with undefined value)
+function cleanUndefined(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  // If it's a special Firestore FieldValue or similar custom instance, do not sanitize it
+  if (obj.constructor && obj.constructor.name !== 'Object' && obj.constructor.name !== 'Array') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  }
+  const clean: any = {};
+  for (const key of Object.keys(obj)) {
+    if (obj[key] !== undefined) {
+      clean[key] = cleanUndefined(obj[key]);
+    }
+  }
+  return clean;
+}
+
 // ════════════════════════════════════════
 // POIs
 // ════════════════════════════════════════
@@ -19,8 +41,9 @@ const userDoc = (uid: string, col: string, docId: string) =>
 export async function savePOI(uid: string, poi: any) {
   const path = `users/${uid}/pois/${poi.id}`;
   try {
+    const cleaned = cleanUndefined(poi);
     await setDoc(userDoc(uid, 'pois', poi.id), {
-      ...poi,
+      ...cleaned,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -33,8 +56,9 @@ export async function savePOI(uid: string, poi: any) {
 export async function updatePOI(uid: string, poiId: string, changes: any) {
   const path = `users/${uid}/pois/${poiId}`;
   try {
+    const cleaned = cleanUndefined(changes);
     await updateDoc(userDoc(uid, 'pois', poiId), {
-      ...changes,
+      ...cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -51,13 +75,26 @@ export async function deletePOI(uid: string, poiId: string) {
   }
 }
 
+function getSafeTime(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (val.toDate && typeof val.toDate === 'function') {
+    return val.toDate().getTime();
+  }
+  if (typeof val.seconds === 'number') {
+    return val.seconds * 1000;
+  }
+  const parsed = new Date(val).getTime();
+  return isNaN(parsed) ? 0 : parsed;
+}
+
 export async function getUserPOIs(uid: string) {
   const path = `users/${uid}/pois`;
   try {
-    const snap = await getDocs(
-      query(userCol(uid, 'pois'), orderBy('createdAt', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await getDocs(userCol(uid, 'pois'));
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a: any, b: any) => getSafeTime(b.createdAt) - getSafeTime(a.createdAt));
+    return docs;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
   }
@@ -66,12 +103,15 @@ export async function getUserPOIs(uid: string) {
 export function listenToPOIs(uid: string, callback: (pois: any[]) => void) {
   const path = `users/${uid}/pois`;
   return onSnapshot(
-    query(userCol(uid, 'pois'), orderBy('createdAt', 'desc')),
+    userCol(uid, 'pois'),
     (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a: any, b: any) => getSafeTime(b.createdAt) - getSafeTime(a.createdAt));
+      callback(docs);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      // Use clean console logging warning for read listeners rather than throwing fatal uncaught exceptions
+      console.warn('[Firestore Listener] Failed to subscribe to pois collection:', err);
     }
   );
 }
@@ -83,8 +123,9 @@ export function listenToPOIs(uid: string, callback: (pois: any[]) => void) {
 export async function saveTrade(uid: string, trade: any) {
   const path = `users/${uid}/trades/${trade.id}`;
   try {
+    const cleaned = cleanUndefined(trade);
     await setDoc(userDoc(uid, 'trades', trade.id), {
-      ...trade,
+      ...cleaned,
       createdAt: serverTimestamp(),
     });
     return trade.id;
@@ -96,8 +137,9 @@ export async function saveTrade(uid: string, trade: any) {
 export async function updateTrade(uid: string, tradeId: string, changes: any) {
   const path = `users/${uid}/trades/${tradeId}`;
   try {
+    const cleaned = cleanUndefined(changes);
     await updateDoc(userDoc(uid, 'trades', tradeId), {
-      ...changes,
+      ...cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -117,10 +159,14 @@ export async function deleteTrade(uid: string, tradeId: string) {
 export async function getUserTrades(uid: string) {
   const path = `users/${uid}/trades`;
   try {
-    const snap = await getDocs(
-      query(userCol(uid, 'trades'), orderBy('entryDate', 'desc'))
-    );
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await getDocs(userCol(uid, 'trades'));
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a: any, b: any) => {
+      const ta = a.entryDate ? new Date(a.entryDate).getTime() : getSafeTime(a.createdAt);
+      const tb = b.entryDate ? new Date(b.entryDate).getTime() : getSafeTime(b.createdAt);
+      return tb - ta;
+    });
+    return docs;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, path);
   }
@@ -129,12 +175,18 @@ export async function getUserTrades(uid: string) {
 export function listenToTrades(uid: string, callback: (trades: any[]) => void) {
   const path = `users/${uid}/trades`;
   return onSnapshot(
-    query(userCol(uid, 'trades'), orderBy('entryDate', 'desc')),
+    userCol(uid, 'trades'),
     (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a: any, b: any) => {
+        const ta = a.entryDate ? new Date(a.entryDate).getTime() : getSafeTime(a.createdAt);
+        const tb = b.entryDate ? new Date(b.entryDate).getTime() : getSafeTime(b.createdAt);
+        return tb - ta;
+      });
+      callback(docs);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      console.warn('[Firestore Listener] Failed to subscribe to trades collection:', err);
     }
   );
 }
@@ -146,8 +198,9 @@ export function listenToTrades(uid: string, callback: (trades: any[]) => void) {
 export async function saveAlert(uid: string, alert: any) {
   const path = `users/${uid}/alerts/${alert.id}`;
   try {
+    const cleaned = cleanUndefined(alert);
     await setDoc(userDoc(uid, 'alerts', alert.id), {
-      ...alert,
+      ...cleaned,
       createdAt: serverTimestamp(),
     });
     return alert.id;
@@ -159,8 +212,9 @@ export async function saveAlert(uid: string, alert: any) {
 export async function updateAlert(uid: string, alertId: string, changes: any) {
   const path = `users/${uid}/alerts/${alertId}`;
   try {
+    const cleaned = cleanUndefined(changes);
     await updateDoc(userDoc(uid, 'alerts', alertId), {
-      ...changes,
+      ...cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -180,12 +234,14 @@ export async function deleteAlert(uid: string, alertId: string) {
 export function listenToAlerts(uid: string, callback: (alerts: any[]) => void) {
   const path = `users/${uid}/alerts`;
   return onSnapshot(
-    query(userCol(uid, 'alerts'), orderBy('createdAt', 'desc')),
+    userCol(uid, 'alerts'),
     (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a: any, b: any) => getSafeTime(b.createdAt) - getSafeTime(a.createdAt));
+      callback(docs);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.LIST, path);
+      console.warn('[Firestore Listener] Failed to subscribe to alerts collection:', err);
     }
   );
 }
@@ -198,8 +254,9 @@ export async function saveUserSettings(uid: string, settings: any) {
   const path = `users/${uid}/settings/preferences`;
   try {
     const { updatedAt, ...serializableSettings } = settings;
+    const cleaned = cleanUndefined(serializableSettings);
     await setDoc(userDoc(uid, 'settings', 'preferences'), {
-      ...serializableSettings,
+      ...cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -239,8 +296,9 @@ export function listenToUserSettings(uid: string, callback: (settings: any) => v
 export async function saveUserBias(uid: string, biasMap: any) {
   const path = `users/${uid}/settings/bias`;
   try {
+    const cleaned = cleanUndefined(biasMap);
     await setDoc(userDoc(uid, 'settings', 'bias'), {
-      biasMap,
+      biasMap: cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -270,8 +328,9 @@ export function listenToUserBias(uid: string, callback: (biasMap: any) => void) 
 export async function saveUserChartSettings(uid: string, settings: any) {
   const path = `users/${uid}/settings/chart`;
   try {
+    const cleaned = cleanUndefined(settings);
     await setDoc(userDoc(uid, 'settings', 'chart'), {
-      settings,
+      settings: cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
@@ -301,8 +360,9 @@ export function listenToUserChartSettings(uid: string, callback: (settings: any)
 export async function updateUserProfile(uid: string, changes: any) {
   const path = `users/${uid}`;
   try {
+    const cleaned = cleanUndefined(changes);
     await updateDoc(doc(db, 'users', uid), {
-      ...changes,
+      ...cleaned,
       updatedAt: serverTimestamp(),
     });
   } catch (err) {
