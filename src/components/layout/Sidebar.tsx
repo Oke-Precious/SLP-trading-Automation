@@ -1,9 +1,5 @@
-/**
- * @file Sidebar.tsx
- * @description Layout sidebar navigation matching the design pattern.
- */
-
 import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   LayoutGrid, 
@@ -18,46 +14,62 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 import { useUIStore } from '../../store/useUIStore';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export interface SidebarProps {
-  activePage: string;
-  setActivePage: (page: string) => void;
   openPersonasModal: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, openPersonasModal }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ openPersonasModal }) => {
   const isExpanded = useUIStore((state) => state.sidebarExpanded);
+  const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen);
+  const setMobileSidebarOpen = useUIStore((state) => state.setMobileSidebarOpen);
   const toggleExpanded = useUIStore((state) => state.toggleSidebar);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const user = useAuthStore((state) => state.user);
+  const navigate = useNavigate();
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'market-overview', label: 'Market Overview', icon: LayoutGrid },
-    { id: 'directional-bias', label: 'Directional Bias', icon: Compass },
-    { id: 'poi-map-page', label: 'POI Map', icon: Layers },
-    { id: 'trade-setups', label: 'Trade Setups', icon: Target },
-    { id: 'positions', label: 'Positions', icon: Briefcase },
-    { id: 'alerts', label: 'Alerts', icon: Bell },
-    { id: 'backtest', label: 'Backtest', icon: TrendingUp },
-    { id: 'journal', label: 'Journal', icon: BookOpen },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/dashboard' },
+    { id: 'market-overview', label: 'Market Overview', icon: LayoutGrid, path: '/market-overview' },
+    { id: 'directional-bias', label: 'Directional Bias', icon: Compass, path: '/directional-bias' },
+    { id: 'poi-map', label: 'POI Map', icon: Layers, path: '/poi-map' },
+    { id: 'trade-setups', label: 'Trade Setups', icon: Target, path: '/trade-setups' },
+    { id: 'positions', label: 'Positions', icon: Briefcase, path: '/positions' },
+    { id: 'alerts', label: 'Alerts', icon: Bell, path: '/alerts' },
+    { id: 'backtest', label: 'Backtest', icon: TrendingUp, path: '/backtest' },
+    { id: 'journal', label: 'Journal', icon: BookOpen, path: '/journal' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
   ];
 
   return (
-    <aside
-      id="root-layout-sidebar"
-      className={`hidden md:flex fixed top-0 left-0 h-screen z-40 bg-[#202940] border-r border-[#2C354E] text-gray-300 transition-all duration-200 ease-in-out flex flex-col justify-between ${
-        isExpanded ? 'w-[220px]' : 'w-[64px]'
-      }`}
-    >
-      {/* Top section: SLP TRADER logo (220px expanded) / S icon (64px collapsed) with tagline */}
-      <div className={`p-4 py-5 border-b border-[#2C354E] flex flex-col ${isExpanded ? 'items-start' : 'items-center'} justify-center shrink-0 overflow-hidden`}>
-        {isExpanded ? (
+    <>
+      {/* Mobile Overlay */}
+      {mobileSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+      
+      <aside
+        id="root-layout-sidebar"
+        className={`fixed top-0 left-0 h-screen z-50 bg-[#202940] border-r border-[#2C354E] text-gray-300 transition-transform duration-300 ease-in-out flex flex-col justify-between 
+          md:translate-x-0 ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+          ${isExpanded ? 'md:w-[220px]' : 'md:w-[64px]'} w-[240px] md:w-auto`}
+      >
+        <div className={`p-4 py-5 border-b border-[#2C354E] flex flex-col ${isExpanded ? 'items-start' : 'items-center'} justify-center shrink-0 overflow-hidden relative`}>
+          <button 
+            className="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white"
+            onClick={() => setMobileSidebarOpen(false)}
+          >
+            <X size={20} />
+          </button>
+          {isExpanded ? (
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-[#CAAA98] font-bold tracking-tight text-md font-display uppercase">SLP TRADER</span>
@@ -76,30 +88,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
       <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activePage === item.id;
           return (
-            <button
+            <NavLink
               key={item.id}
-              onClick={() => setActivePage(item.id)}
-              aria-current={isActive ? 'page' : undefined}
-              className={`w-[calc(100%-16px)] flex items-center py-2.5 px-4 mx-2 my-0.5 rounded-md transition-all duration-200 group text-left relative ${
+              to={item.path}
+              className={({ isActive }) => `w-[calc(100%-16px)] flex items-center py-2.5 px-4 mx-2 my-0.5 rounded-md transition-all duration-200 group text-left relative ${
                 isActive 
                   ? 'bg-[#181F33] text-[#CAAA98] font-bold border-l-4 border-[#CAAA98]' 
                   : 'text-gray-400 hover:bg-[#2C354E] hover:text-white'
               }`}
             >
-              <div className={`transition-transform duration-200 ${isActive ? 'scale-110 text-[#CAAA98]' : 'text-gray-400 group-hover:text-gray-200'}`}>
-                <Icon size={18} className="shrink-0" />
-              </div>
+              {({ isActive }) => (
+                <>
+                  <div className={`transition-transform duration-200 ${isActive ? 'scale-110 text-[#CAAA98]' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                    <Icon size={18} className="shrink-0" />
+                  </div>
 
-              <span 
-                className={`ml-3 whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold transition-opacity duration-200 ${
-                  isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
-                }`}
-              >
-                {item.label}
-              </span>
-            </button>
+                  <span 
+                    className={`ml-3 whitespace-nowrap text-[11px] uppercase tracking-wider font-semibold transition-opacity duration-200 ${
+                      isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </>
+              )}
+            </NavLink>
           );
         })}
       </nav>
@@ -107,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
       <div className="border-t border-[#2C354E] p-3 space-y-2">
         <button
           onClick={openPersonasModal}
-          className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white relative group"
+          className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white relative group cursor-pointer"
         >
           <Users size={18} className="shrink-0 text-[#CAAA98] group-hover:scale-110 transition-transform" />
           <span className={`ml-3 text-[10px] uppercase tracking-wider font-semibold ${isExpanded ? 'inline' : 'hidden'}`}>
@@ -115,10 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
           </span>
         </button>
 
-        {/* Separator line */}
         <div className="border-t border-[#2C354E]/50 my-1" />
 
-        {/* User profile section */}
         <div className="flex items-center justify-between p-1 rounded-lg">
           <div className="flex items-center">
             <div className="relative shrink-0">
@@ -147,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
                   console.error("Firebase signOut exception:", e);
                 }
                 clearAuth();
-                setActivePage('login');
+                navigate('/login');
               }}
               title="Sign Out"
               className="text-gray-400 hover:text-red-400 p-1.5 rounded transition-colors hover:bg-slate-800 cursor-pointer"
@@ -157,7 +169,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
           )}
         </div>
 
-        {/* Toggle Expand/Collapse Controller Button */}
         <button
           onClick={toggleExpanded}
           className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white cursor-pointer"
@@ -175,6 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, ope
         </button>
       </div>
     </aside>
+    </>
   );
 };
 

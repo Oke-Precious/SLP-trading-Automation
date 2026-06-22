@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, TrendingUp } from 'lucide-react';
 import { apiClient } from '../../lib/api/client';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -9,7 +8,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 
 export default function RegisterPage() {
-  const router  = useRouter();
+  const router  = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -103,7 +102,7 @@ export default function RegisterPage() {
       setAuth(newUserData, idToken);
 
       toast.success(`Welcome to AutoSLP, ${username}! Your cloud account is fully setup.`);
-      router.push('/dashboard');
+      router('/dashboard');
     } catch (err: any) {
       console.error('Firebase Registration Error:', err);
       let errorMsg = err.message || 'Registration failed';
@@ -180,7 +179,7 @@ export default function RegisterPage() {
       setAuth(userData, idToken);
 
       toast.success(`Welcome to AutoSLP, ${userData.username}!`);
-      router.push('/dashboard');
+      router('/dashboard');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
       const errorCode = err.code || 'unknown';
@@ -391,7 +390,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-xs text-[#9AA3B2]">
             Already have an account?{' '}
-            <Link href="/login" className="text-[#CAAA98] hover:underline font-semibold ml-1">Sign In</Link>
+            <Link to="/login" className="text-[#CAAA98] hover:underline font-semibold ml-1">Sign In</Link>
           </p>
         </div>
       </div>

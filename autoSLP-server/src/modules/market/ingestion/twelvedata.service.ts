@@ -98,7 +98,7 @@ export class TwelveDataService {
       
       return candles.slice(-limit);
     } catch (err: any) {
-      logger.debug(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
+      // logger.debug(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }
@@ -142,7 +142,7 @@ export class TwelveDataService {
         quoteVol: (meta.regularMarketVolume || 420000) * price,
       };
     } catch (err: any) {
-      logger.debug(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
+      // logger.debug(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
       throw err;
     }
   }
@@ -152,11 +152,9 @@ export class TwelveDataService {
     const mappedInterval = timeframe === '1D' ? '1day' : timeframe.toLowerCase();
 
     if (!this.hasValidKey()) {
-      logger.info(`TwelveData API key not set or invalid. Routing to Yahoo Finance for live real-time ${symbol} (${timeframe})`);
       try {
         return await this.fetchYahooCandles(symbol, timeframe, limit);
       } catch (err) {
-        logger.info(`Yahoo Finance direct fetch failed. Falling back to simulated candles for ${symbol}: ${err}`);
         return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
       }
     }
@@ -170,11 +168,9 @@ export class TwelveDataService {
 
       const data = await response.json();
       if (!data.values || !Array.isArray(data.values)) {
-        logger.info(`TwelveData returned invalid format or API limit hit. Falling back to Yahoo Finance.`);
         try {
           return await this.fetchYahooCandles(symbol, timeframe, limit);
         } catch (yahooErr) {
-          logger.info(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
           return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
         }
       }
@@ -190,11 +186,9 @@ export class TwelveDataService {
         timestamp: new Date(v.datetime),
       })).reverse(); // Reverse so they are ascending in chronological order
     } catch (err: any) {
-      logger.error(`Error in TwelveData fetchHistoricalCandles for ${symbol}: ${err.message}. Routing to Yahoo Finance.`);
       try {
         return await this.fetchYahooCandles(symbol, timeframe, limit);
       } catch (yahooErr) {
-        logger.info(`Yahoo Finance fallback failed, using simulated candles: ${yahooErr}`);
         return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
       }
     }

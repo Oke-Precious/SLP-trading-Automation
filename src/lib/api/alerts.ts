@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, getDocsWithTimeout } from '../firebase/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useMarketStore } from '../../store/useMarketStore';
 
 export interface CreateAlertData {
   pair: string;
@@ -185,7 +186,7 @@ export const alertsApi = {
 
       return {
         id,
-        pair: 'BTCUSDT',
+        pair: useMarketStore.getState().selectedPair,
         condition: 'Price alert triggered',
         status: 'Triggered',
         timestamp: timestamp
@@ -201,7 +202,7 @@ export const alertsApi = {
       }
       return {
         id,
-        pair: 'BTCUSDT',
+        pair: useMarketStore.getState().selectedPair,
         condition: 'Price alert toggled',
         status: 'Triggered',
         timestamp: new Date().toISOString()

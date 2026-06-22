@@ -8,8 +8,8 @@ const configSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/autoslp?schema=public'),
   REDIS_URL: z.string().default('redis://localhost:6379/0'),
-  JWT_SECRET: z.string().default('autoslp-super-secure-jwt-secret-key-123456789!'),
-  JWT_REFRESH_SECRET: z.string().default('autoslp-ultra-secure-jwt-refresh-key-987654321!')
+  JWT_SECRET: z.string({ required_error: "FATAL: JWT_SECRET environment variable is missing" }),
+  JWT_REFRESH_SECRET: z.string({ required_error: "FATAL: JWT_REFRESH_SECRET environment variable is missing" })
 });
 
 export const config = configSchema.parse(process.env);

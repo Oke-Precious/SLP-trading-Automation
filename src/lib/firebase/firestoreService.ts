@@ -284,7 +284,7 @@ export function listenToUserSettings(uid: string, callback: (settings: any) => v
       }
     },
     (err) => {
-      handleFirestoreError(err, OperationType.GET, path);
+      console.warn('[Firestore Listener] Failed to subscribe to user settings:', err);
     }
   );
 }
@@ -316,7 +316,7 @@ export function listenToUserBias(uid: string, callback: (biasMap: any) => void) 
       }
     },
     (err) => {
-      handleFirestoreError(err, OperationType.GET, path);
+      console.warn('[Firestore Listener] Failed to subscribe to user bias:', err);
     }
   );
 }
@@ -348,7 +348,7 @@ export function listenToUserChartSettings(uid: string, callback: (settings: any)
       }
     },
     (err) => {
-      handleFirestoreError(err, OperationType.GET, path);
+      console.warn('[Firestore Listener] Failed to subscribe to chart settings:', err);
     }
   );
 }

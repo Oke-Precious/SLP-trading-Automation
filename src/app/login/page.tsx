@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, TrendingUp, X } from 'lucide-react';
 import { apiClient } from '../../lib/api/client';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -9,7 +8,7 @@ import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 
 export default function LoginPage() {
-  const router  = useRouter();
+  const router  = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
@@ -91,7 +90,7 @@ export default function LoginPage() {
       setAuth(userData, idToken);
 
       toast.success(`Welcome back, ${userData.username}!`);
-      router.push('/dashboard');
+      router('/dashboard');
     } catch (err: any) {
       console.error('Firebase Login Error:', err);
       let errorMsg = err.message || 'Login failed';
@@ -208,7 +207,7 @@ export default function LoginPage() {
       setAuth(userData, idToken);
 
       toast.success(`Welcome, ${userData.username}!`);
-      router.push('/dashboard');
+      router('/dashboard');
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
       const errorCode = err.code || 'unknown';
@@ -307,7 +306,7 @@ export default function LoginPage() {
                   <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">💡 Troubleshooting & Resolution:</p>
                   <ul className="list-disc pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
                     <li><strong>Google Account:</strong> If you registered using Google Account, please use the <strong>Google Account</strong> button below to log in instantly.</li>
-                    <li><strong>New Account:</strong> If you don't have an email/password account yet, click <Link href="/register" className="text-[#CAAA98] underline font-bold hover:text-white">Create one</Link> first.</li>
+                    <li><strong>New Account:</strong> If you don't have an email/password account yet, click <Link to="/register" className="text-[#CAAA98] underline font-bold hover:text-white">Create one</Link> first.</li>
                     <li><strong>Incorrect Password:</strong> Double check your credentials or reset your password using the <strong>Forgot Password?</strong> option above the password input.</li>
                   </ul>
                 </div>
@@ -422,7 +421,7 @@ export default function LoginPage() {
 
           <p className="mt-6 text-center text-xs text-[#9AA3B2]">
             No account?{' '}
-            <Link href="/register" className="text-[#CAAA98] hover:underline font-semibold ml-1">Create one</Link>
+            <Link to="/register" className="text-[#CAAA98] hover:underline font-semibold ml-1">Create one</Link>
           </p>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useAuthStore } from './useAuthStore';
+import { useMarketStore } from './useMarketStore';
 import {
   saveTrade as firebaseSaveTrade,
   updateTrade as firebaseUpdateTrade,
@@ -252,7 +253,7 @@ export const useJournalStore = create<JournalStore>()(
         const unsubscribe = listenToTrades(uid, (tradesFromFirebase) => {
           const parsed = tradesFromFirebase.map(t => ({
             id: t.id,
-            pair: t.pair || 'BTCUSDT',
+            pair: t.pair || useMarketStore.getState().selectedPair,
             direction: t.direction || 'LONG',
             entryPrice: t.entryPrice || 0,
             exitPrice: t.exitPrice,

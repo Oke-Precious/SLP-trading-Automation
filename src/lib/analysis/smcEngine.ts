@@ -111,68 +111,45 @@ export function detectSwings(
 
 // ── STEP 2: DETECT BOS, CHoCH, MSS ────────────────────────
 
-export function detectBOS(
-  candles: Candle[],
-  swingHighs: SwingPoint[],
-  swingLows: SwingPoint[],
-): BOSEvent[] {
-  const events: BOSEvent[] = [];
-  if (swingHighs.length < 2 || swingLows.length < 2) return events;
-
-  let prevTrend: "BULLISH" | "BEARISH" | null = null;
-  let chochCounted = 0;
+export function detectBOS(candles: Candle[], swingHighs: SwingPoint[], swingLows: SwingPoint[]): BOSEvent[] {
+  const events: BOSEvent[] = []
+  let prevTrend: 'BULLISH' | 'BEARISH' | null = null
+  let chochStreak = 0
 
   for (let i = 5; i < candles.length; i++) {
-    const c = candles[i];
-
-    const lastHigh = swingHighs.filter((h) => h.index < i).slice(-1)[0];
-    const lastLow = swingLows.filter((l) => l.index < i).slice(-1)[0];
-
-    if (!lastHigh || !lastLow) continue;
+    const c = candles[i]
+    const lastHigh = swingHighs.filter(h => h.index < i).slice(-1)[0]
+    const lastLow  = swingLows.filter(l => l.index < i).slice(-1)[0]
+    if (!lastHigh || !lastLow) continue
 
     if (c.close > lastHigh.price) {
-      const isCHoCH = prevTrend === "BEARISH";
-      const isMSS = isCHoCH && chochCounted === 1;
-
+      const isCHoCH = prevTrend === 'BEARISH'
+      const isMSS = isCHoCH && chochStreak === 1
       events.push({
-        swingTime: lastHigh.time,
-        breakTime: c.time,
-        price: lastHigh.price,
-        direction: "BULLISH",
-        type: isMSS ? "MSS" : isCHoCH ? "CHOCH" : "BOS",
-      });
-
-      if (isCHoCH) chochCounted++;
-      else chochCounted = 0;
-      prevTrend = "BULLISH";
+        swingTime: lastHigh.time, breakTime: c.time, price: lastHigh.price,
+        direction: 'BULLISH', type: isMSS ? 'MSS' : isCHoCH ? 'CHOCH' : 'BOS',
+      })
+      chochStreak = isCHoCH ? chochStreak + 1 : 0
+      prevTrend = 'BULLISH'
     }
-
     if (c.close < lastLow.price) {
-      const isCHoCH = prevTrend === "BULLISH";
-      const isMSS = isCHoCH && chochCounted === 1;
-
+      const isCHoCH = prevTrend === 'BULLISH'
+      const isMSS = isCHoCH && chochStreak === 1
       events.push({
-        swingTime: lastLow.time,
-        breakTime: c.time,
-        price: lastLow.price,
-        direction: "BEARISH",
-        type: isMSS ? "MSS" : isCHoCH ? "CHOCH" : "BOS",
-      });
-
-      if (isCHoCH) chochCounted++;
-      else chochCounted = 0;
-      prevTrend = "BEARISH";
+        swingTime: lastLow.time, breakTime: c.time, price: lastLow.price,
+        direction: 'BEARISH', type: isMSS ? 'MSS' : isCHoCH ? 'CHOCH' : 'BOS',
+      })
+      chochStreak = isCHoCH ? chochStreak + 1 : 0
+      prevTrend = 'BEARISH'
     }
   }
 
-  const seen = new Set<number>();
-  return events
-    .filter((e) => {
-      const key = Math.round(e.price);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  const seen = new Set<number>()
+  return events.filter(e => {
+    const key = Math.round(e.price)
+    if (seen.has(key)) return false
+    seen.add(key); return true
+  }).slice(-4)   // cap at 4 — keeps chart readable per the polish requirement
 }
 
 // ── STEP 3: DETECT ORDER BLOCKS ───────────────────────────
@@ -318,66 +295,42 @@ export function detectLiquidity(
 
 // ── STEP 5: DETECT INDUCEMENT ──────────────────────────────
 
-export function detectInducement(
-  candles: Candle[],
-  swingHighs: SwingPoint[],
-  swingLows: SwingPoint[],
-  atr: number,
-): Inducement[] {
-  const indu: Inducement[] = [];
-
-  for (let i = 1; i < swingLows.length - 1; i++) {
-    const prev = swingLows[i - 1];
-    const curr = swingLows[i];
-    const next = swingLows[i + 1];
-    const isMinor = curr.price > prev.price && curr.price > next.price;
-    const rangeOK = curr.price - Math.min(prev.price, next.price) < atr * 0.5;
-    if (isMinor && rangeOK) {
-      indu.push({ price: curr.price, type: "BULLISH", time: curr.time });
-    }
-  }
-
-  for (let i = 1; i < swingHighs.length - 1; i++) {
-    const prev = swingHighs[i - 1];
-    const curr = swingHighs[i];
-    const next = swingHighs[i + 1];
-    const isMinor = curr.price < prev.price && curr.price < next.price;
-    const rangeOK = Math.max(prev.price, next.price) - curr.price < atr * 0.5;
-    if (isMinor && rangeOK) {
-      indu.push({ price: curr.price, type: "BEARISH", time: curr.time });
-    }
-  }
-
-  return indu.slice(-8);
+export function detectInducement(swingHighs: SwingPoint[], swingLows: SwingPoint[], atr: number): Inducement[] {
+const indu: Inducement[] = []
+for (let i = 1; i < swingLows.length - 1; i++) {
+const [prev, curr, next] = [swingLows[i-1], swingLows[i], swingLows[i+1]]
+if (curr.price > prev.price && curr.price > next.price &&
+(curr.price - Math.min(prev.price, next.price)) < atr * 0.5) {
+indu.push({ price: curr.price, type: 'BULLISH', time: curr.time })
+}
+}
+for (let i = 1; i < swingHighs.length - 1; i++) {
+const [prev, curr, next] = [swingHighs[i-1], swingHighs[i], swingHighs[i+1]]
+if (curr.price < prev.price && curr.price < next.price &&
+(Math.max(prev.price, next.price) - curr.price) < atr * 0.5) {
+indu.push({ price: curr.price, type: 'BEARISH', time: curr.time })
+}
+}
+return indu.slice(-2)
 }
 
 // ── STEP 6: DETECT FAIR VALUE GAPS (FVG) ───────────────────
 
 export function detectFVG(candles: Candle[]): FVG[] {
-  const fvgs: FVG[] = [];
-  const currentPrice = candles[candles.length - 1]?.close ?? 0;
-
-  for (let i = 1; i < candles.length - 1; i++) {
-    const prev = candles[i - 1];
-    const curr = candles[i];
-    const next = candles[i + 1];
-
-    if (next.low > prev.high) {
-      const top = next.low;
-      const bottom = prev.high;
-      const filled = currentPrice < bottom;
-      fvgs.push({ top, bottom, type: "BULLISH", time: curr.time, filled });
-    }
-
-    if (next.high < prev.low) {
-      const top = prev.low;
-      const bottom = next.high;
-      const filled = currentPrice > top;
-      fvgs.push({ top, bottom, type: "BEARISH", time: curr.time, filled });
-    }
-  }
-
-  return fvgs;
+const fvgs: FVG[] = []
+const currentPrice = candles[candles.length - 1]?.close ?? 0
+for (let i = 1; i < candles.length - 1; i++) {
+const prev = candles[i-1], curr = candles[i], next = candles[i+1]
+if (next.low > prev.high) {
+fvgs.push({ top: next.low, bottom: prev.high, type: 'BULLISH',
+time: curr.time, filled: currentPrice < prev.high })
+}
+if (next.high < prev.low) {
+fvgs.push({ top: prev.low, bottom: next.high, type: 'BEARISH',
+time: curr.time, filled: currentPrice > prev.low })
+}
+}
+return fvgs.filter(f => !f.filled).slice(-2)
 }
 
 // ── MASTER FUNCTION: Run all detection ─────────────────────
@@ -403,16 +356,16 @@ export function runSMCAnalysis(candles: Candle[]): SMCResult {
   const bosEvents = detectBOS(candles, swingHighs, swingLows);
   const orderBlocks = detectOrderBlocks(candles, bosEvents);
   const liquidityLevels = detectLiquidity(candles, swingHighs, swingLows, atr);
-  const inducements = detectInducement(candles, swingHighs, swingLows, atr);
+  const inducements = detectInducement(swingHighs, swingLows, atr);
   const fvgs = detectFVG(candles);
 
   return {
     swingHighs,
     swingLows,
-    bosEvents: bosEvents.slice(-4),
+    bosEvents,
     orderBlocks: orderBlocks.filter((b) => b.status === "ACTIVE").slice(-3),
     liquidityLevels: liquidityLevels.filter((l) => !l.swept).slice(-3),
-    inducements: inducements.slice(-2),
-    fvgs: fvgs.filter((f) => !f.filled).slice(-2),
+    inducements,
+    fvgs,
   };
 }

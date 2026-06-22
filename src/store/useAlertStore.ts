@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { Alert } from '../lib/alerts/alertEngine'
 import { useAuthStore } from './useAuthStore'
+import { useMarketStore } from './useMarketStore'
 import {
   saveAlert,
   updateAlert as firebaseUpdateAlert,
@@ -112,7 +113,7 @@ export const useAlertStore = create<AlertStore>()(
         const unsubscribe = listenToAlerts(uid, (alertsFromFirebase) => {
           const parsed = alertsFromFirebase.map(a => ({
             id: a.id,
-            pair: a.pair || 'BTCUSDT',
+            pair: a.pair || useMarketStore.getState().selectedPair,
             condition: a.condition || 'PRICE_ABOVE',
             value: a.value || 0,
             value2: a.value2,

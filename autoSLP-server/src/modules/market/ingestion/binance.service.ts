@@ -175,7 +175,6 @@ export class BinanceService {
         timestamp: new Date(k[0]),
       }));
     } catch (err: any) {
-      logger.info(`[Binance REST Bypass] Failed to fetch candles for ${pair}: ${err.message}. Falling back to simulation.`);
       return this.generateSimulatedCandles(pair, timeframe, limit);
     }
   }
@@ -197,7 +196,6 @@ export class BinanceService {
         quoteVol:   parseFloat(data.quoteVolume),
       };
     } catch (err: any) {
-      logger.info(`[Binance REST Bypass] Ticker fetch failed for ${pair}: ${err.message}. Generator fallback.`);
       const basePrice = DEFAULT_PRICES[pair.toUpperCase()] || 100.0;
       return this.generateSimulatedTicker(pair, basePrice);
     }

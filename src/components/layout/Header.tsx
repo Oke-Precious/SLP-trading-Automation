@@ -10,7 +10,8 @@ import {
   HelpCircle, 
   FileText, 
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Menu
 } from 'lucide-react';
 import { CurrencyPair, Timeframe } from '../../types';
 import { useMarketStore } from '../../store/useMarketStore';
@@ -50,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [bias]);
   
   const isExpanded = useUIStore((state) => state.sidebarExpanded);
+  const toggleMobileSidebar = useUIStore((state) => state.toggleMobileSidebar);
   const connectionStatus = useUIStore((state) => state.connectionStatus);
 
   const [dateTimeStr, setDateTimeStr] = useState('');
@@ -165,13 +167,18 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header 
       id="root-layout-header"
-      className="fixed top-0 right-0 h-12 bg-card border-b border-[#2A2E39] px-4 flex items-center justify-between z-50 select-none font-sans transition-all duration-200 ease-in-out"
+      className={`fixed top-0 right-0 h-12 bg-card border-b border-[#2A2E39] px-4 flex items-center justify-between z-40 select-none font-sans transition-all duration-200 ease-in-out w-full md:w-[calc(100vw-${isExpanded ? '220px' : '64px'})]`}
       style={{
-        left: isExpanded ? '220px' : '64px',
-        width: `calc(100vw - ${isExpanded ? '220px' : '64px'})`
+        left: typeof window !== 'undefined' && window.innerWidth < 768 ? 0 : isExpanded ? '220px' : '64px'
       }}
     >
-      <div className="flex items-center space-x-4 min-w-[240px]">
+      <div className="flex items-center space-x-2 md:space-x-4 min-w-[140px] md:min-w-[240px]">
+        <button 
+          className="md:hidden p-1.5 text-gray-400 hover:text-white" 
+          onClick={toggleMobileSidebar}
+        >
+          <Menu size={20} />
+        </button>
         <div className="flex flex-col justify-center">
           <div className="flex items-center space-x-1.5 animate-fade-in">
             <span className="text-light font-bold tracking-tight text-sm font-display">AutoSLP</span>

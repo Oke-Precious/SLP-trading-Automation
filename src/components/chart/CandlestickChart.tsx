@@ -189,12 +189,12 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
   // ── Render POI zones as price lines ───────────────────
   useEffect(() => {
-    if (!candleSeries.current) return;
+    if (!chartApi.current || candles.length === 0) return;
 
-    // Remove old POI lines
-    poiSeriesRefs.current.forEach((line) => {
+    // Remove old POI series
+    poiSeriesRefs.current.forEach((series) => {
       try {
-        candleSeries.current?.removePriceLine(line);
+        chartApi.current?.removeSeries(series);
       } catch {}
     });
     poiSeriesRefs.current = [];
@@ -210,26 +210,50 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
       if (priceMax === undefined || priceMin === undefined) return;
 
-      const topLine = candleSeries.current?.createPriceLine({
-        price: priceMax,
+      // Bound to last 60 candles if no startTime
+      const startTime = candles[Math.max(0, candles.length - 60)].time;
+      const endTime = candles[candles.length - 1].time;
+
+      const topLine = chartApi.current!.addSeries(LineSeries, {
         color,
         lineWidth: 1,
         lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: `${poi.name} ▲`,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
       });
-      const botLine = candleSeries.current?.createPriceLine({
-        price: priceMin,
+      topLine.setData([
+        { time: startTime as Time, value: priceMax },
+        { time: endTime as Time, value: priceMax },
+      ]);
+      markersPluginRef.current?.setMarkers([
+        ...(markersPluginRef.current?.markers() || []),
+        {
+          time: startTime as Time,
+          position: "aboveBar",
+          color: color,
+          shape: "circle",
+          text: `${poi.name} ▲`,
+          size: 0.5,
+        }
+      ]);
+
+      const botLine = chartApi.current!.addSeries(LineSeries, {
         color,
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: `${poi.name} ▼`,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
       });
-      if (topLine) poiSeriesRefs.current.push(topLine);
-      if (botLine) poiSeriesRefs.current.push(botLine);
+      botLine.setData([
+        { time: startTime as Time, value: priceMin },
+        { time: endTime as Time, value: priceMin },
+      ]);
+
+      poiSeriesRefs.current.push(topLine, botLine);
     });
-  }, [pois, chartInitialized]);
+  }, [pois, chartInitialized, candles]);
 
   // ── HH/HL markers from structure analysis ─────────────
   const smcResult = React.useMemo(() => {
@@ -511,6 +535,13 @@ export default function CandlestickChart({ height = 480 }: Props) {
   // ── High-Fidelity Custom Tooltip ───────────────────────
   useEffect(() => {
     if (!chartApi.current || !chartRef.current) return;
+    
+    // ML Data Collection hook
+    if (smcResult && candles.length > 0) {
+      import('../../lib/ml/mlCollectorService')
+        .then(({ processMLDataCollection }) => processMLDataCollection(smcResult.bosEvents, candles))
+        .catch(() => {});
+    }
     
     const handleCrosshairMove = (param: any) => {
       if (!chartRef.current || !tooltipRef.current) return;

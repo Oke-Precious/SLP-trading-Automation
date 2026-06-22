@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType, getDocsWithTimeout } from '../firebase/firebase';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useMarketStore } from '../../store/useMarketStore';
 
 export interface POIFilters {
   pair?: string;
@@ -111,7 +112,7 @@ export const poiApi = {
           priceMax: Number(item.priceTo !== undefined ? item.priceTo : 0),
           status: statusMapped,
           timeframe: item.timeframe || '1H',
-          pair: item.pair || 'BTCUSDT'
+          pair: item.pair || useMarketStore.getState().selectedPair
         } as POI);
       });
 
@@ -178,7 +179,7 @@ export const poiApi = {
       const payload = {
         id: newId,
         userId: currentUser.uid,
-        pair: poi.pair || 'BTCUSDT',
+        pair: poi.pair || useMarketStore.getState().selectedPair,
         timeframe: poi.timeframe || '1H',
         type: poi.type === 'OB' ? 'ORDER_BLOCK' : 'BREAKER_BLOCK',
         priceFrom: Number(poi.priceMin),
