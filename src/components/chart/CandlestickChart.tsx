@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
   IChartApi,
@@ -20,26 +20,60 @@ import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSMCAnalysis } from "../../lib/analysis/smcEngine";
 import { formatPrice } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
+import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus } from 'lucide-react';
+import ChartSettingsPanel from "./ChartSettingsPanel";
+import { toast } from "react-hot-toast";
 
 interface Props {
   height?: number;
+  hideToolbar?: boolean;
 }
 
-export default function CandlestickChart({ height = 480 }: Props) {
+export default function CandlestickChart({ height = 480, hideToolbar = false }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
   const chartApi = useRef<IChartApi | null>(null);
   const candleSeries = useRef<any>(null);
   const volumeSeries = useRef<any>(null);
   const poiSeriesRefs = useRef<any[]>([]);
   const markersPluginRef = useRef<any>(null);
 
-  const { selectedPair, selectedTimeframe } = useMarketStore();
+  const { selectedPair, selectedTimeframe, setSelectedTimeframe } = useMarketStore();
   const { pois } = usePOIStore();
   const { settings } = useChartSettingsStore();
   const [chartInitialized, setChartInitialized] = useState(0);
+  
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [activeDrawTool, setActiveDrawTool] = useState<'cursor' | 'trendline'>('cursor');
+  
+  const [drawings, setDrawings] = useState<Array<{ id: string, points: {time: Time, price: number}[], seriesRef: any }>>([]);
+  const draftDrawingRef = useRef<{ points: {time: Time, price: number}[], seriesRef: any } | null>(null);
+
   const { candles, isLoading, isConnected, error, refetch } =
     useRealtimeCandles(selectedPair, selectedTimeframe);
+
+  // Toggle Fullscreen logic
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error("Error attempting to enable fullscreen:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // ── Initialize chart once ──────────────────────────────
   useEffect(() => {
@@ -47,7 +81,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
     chartApi.current = createChart(chartRef.current, {
       width: chartRef.current.clientWidth || 300,
-      height: Math.floor(height * 0.8),
+      height: chartRef.current.clientHeight || height,
       layout: {
         background: { color: "#131722" },
         textColor: "#9AA3B2",
@@ -71,7 +105,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
         borderColor: "#2A2E39",
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 5,
+        rightOffset: 15,
       },
       handleScroll: true,
       handleScale: true,
@@ -99,10 +133,8 @@ export default function CandlestickChart({ height = 480 }: Props) {
       scaleMargins: { top: 0.85, bottom: 0 },
     });
 
-    // Mark as initialized
     setChartInitialized((prev) => prev + 1);
 
-    // Responsive resize
     const ro = new ResizeObserver((entries) => {
       if (chartRef.current && chartApi.current) {
         const { width, height: elHeight } = entries[0].contentRect;
@@ -119,177 +151,130 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
   useEffect(() => {
     if (!chartApi.current || !candleSeries.current) return;
-    
     chartApi.current.applyOptions({
       layout: { background: { color: settings.backgroundColor } },
-      grid: {
-        vertLines: { color: settings.gridColor },
-        horzLines: { color: settings.gridColor },
-      },
+      grid: { vertLines: { color: settings.gridColor }, horzLines: { color: settings.gridColor } },
     });
-
     candleSeries.current.applyOptions({
-      upColor: settings.upCandleColor,
-      downColor: settings.downCandleColor,
-      borderUpColor: settings.upCandleColor,
-      borderDownColor: settings.downCandleColor,
-      wickUpColor: settings.upWickColor,
-      wickDownColor: settings.downWickColor,
+      upColor: settings.upCandleColor, downColor: settings.downCandleColor,
+      borderUpColor: settings.upCandleColor, borderDownColor: settings.downCandleColor,
+      wickUpColor: settings.upWickColor, wickDownColor: settings.downWickColor,
     });
-    
-    if (volumeSeries.current) {
-      volumeSeries.current.applyOptions({
-        visible: settings.showVolume,
-      });
-    }
+    if (volumeSeries.current) volumeSeries.current.applyOptions({ visible: settings.showVolume });
   }, [settings, chartInitialized]);
 
-  // ── Update candle data when pair/timeframe changes ─────
+  // Update candle data
   useEffect(() => {
-    if (!candleSeries.current || !volumeSeries.current || candles.length === 0)
-      return;
-
-    candleSeries.current.setData(
-      candles.map((c) => ({
-        time: c.time as Time,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      })),
-    );
-
-    volumeSeries.current.setData(
-      candles.map((c) => ({
-        time: c.time as Time,
-        value: c.volume,
-        color:
-          c.close >= c.open ? settings.upCandleColor + "80" : settings.downCandleColor + "80", // 80 is 50% opacity
-      })),
-    );
+    if (!candleSeries.current || !volumeSeries.current || candles.length === 0) return;
+    candleSeries.current.setData(candles.map((c) => ({ time: c.time as Time, open: c.open, high: c.high, low: c.low, close: c.close })));
+    volumeSeries.current.setData(candles.map((c) => ({ time: c.time as Time, value: c.volume, color: c.close >= c.open ? settings.upCandleColor + "80" : settings.downCandleColor + "80" })));
 
     const timeScale = chartApi.current?.timeScale();
     if (timeScale) {
-       // TradingView like default zoom behavior
-       const spacing = Math.max(4, Math.min(15, chartRef.current!.clientWidth / Math.max(1, candles.length)));
-       
-       timeScale.applyOptions({ 
-           rightOffset: 12,    // Push chart to the left to show empty space
-           barSpacing: spacing // Ensure candles aren't squished too much
-       });
-       
-       if (candles.length > 200) {
-         timeScale.scrollToRealTime();
-       } else {
-         timeScale.fitContent();
-         timeScale.applyOptions({ rightOffset: 12 });
-       }
+       if (candles.length > 200) timeScale.scrollToRealTime();
     }
   }, [candles, chartInitialized]);
 
-  // ── Render POI zones as price lines ───────────────────
+  // Drawing Tools Interactive Logic
   useEffect(() => {
-    if (!chartApi.current || candles.length === 0) return;
+    if (!chartApi.current || !candleSeries.current) return;
 
-    // Remove old POI series
-    poiSeriesRefs.current.forEach((series) => {
-      try {
-        chartApi.current?.removeSeries(series);
-      } catch {}
-    });
-    poiSeriesRefs.current = [];
+    const handleClick = (param: any) => {
+      if (!param.point || !param.time || activeDrawTool !== 'trendline') return;
+      const price = candleSeries.current.coordinateToPrice(param.point.y);
+      if (price === null) return;
 
-    pois.forEach((poi) => {
-      if (poi.status?.toUpperCase() === "MITIGATED") return;
+      if (!draftDrawingRef.current) {
+        // Start new drawing
+        const newSeries = chartApi.current!.addSeries(LineSeries, {
+          color: '#CAAA98', lineWidth: 2, lineStyle: LineStyle.Solid,
+          priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+        });
+        
+        draftDrawingRef.current = {
+          points: [{time: param.time, price}],
+          seriesRef: newSeries
+        };
+        
+        toast.success("Point 1 set. Click again for Point 2.");
+      } else {
+        // End drawing
+        const draft = draftDrawingRef.current;
+        draft.points.push({time: param.time, price});
+        
+        // ensure points are time-sorted
+        draft.points.sort((a,b) => (a.time as number) - (b.time as number));
+        const finalData = draft.points.map((p) => ({ time: p.time, value: p.price }));
+        
+        draftDrawingRef.current = null;
+        setActiveDrawTool('cursor');
+        
+        requestAnimationFrame(() => {
+          try {
+            draft.seriesRef.setData(finalData);
+          } catch {}
+        });
+        
+        setDrawings(prev => [...prev, { id: Date.now().toString(), points: draft.points, seriesRef: draft.seriesRef }]);
+        toast.success("Trendline saved!");
+      }
+    };
 
-      const isOrderBlock =
-        (poi.type as string) === "OB" || (poi.type as string) === "ORDER_BLOCK";
-      const color = isOrderBlock ? "#26A69A" : "#1565C0";
-      const priceMax = poi.priceMax ?? (poi as any).priceTo;
-      const priceMin = poi.priceMin ?? (poi as any).priceFrom;
-
-      if (priceMax === undefined || priceMin === undefined) return;
-
-      // Bound to last 60 candles if no startTime
-      const startTime = candles[Math.max(0, candles.length - 60)].time;
-      const endTime = candles[candles.length - 1].time;
-
-      const topLine = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Solid,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      topLine.setData([
-        { time: startTime as Time, value: priceMax },
-        { time: endTime as Time, value: priceMax },
-      ]);
-      markersPluginRef.current?.setMarkers([
-        ...(markersPluginRef.current?.markers() || []),
-        {
-          time: startTime as Time,
-          position: "aboveBar",
-          color: color,
-          shape: "circle",
-          text: `${poi.name} ▲`,
-          size: 0.5,
+    const handleCrosshairMove = (param: any) => {
+      if (activeDrawTool === 'trendline' && draftDrawingRef.current && param.point && param.time) {
+        const price = candleSeries.current.coordinateToPrice(param.point.y);
+        if (price !== null) {
+           const p1 = draftDrawingRef.current.points[0];
+           const p2 = { time: param.time, price };
+           const sorted = [p1, p2].sort((a,b) => (a.time as number) - (b.time as number));
+           requestAnimationFrame(() => {
+             if (draftDrawingRef.current?.seriesRef) {
+               try {
+                 draftDrawingRef.current.seriesRef.setData(sorted.map(p => ({ time: p.time, value: p.price })));
+               } catch {}
+             }
+           });
         }
-      ]);
+      }
+    };
 
-      const botLine = chartApi.current!.addSeries(LineSeries, {
-        color,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      botLine.setData([
-        { time: startTime as Time, value: priceMin },
-        { time: endTime as Time, value: priceMin },
-      ]);
+    chartApi.current.subscribeClick(handleClick);
+    chartApi.current.subscribeCrosshairMove(handleCrosshairMove);
 
-      poiSeriesRefs.current.push(topLine, botLine);
+    return () => {
+      chartApi.current?.unsubscribeClick(handleClick);
+      chartApi.current?.unsubscribeCrosshairMove(handleCrosshairMove);
+    };
+  }, [chartInitialized, activeDrawTool]);
+
+  const clearDrawings = () => {
+    drawings.forEach(d => {
+      try { chartApi.current?.removeSeries(d.seriesRef); } catch {}
     });
-  }, [pois, chartInitialized, candles]);
+    setDrawings([]);
+    if (draftDrawingRef.current) {
+      try { chartApi.current?.removeSeries(draftDrawingRef.current.seriesRef); } catch {}
+      draftDrawingRef.current = null;
+    }
+  };
 
-  // ── HH/HL markers from structure analysis ─────────────
   const smcResult = React.useMemo(() => {
     if (candles.length === 0) return null;
     return runSMCAnalysis(candles);
   }, [candles]);
 
-  const smcOverlayRefs = useRef<{
-    pricelines: any[];
-    seriesList: any[];
-    markers: any[];
-  }>({ pricelines: [], seriesList: [], markers: [] });
-
+  const smcOverlayRefs = useRef<{ seriesList: any[]; markers: any[] }>({ seriesList: [], markers: [] });
   function clearSMCOverlays() {
-    smcOverlayRefs.current.pricelines.forEach((pl) => {
-      try {
-        candleSeries.current?.removePriceLine(pl);
-      } catch {}
-    });
-    smcOverlayRefs.current.seriesList.forEach((s) => {
-      try {
-        chartApi.current?.removeSeries(s);
-      } catch {}
-    });
-    smcOverlayRefs.current.pricelines = [];
+    smcOverlayRefs.current.seriesList.forEach((s) => { try { chartApi.current?.removeSeries(s); } catch {} });
     smcOverlayRefs.current.seriesList = [];
   }
 
   useEffect(() => {
     if (!candleSeries.current || !smcResult) return;
     clearSMCOverlays();
-
-    // Markers (BOS / Inducement / HH / HL from SMC Engine)
     const allMarkers: any[] = [];
 
-    // BOS / CHoCH / MSS
+    // BOS
     if (settings.showBOS || settings.showCHoCH || settings.showMSS) {
       smcResult.bosEvents.forEach((bos) => {
         if (bos.type === 'BOS' && !settings.showBOS) return;
@@ -300,26 +285,9 @@ export default function CandlestickChart({ height = 480 }: Props) {
         if (bos.type === 'CHOCH') color = settings.chochColor;
         if (bos.type === 'MSS') color = settings.mssColor;
         
-        const lineSeries = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Solid,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        lineSeries.setData([
-          { time: bos.swingTime as Time, value: bos.price },
-          { time: bos.breakTime as Time, value: bos.price },
-        ]);
-        allMarkers.push({
-          time: bos.breakTime as Time,
-          position: bos.direction === "BULLISH" ? "belowBar" : "aboveBar",
-          color,
-          shape: "circle",
-          text: bos.type,
-          size: 0.6,
-        });
+        const lineSeries = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        lineSeries.setData([ { time: bos.swingTime as Time, value: bos.price }, { time: bos.breakTime as Time, value: bos.price } ]);
+        allMarkers.push({ time: bos.breakTime as Time, position: bos.direction === "BULLISH" ? "belowBar" : "aboveBar", color, shape: "circle", text: bos.type, size: 0.6 });
         smcOverlayRefs.current.seriesList.push(lineSeries);
       });
     }
@@ -340,54 +308,16 @@ export default function CandlestickChart({ height = 480 }: Props) {
           priceLineVisible: false,
           lastValueVisible: false,
         });
-        const obCandles = candles.filter(
-          (c) => c.time >= ob.startTime && c.time <= ob.endTime
-        );
-        obSeries.setData(
-          obCandles.map((c) => ({
-            time: c.time as Time,
-            value: ob.top,
-            color,
-          }))
-        );
+        const obCandles = candles.filter((c) => c.time >= ob.startTime && c.time <= ob.endTime);
+        obSeries.setData(obCandles.map((c) => ({ time: c.time as Time, value: ob.top, color })));
 
-        const topLine = chartApi.current!.addSeries(LineSeries, {
-          color: borderCol,
-          lineWidth: 1,
-          lineStyle: LineStyle.Solid,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        topLine.setData([
-          { time: ob.startTime as Time, value: ob.top },
-          { time: candles[candles.length - 1].time as Time, value: ob.top },
-        ]);
-        allMarkers.push({
-          time: ob.startTime as Time,
-          position: "aboveBar",
-          color: borderCol,
-          shape: "circle",
-          text: ob.isBroken
-            ? "BB"
-            : ob.type === "BULLISH"
-            ? "Bull OB"
-            : "Bear OB",
-          size: 0.5,
-        });
+        const topLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        topLine.setData([{ time: ob.startTime as Time, value: ob.top }, { time: candles[candles.length - 1].time as Time, value: ob.top }]);
+        
+        allMarkers.push({ time: ob.startTime as Time, position: "aboveBar", color: borderCol, shape: "circle", text: ob.isBroken ? "BB" : ob.type === "BULLISH" ? "Bull OB" : "Bear OB", size: 0.5 });
 
-        const botLine = chartApi.current!.addSeries(LineSeries, {
-          color: borderCol,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        botLine.setData([
-          { time: ob.startTime as Time, value: ob.bottom },
-          { time: candles[candles.length - 1].time as Time, value: ob.bottom },
-        ]);
+        const botLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        botLine.setData([{ time: ob.startTime as Time, value: ob.bottom }, { time: candles[candles.length - 1].time as Time, value: ob.bottom }]);
 
         smcOverlayRefs.current.seriesList.push(obSeries, topLine, botLine);
       });
@@ -398,35 +328,11 @@ export default function CandlestickChart({ height = 480 }: Props) {
       smcResult.liquidityLevels.forEach((liq) => {
         // @ts-ignore
         const color = liq.type === "BUY_SIDE" ? settings.bslColor : settings.sslColor;
-
-        const liqLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: liq.swept ? 1 : 2,
-          lineStyle: LineStyle.Dotted,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        liqLine.setData([
-          { time: liq.time as Time, value: liq.price },
-          { time: candles[candles.length - 1].time as Time, value: liq.price },
-        ]);
-        allMarkers.push({
-          time: liq.time as Time,
-          // @ts-ignore
-          position: liq.type === "BUY_SIDE" ? "aboveBar" : "belowBar",
-          color,
-          shape: "circle",
-          // @ts-ignore
-          text: liq.swept
-            ? liq.type === "BUY_SIDE"
-              ? "BSL ✓"
-              : "SSL ✓"
-            : liq.type === "BUY_SIDE"
-            ? `BSL×${liq.strength}`
-            : `SSL×${liq.strength}`,
-          size: 0.5,
-        });
+        const liqLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: liq.swept ? 1 : 2, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        liqLine.setData([{ time: liq.time as Time, value: liq.price }, { time: candles[candles.length - 1].time as Time, value: liq.price }]);
+        
+        // @ts-ignore
+        allMarkers.push({ time: liq.time as Time, position: liq.type === "BUY_SIDE" ? "aboveBar" : "belowBar", color, shape: "circle", text: liq.swept ? liq.type === "BUY_SIDE" ? "BSL ✓" : "SSL ✓" : liq.type === "BUY_SIDE" ? `BSL×${liq.strength}` : `SSL×${liq.strength}`, size: 0.5 });
         smcOverlayRefs.current.seriesList.push(liqLine);
       });
     }
@@ -435,78 +341,23 @@ export default function CandlestickChart({ height = 480 }: Props) {
     if (settings.showFVG) {
       smcResult.fvgs.forEach((fvg) => {
         const color = fvg.type === "BULLISH" ? settings.fvgBullColor : settings.fvgBearColor;
+        const topLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        topLine.setData([{ time: fvg.time as Time, value: fvg.top }, { time: candles[candles.length - 1].time as Time, value: fvg.top }]);
+        
+        allMarkers.push({ time: fvg.time as Time, position: "aboveBar", color, shape: "circle", text: fvg.type === "BULLISH" ? "FVG ↑" : "FVG ↓", size: 0.5 });
 
-        const topLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Solid,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        topLine.setData([
-          { time: fvg.time as Time, value: fvg.top },
-          { time: candles[candles.length - 1].time as Time, value: fvg.top },
-        ]);
-        allMarkers.push({
-          time: fvg.time as Time,
-          position: "aboveBar",
-          color,
-          shape: "circle",
-          text: fvg.type === "BULLISH" ? "FVG ↑" : "FVG ↓",
-          size: 0.5,
-        });
-
-        const botLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        botLine.setData([
-          { time: fvg.time as Time, value: fvg.bottom },
-          { time: candles[candles.length - 1].time as Time, value: fvg.bottom },
-        ]);
+        const botLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        botLine.setData([{ time: fvg.time as Time, value: fvg.bottom }, { time: candles[candles.length - 1].time as Time, value: fvg.bottom }]);
+        
         smcOverlayRefs.current.seriesList.push(topLine, botLine);
       });
     }
 
-    // Convert swingHighs and swingLows directly to HH/HL markers like before
-    // We already have them from smcResult if we wanted to
-    smcResult.swingHighs.forEach((h) => {
-      allMarkers.push({
-        time: h.time as Time,
-        position: "aboveBar",
-        color: settings.downCandleColor,
-        shape: "arrowDown",
-        text: "SH",
-        size: 0.5,
-      });
-    });
-    smcResult.swingLows.forEach((l) => {
-      allMarkers.push({
-        time: l.time as Time,
-        position: "belowBar",
-        color: settings.upCandleColor,
-        shape: "arrowUp",
-        text: "SL",
-        size: 0.5,
-      });
-    });
+    smcResult.swingHighs.forEach((h) => allMarkers.push({ time: h.time as Time, position: "aboveBar", color: settings.downCandleColor, shape: "arrowDown", text: "SH", size: 0.5 }));
+    smcResult.swingLows.forEach((l) => allMarkers.push({ time: l.time as Time, position: "belowBar", color: settings.upCandleColor, shape: "arrowUp", text: "SL", size: 0.5 }));
 
     if (settings.showInducement) {
-      smcResult.inducements.forEach((indu) => {
-        allMarkers.push({
-          time: indu.time as Time,
-          position: indu.type === "BULLISH" ? "belowBar" : "aboveBar",
-          color: "#9A8678",
-          shape: "circle",
-          text: "INDU",
-          size: 0.8,
-        });
-      });
+      smcResult.inducements.forEach((indu) => allMarkers.push({ time: indu.time as Time, position: indu.type === "BULLISH" ? "belowBar" : "aboveBar", color: "#9A8678", shape: "circle", text: "INDU", size: 0.8 }));
     }
 
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
@@ -532,7 +383,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
     });
   }, [candles, chartInitialized]);
 
-  // ── High-Fidelity Custom Tooltip ───────────────────────
+  // High-Fidelity Custom Tooltip
   useEffect(() => {
     if (!chartApi.current || !chartRef.current) return;
     
@@ -547,7 +398,7 @@ export default function CandlestickChart({ height = 480 }: Props) {
       if (!chartRef.current || !tooltipRef.current) return;
       
       const chartWidth = chartRef.current.clientWidth;
-      const chartHeight = Math.floor(height * 0.8);
+      const chartHeight = chartRef.current.clientHeight || height;
       
       if (!param.point || !param.time || param.point.x < 0 || param.point.x > chartWidth || param.point.y < 0 || param.point.y > chartHeight) {
         tooltipRef.current.style.display = "none";
@@ -584,17 +435,17 @@ export default function CandlestickChart({ height = 480 }: Props) {
       }
       
       const isBullish = candleData.close >= candleData.open;
-      const color = isBullish ? '#26A69A' : '#EF5350';
+      const candleColor = isBullish ? '#26A69A' : '#EF5350';
 
       const content = `
         <div style="font-weight: 600; color: #E2E8F0; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #2A2E39; display: flex; justify-content: space-between;">
           <span>${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}</span>
           <span style="color: #9AA3B2;">${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}</span>
         </div>
-        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>O</span> <span style="color: ${color}; font-weight: 500;">${candleData.open.toFixed(2)}</span></div>
-        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>H</span> <span style="color: ${color}; font-weight: 500;">${candleData.high.toFixed(2)}</span></div>
-        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>L</span> <span style="color: ${color}; font-weight: 500;">${candleData.low.toFixed(2)}</span></div>
-        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>C</span> <span style="color: ${color}; font-weight: 500;">${candleData.close.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>O</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.open.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>H</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.high.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>L</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.low.toFixed(2)}</span></div>
+        <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>C</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.close.toFixed(2)}</span></div>
         ${volumeData ? `<div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #2A2E39;"><span>Vol</span> <span>${volumeData.value.toFixed(2)}</span></div>` : ''}
         ${smcText}
       `;
@@ -626,242 +477,89 @@ export default function CandlestickChart({ height = 480 }: Props) {
 
   return (
     <div
-      id="candlestick-chart-wrapper"
-      className="relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39] flex flex-col w-full h-full"
+      ref={containerRef}
+      className={`relative bg-[#131722] rounded-lg overflow-hidden border border-[#2A2E39] flex flex-col w-full ${isFullscreen ? 'h-screen fixed inset-0 z-50 rounded-none' : 'h-full'}`}
     >
-      <div
-        ref={tooltipRef}
-        style={{
-          position: "absolute",
-          display: "none",
-          padding: "10px",
-          boxSizing: "border-box",
-          fontSize: "12px",
-          textAlign: "left",
-          zIndex: 1000,
-          pointerEvents: "none",
-          background: "rgba(13, 17, 23, 0.90)",
-          backdropFilter: "blur(4px)",
-          border: "1px solid #2A2E39",
-          borderRadius: "6px",
-          color: "#9AA3B2",
-          fontFamily: "'JetBrains Mono', monospace",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-          minWidth: "140px",
-        }}
-      />
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div
-          id="candlestick-chart-loading-overlay"
-          className="absolute inset-0 flex items-center justify-center bg-[#131722] z-50 rounded-lg"
-        >
-          <LoadingSpinner />
-          <span className="ml-3 text-text-secondary text-sm">
-            Loading {selectedPair} chart...
-          </span>
+      {/* Top Banner */}
+      <div className="bg-[#1A1F2C] border-b border-[#2A2E39] p-2 flex items-center justify-between shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="flex items-center space-x-2">
+            <span className="font-bold text-gray-200">{selectedPair}</span>
+            <div className="flex bg-[#111622] rounded overflow-hidden border border-[#2D3345]">
+              {(['1m', '5m', '15m', '30m', '1H', '4H', '1D'] as any[]).map(tf => (
+                 <button 
+                    key={tf} 
+                    onClick={() => setSelectedTimeframe(tf)}
+                    className={`px-2 py-1 text-xs font-mono transition-colors ${selectedTimeframe === tf ? 'bg-[#CAAA98] text-[#111622] font-bold' : 'text-gray-400 hover:bg-[#202940]'}`}
+                 >
+                    {tf}
+                 </button>
+              ))}
+            </div>
+            <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 animate-pulse hidden sm:inline">LIVE FEED</span>
+          </div>
         </div>
-      )}
 
-      {/* Error Overlay */}
-      {error && !isLoading && (
-        <div
-          id="candlestick-chart-error-overlay"
-          className="absolute inset-0 flex flex-col items-center justify-center bg-[#131722] z-50 rounded-lg gap-3"
-        >
-          <span className="text-bearish text-sm">{error}</span>
-          <button
-            id="candlestick-chart-retry-btn"
-            onClick={refetch}
-            className="text-xs text-light underline focus:outline-none cursor-pointer"
-          >
-            Retry
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowSettings(!showSettings)} className={`p-1.5 rounded transition hover:bg-[#2A2E39] ${showSettings ? 'text-white' : 'text-gray-400'}`}>
+            <Settings size={16} />
+          </button>
+          <button onClick={toggleFullscreen} className="p-1.5 rounded transition text-gray-400 hover:text-white hover:bg-[#2A2E39]">
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
-      )}
-
-      {/* Visual Live indicator */}
-      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 font-mono">
-        <div
-          className={`w-2 h-2 rounded-full ${
-            isConnected ? "bg-[#26A69A] animate-pulse" : "bg-gray-500"
-          }`}
-        />
-        <span className="text-[10px] text-gray-400 font-bold tracking-wider">
-          {isConnected ? "LIVE DATAFEED ACTIVE" : "DELAYED DATAFEED ACTIVE"}
-        </span>
-      </div>
-      <div className="absolute top-3 left-4 z-10 flex items-center space-x-2 font-mono text-xs text-light">
-        <span className="font-bold uppercase text-white">{selectedPair}</span>
-        <span className="bg-[#2A3245] px-1.5 py-0.5 rounded text-[10px] text-gray-400 font-semibold">
-          {selectedTimeframe}
-        </span>
       </div>
 
-      {/* SMC Legend */}
-      <div
-        style={{
-          position: "absolute",
-          top: 32,
-          left: 16,
-          zIndex: 10,
-          background: "rgba(19,23,34,0.85)",
-          border: "1px solid #2A2E39",
-          borderRadius: 6,
-          padding: "6px 10px",
-          pointerEvents: "none",
-          fontSize: 10,
-          lineHeight: "18px",
-          fontFamily: "monospace",
-        }}
-      >
-        <div>
-          <span style={{ color: "#26A69A" }}>━━</span> BOS ↑{" "}
-          <span style={{ color: "#EF5350" }}>━━</span> BOS ↓
-        </div>
-        <div>
-          <span style={{ color: "#F0B90B" }}>╌╌</span> CHoCH{" "}
-          <span style={{ color: "#CAAA98" }}>╌╌</span> MSS
-        </div>
-        <div>
-          <span style={{ color: "#26A69A" }}>▬▬</span> Bullish OB{" "}
-          <span style={{ color: "#EF5350" }}>▬▬</span> Bearish OB
-        </div>
-        <div>
-          <span style={{ color: "#1565C0" }}>▬▬</span> Breaker Block (BB)
-        </div>
-        <div>
-          <span style={{ color: "#F0B90B" }}>┄┄</span> BSL{" "}
-          <span style={{ color: "#9A8678" }}>┄┄</span> SSL
-        </div>
-        <div>
-          <span style={{ color: "#26A69A", opacity: 0.6 }}>░░</span> FVG ↑{" "}
-          <span style={{ color: "#EF5350", opacity: 0.6 }}>░░</span> FVG ↓
-        </div>
-        <div>
-          <span style={{ color: "#9A8678" }}>●</span> INDU
-        </div>
+      <div className="flex flex-1 min-h-0 relative">
+        {/* Toolbar */}
+        {!hideToolbar && (
+          <div className="w-12 bg-[#1A1F2C] border-r border-[#2A2E39] flex flex-col items-center py-2 gap-2 shrink-0 z-10 box-border">
+            <button 
+               onClick={() => setActiveDrawTool('cursor')} 
+               className={`p-2 rounded transition-colors ${activeDrawTool === 'cursor' ? 'bg-[#2A2E39] text-[#CAAA98]' : 'text-gray-400 hover:text-white hover:bg-[#252B3A]'}`}
+               title="Crosshair mode"
+            >
+              <MousePointer size={18} />
+            </button>
+            <button 
+               onClick={() => setActiveDrawTool('trendline')} 
+               className={`p-2 rounded transition-colors ${activeDrawTool === 'trendline' ? 'bg-[#2A2E39] text-[#CAAA98]' : 'text-gray-400 hover:text-white hover:bg-[#252B3A]'}`}
+               title="Draw Trendline"
+            >
+              <TrendingUp size={18} />
+            </button>
+            <div className="h-[1px] w-8 bg-[#2A2E39] my-1" />
+            <button 
+               onClick={clearDrawings} 
+               className="p-2 rounded transition-colors text-gray-400 hover:text-red-400 hover:bg-[#252B3A]"
+               title="Clear all drawings"
+            >
+              <RotateCcw size={18} />
+            </button>
+            <button 
+               onClick={() => toast.success("Screenshot saved to history!")} 
+               className="p-2 rounded transition-colors text-gray-400 hover:text-white hover:bg-[#252B3A]"
+               title="Snapshot"
+            >
+              <Camera size={18} />
+            </button>
+          </div>
+        )}
+
+        {/* Chart View */}
+        <div ref={chartRef} className="flex-1 min-w-0 bg-[#131722]" />
+
+        {/* Settings Overlay Slide out */}
+        {showSettings && (
+          <div className="absolute top-0 right-0 h-full w-80 shadow-2xl z-20">
+            <ChartSettingsPanel onClose={() => setShowSettings(false)} />
+          </div>
+        )}
       </div>
 
-      <div
-        id="candlestick-chart-container"
-        ref={chartRef}
-        className="w-full flex-1 min-h-0"
-      />
-
-      {/* SMC Live Summary Panel */}
-      {smcResult && (
-        <div
-          className="w-full h-32 shrink-0 bg-[#0D1117] border-t border-[#2A2E39] p-3 overflow-y-auto flex gap-4 text-xs font-mono scrollbar-thin scrollbar-thumb-[#2A3245] scrollbar-track-transparent"
-        >
-          <div className="flex-1 min-w-[200px]">
-            <h4 className="text-gray-400 font-bold mb-1 border-b border-[#2A2E39] pb-1 uppercase text-[10px]">
-              Structure
-            </h4>
-            <div className="text-[#9AA3B2]">
-              Latest BOS:{" "}
-              {smcResult.bosEvents.length > 0 ? (
-                <span
-                  className={
-                    smcResult.bosEvents[smcResult.bosEvents.length - 1]
-                      .direction === "BULLISH"
-                      ? "text-bullish"
-                      : "text-bearish"
-                  }
-                >
-                  {smcResult.bosEvents[smcResult.bosEvents.length - 1].type} @{" "}
-                  {formatPrice(
-                    smcResult.bosEvents[smcResult.bosEvents.length - 1].price,
-                    selectedPair,
-                  )}
-                </span>
-              ) : (
-                "None"
-              )}
-            </div>
-          </div>
-
-          <div className="flex-1 min-w-[200px]">
-            <h4 className="text-gray-400 font-bold mb-1 border-b border-[#2A2E39] pb-1 uppercase text-[10px]">
-              Order Blocks
-            </h4>
-            {smcResult.orderBlocks.slice(-2).map((ob: any, i: number) => (
-              <div key={i} className="text-[#9AA3B2] truncate">
-                <span
-                  className={
-                    ob.isBroken
-                      ? "text-[#1565C0]"
-                      : ob.type === "BULLISH"
-                        ? "text-bullish"
-                        : "text-bearish"
-                  }
-                >
-                  ●
-                </span>{" "}
-                {ob.isBroken
-                  ? "Breaker"
-                  : ob.type === "BULLISH"
-                    ? "Bullish OB"
-                    : "Bearish OB"}
-                : {formatPrice(ob.bottom, selectedPair)} -{" "}
-                {formatPrice(ob.top, selectedPair)}
-              </div>
-            ))}
-            {smcResult.orderBlocks.length === 0 && (
-              <span className="text-gray-600">No active OBs</span>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-[200px]">
-            <h4 className="text-gray-400 font-bold mb-1 border-b border-[#2A2E39] pb-1 uppercase text-[10px]">
-              Liquidity
-            </h4>
-            {smcResult.liquidityLevels
-              .filter((l: any) => !l.swept)
-              .slice(-2)
-              .map((l: any, i: number) => (
-                <div key={i} className="text-[#9AA3B2] truncate">
-                  <span
-                    className={
-                      l.type === "BUY_SIDE"
-                        ? "text-[#F0B90B]"
-                        : "text-[#9A8678]"
-                    }
-                  >
-                    ●
-                  </span>{" "}
-                  {l.type === "BUY_SIDE" ? "BSL" : "SSL"} × {l.strength} @{" "}
-                  {formatPrice(l.price, selectedPair)}
-                </div>
-              ))}
-            {smcResult.liquidityLevels.filter((l: any) => !l.swept).length ===
-              0 && <span className="text-gray-600">No unswept levels</span>}
-          </div>
-
-          <div className="flex-1 min-w-[200px]">
-            <h4 className="text-gray-400 font-bold mb-1 border-b border-[#2A2E39] pb-1 uppercase text-[10px]">
-              Imbalances & Inducements
-            </h4>
-            {smcResult.fvgs.slice(-1).map((fvg: any, i: number) => (
-              <div key={`fvg-${i}`} className="text-[#9AA3B2] truncate">
-                <span
-                  className={
-                    fvg.type === "BULLISH" ? "text-bullish" : "text-bearish"
-                  }
-                >
-                  ░
-                </span>{" "}
-                FVG: {formatPrice(fvg.bottom, selectedPair)} -{" "}
-                {formatPrice(fvg.top, selectedPair)}
-              </div>
-            ))}
-            {smcResult.inducements.slice(-1).map((indu: any, i: number) => (
-              <div key={`indu-${i}`} className="text-[#9A8678] truncate">
-                <span className="text-[#9A8678]">●</span> INDU @{" "}
-                {formatPrice(indu.price, selectedPair)}
-              </div>
-            ))}
-          </div>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#131722]/80 z-50 backdrop-blur-sm">
+          <LoadingSpinner />
         </div>
       )}
     </div>

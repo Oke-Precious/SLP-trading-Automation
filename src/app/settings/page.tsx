@@ -3,12 +3,216 @@
  * @description System settings and safeguards profile page.
  */
 
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
+import { useSettingsStore } from '../../store/useSettingsStore';
+import { useChartSettingsStore, PRESETS } from '../../store/useChartSettingsStore';
+import { Save, RefreshCcw, Bell, Monitor, Palette, Clock, Terminal } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function SettingsPage() {
+  const { 
+    defaultPair, 
+    defaultTimeframe, 
+    twelveDataApiKey, 
+    notificationsEnabled, 
+    timeFormat,
+    chartTheme,
+    setSetting 
+  } = useSettingsStore();
+
+  const { settings: chartSettings, updateSetting: updateChartSetting, applyPreset } = useChartSettingsStore();
+
+  const [activeTab, setActiveTab] = useState<'general' | 'chart'>('general');
+
+  const pairs = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'EURUSD', 'GBPUSD'];
+  const timeframes = ['1m', '5m', '15m', '30m', '1H', '4H', '1D'];
+
   return (
-    <div className="p-6 bg-[#131722] text-[#E0E3EB]">
-      <h1 className="text-xl font-bold font-display uppercase tracking-wide text-[#CAAA98]">Safeguards Security Preferences</h1>
+    <div className="p-6 h-full overflow-y-auto bg-[#0A0D14] text-gray-200">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#2A2E39] pb-4">
+          <div>
+            <h1 className="text-2xl font-bold font-display uppercase tracking-wide text-white flex items-center gap-3">
+              <Monitor className="text-[#CAAA98]" size={24} />
+              System Settings
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">Configure your preferred workspace defaults and rendering options.</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 border-b border-[#2A2E39]">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-colors ${
+              activeTab === 'general' ? 'border-[#CAAA98] text-[#CAAA98]' : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            General Preferences
+          </button>
+          <button
+            onClick={() => setActiveTab('chart')}
+            className={`pb-3 px-2 text-sm font-semibold tracking-wide border-b-2 transition-colors ${
+               activeTab === 'chart' ? 'border-[#CAAA98] text-[#CAAA98]' : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            Chart Configuration
+          </button>
+        </div>
+
+        <motion.div
+           key={activeTab}
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.2 }}
+        >
+          {activeTab === 'general' ? (
+            <div className="space-y-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Default Pair */}
+                <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Default Trading Pair</label>
+                  <select
+                    value={defaultPair}
+                    onChange={(e) => setSetting('defaultPair', e.target.value)}
+                    className="w-full bg-[#0A0D14] border border-[#2A2E39] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#CAAA98]"
+                  >
+                    {pairs.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                {/* Default Timeframe */}
+                <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Default Timeframe</label>
+                  <select
+                    value={defaultTimeframe}
+                    onChange={(e) => setSetting('defaultTimeframe', e.target.value)}
+                    className="w-full bg-[#0A0D14] border border-[#2A2E39] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#CAAA98]"
+                  >
+                    {timeframes.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                {/* Time Format */}
+                <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                     <Clock size={14} /> Time Format
+                  </label>
+                  <div className="flex gap-3">
+                    {['12H', '24H'].map((fmt) => (
+                      <button
+                        key={fmt}
+                        onClick={() => setSetting('timeFormat', fmt as any)}
+                        className={`flex-1 py-2 rounded-lg font-mono text-sm border transition-colors ${
+                          timeFormat === fmt 
+                            ? 'bg-[#CAAA98]/10 border-[#CAAA98] text-[#CAAA98]' 
+                            : 'bg-[#0A0D14] border-[#2A2E39] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {fmt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5 flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                       <Bell size={14} /> Push Notifications
+                    </label>
+                    <span className="text-xs text-gray-500">Receive alerts for structural breaks</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={notificationsEnabled}
+                      onChange={(e) => setSetting('notificationsEnabled', e.target.checked)}
+                    />
+                    <div className="w-11 h-6 bg-[#2A2E39] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#26A69A]"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Data Connections */}
+              <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <Terminal size={14} /> TwelveData API Key
+                </label>
+                <input
+                  type="password"
+                  value={twelveDataApiKey}
+                  onChange={(e) => setSetting('twelveDataApiKey', e.target.value)}
+                  placeholder="Enter your API key to enable live data integration"
+                  className="w-full bg-[#0A0D14] border border-[#2A2E39] rounded-lg p-3 text-white focus:outline-none focus:border-[#CAAA98] font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-2">Required for realtime accurate market data feeds on stocks and forex.</p>
+              </div>
+
+            </div>
+          ) : (
+            <div className="space-y-6">
+               <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Palette size={14} /> Global Color Preset
+                  </label>
+                  <div className="grid grid-cols-3 gap-4">
+                    {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map((presetKey) => (
+                      <button
+                        key={presetKey}
+                        onClick={() => applyPreset(presetKey)}
+                        className={`py-3 px-4 rounded-lg font-bold uppercase text-xs tracking-wider border transition-colors ${
+                          chartSettings.preset === presetKey 
+                            ? 'bg-[#CAAA98]/10 border-[#CAAA98] text-[#CAAA98]' 
+                            : 'bg-[#0A0D14] border-[#2A2E39] text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {presetKey.replace('-', ' ')}
+                      </button>
+                    ))}
+                  </div>
+               </div>
+
+               <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">SMC Overlays Visibility</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     {[
+                       { key: 'showBOS', label: 'BOS' },
+                       { key: 'showCHoCH', label: 'CHoCH' },
+                       { key: 'showMSS', label: 'MSS' },
+                       { key: 'showOrderBlocks', label: 'Order Blocks' },
+                       { key: 'showBreakerBlocks', label: 'Breaker Blocks' },
+                       { key: 'showLiquidity', label: 'Liquidity Levels' },
+                       { key: 'showFVG', label: 'Fair Value Gaps' },
+                       { key: 'showInducement', label: 'Inducement' },
+                       { key: 'showVolume', label: 'Volume Histogram' },
+                     ].map(({ key, label }) => (
+                        <div key={key} className="flex items-center justify-between bg-[#0A0D14] border border-[#2A2E39] p-3 rounded-lg">
+                           <span className="text-xs text-gray-300 font-semibold">{label}</span>
+                           <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer"
+                              checked={(chartSettings as any)[key]}
+                              onChange={(e) => updateChartSetting(key as keyof typeof chartSettings, e.target.checked as any)}
+                            />
+                            <div className="w-8 h-4 bg-[#2A2E39] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#CAAA98]"></div>
+                          </label>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+            </div>
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }
+

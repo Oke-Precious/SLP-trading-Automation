@@ -50,9 +50,8 @@ export default function DashboardPage() {
       <div className="flex flex-col xl:flex-row gap-3 min-h-[460px]">
 
         {/* Chart Area (65%) */}
-        <div className="flex flex-col gap-2 flex-1 xl:flex-[0_0_65%]">
-          <TimeframeSelector />
-          <CandlestickChart height={420} />
+        <div className="flex flex-col gap-2 flex-1 xl:flex-[0_0_65%] bg-[#131722] rounded-lg h-[460px]">
+          <CandlestickChart height={460} />
         </div>
 
         {/* Trading Plan Panel (35%) */}
