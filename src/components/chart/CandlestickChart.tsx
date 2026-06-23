@@ -20,7 +20,7 @@ import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSMCAnalysis } from "../../lib/analysis/smcEngine";
 import { formatPrice } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
-import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus } from 'lucide-react';
+import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown } from 'lucide-react';
 import ChartSettingsPanel from "./ChartSettingsPanel";
 import { toast } from "react-hot-toast";
 
@@ -54,6 +54,21 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
   
   const [drawings, setDrawings] = useState<Array<{ id: string, points: {time: Time, price: number}[], seriesRef: any }>>([]);
   const draftDrawingRef = useRef<{ points: {time: Time, price: number}[], seriesRef: any } | null>(null);
+
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const { candles, isLoading, isConnected, error, refetch } =
     useRealtimeCandles(selectedPair, selectedTimeframe);
@@ -491,16 +506,55 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           <div className="flex items-center space-x-2">
             <span className="font-bold text-gray-200">{selectedPair}</span>
-            <div className="flex bg-[#111622] rounded overflow-hidden border border-[#2D3345]">
+            <div className="flex bg-[#111622] rounded border border-[#2D3345] items-center relative" ref={dropdownRef}>
               {(['1m', '5m', '15m', '30m', '1H', '4H', '1D'] as any[]).map(tf => (
                  <button 
                     key={tf} 
-                    onClick={() => setSelectedTimeframe(tf)}
-                    className={`px-2 py-1 text-xs font-mono transition-colors ${selectedTimeframe === tf ? 'bg-[#CAAA98] text-[#111622] font-bold' : 'text-gray-400 hover:bg-[#202940]'}`}
+                    onClick={() => {
+                      setSelectedTimeframe(tf);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`px-2 py-1 text-xs font-mono transition-colors cursor-pointer ${selectedTimeframe === tf ? 'bg-[#CAAA98] text-[#111622] font-bold' : 'text-gray-400 hover:bg-[#202940]'}`}
                  >
                     {tf}
                  </button>
               ))}
+              
+              {/* Dropdown Toggle */}
+              <div className="relative border-l border-[#2D3345] h-full flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className={`px-3 py-1 text-xs font-mono transition-all flex items-center space-x-1 cursor-pointer h-full hover:bg-[#202940] rounded-r ${
+                    !['1m', '5m', '15m', '30m', '1H', '4H', '1D'].includes(selectedTimeframe)
+                      ? 'bg-[#CAAA98] text-[#111622] font-bold hover:bg-[#bfa08f]'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span className="uppercase">{!['1m', '5m', '15m', '30m', '1H', '4H', '1D'].includes(selectedTimeframe) ? selectedTimeframe : 'More'}</span>
+                  <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 bg-[#1A1F2C] border border-[#2D3345] rounded shadow-2xl z-50 py-1.5 min-w-[120px] max-h-56 overflow-y-auto scrollbar-none animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="px-2 pb-1 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-[#2D3345] mb-1">More Timeframes</div>
+                    {(['3m', '45m', '2H', '8H', '12H', '1W', '1M'] as any[]).map((tf) => (
+                      <button
+                        key={tf}
+                        onClick={() => {
+                          setSelectedTimeframe(tf);
+                          setIsDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-1.5 text-xs font-mono transition-colors hover:bg-[#202940] block cursor-pointer ${
+                          selectedTimeframe === tf ? 'text-[#CAAA98] font-bold' : 'text-gray-400'
+                        }`}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 animate-pulse hidden sm:inline">LIVE FEED</span>
           </div>
