@@ -1,16 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default-deny safety net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Allow read-only access to firebase startup healthcheck
-    match /test/connection {
-      allow read: if true;
-    }
-
     // Helper functions
     function isSignedIn() {
       return request.auth != null;
@@ -20,29 +10,24 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Rules for users and their subcollections
+    // Firebase startup healthcheck
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Explicit match for user's own document
     match /users/{userId} {
       allow read, write: if isOwner(userId);
+    }
 
-      match /pois/{poiId} {
-        allow read, write: if isOwner(userId);
-      }
+    // Explicit match for user's settings or subcollection documents (like users/{userId}/settings/bias)
+    match /users/{userId}/{subcollection}/{documentId} {
+      allow read, write: if isOwner(userId);
+    }
 
-      match /alerts/{alertId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      match /trades/{tradeId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      match /signals/{signalId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      match /settings/{settingsId} {
-        allow read, write: if isOwner(userId);
-      }
+    // Rules for all nested paths as a catch-all
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId);
     }
   }
 }

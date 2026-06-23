@@ -1,42 +1,61 @@
-import React, { useState } from 'react';
-import { useChartSettingsStore, PRESETS } from '../../store/useChartSettingsStore';
+import React from 'react';
+import { useChartSettingsStore, PRESETS, ChartSettings } from '../../store/useChartSettingsStore';
 import { X, Settings2 } from 'lucide-react';
+
+interface ColorInputProps {
+  label: string;
+  settingKey: keyof ChartSettings;
+  settings: ChartSettings;
+  updateSetting: <K extends keyof ChartSettings>(key: K, value: ChartSettings[K]) => void;
+}
+
+const ColorInput = ({ label, settingKey, settings, updateSetting }: ColorInputProps) => (
+  <div className="flex justify-between items-center py-1">
+    <span className="text-xs text-gray-400">{label}</span>
+    <input
+      type="color"
+      value={settings[settingKey] as string}
+      onChange={(e) => updateSetting(settingKey, e.target.value as any)}
+      style={{
+        width: 32,
+        height: 24,
+        padding: 0,
+        border: '1px solid #2A2E39',
+        borderRadius: 4,
+        cursor: 'pointer',
+        background: 'none',
+      }}
+    />
+  </div>
+);
+
+interface ToggleInputProps {
+  label: string;
+  settingKey: keyof ChartSettings;
+  settings: ChartSettings;
+  updateSetting: <K extends keyof ChartSettings>(key: K, value: ChartSettings[K]) => void;
+}
+
+const ToggleInput = ({ label, settingKey, settings, updateSetting }: ToggleInputProps) => (
+  <div className="flex justify-between items-center py-1">
+    <span className="text-xs text-gray-400">{label}</span>
+    <button
+      onClick={() => updateSetting(settingKey, !settings[settingKey] as any)}
+      className={`w-8 h-4 rounded-full relative transition-colors ${
+        settings[settingKey] ? 'bg-[#26A69A]' : 'bg-[#2A2E39]'
+      }`}
+    >
+      <span 
+        className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
+          settings[settingKey] ? 'left-4' : 'left-0.5'
+        }`}
+      />
+    </button>
+  </div>
+);
 
 export default function ChartSettingsPanel({ onClose }: { onClose: () => void }) {
   const { settings, updateSetting, applyPreset, resetToDefaults } = useChartSettingsStore();
-
-  const ColorInput = ({ label, settingKey }: { label: string; settingKey: keyof typeof settings }) => (
-    <div className="flex justify-between items-center py-1">
-      <span className="text-xs text-gray-400">{label}</span>
-      <input
-        type="color"
-        value={settings[settingKey] as string}
-        onChange={(e) => updateSetting(settingKey as any, e.target.value)}
-        style={{
-          width: 32, height: 24, padding: 0, border: '1px solid #2A2E39',
-          borderRadius: 4, cursor: 'pointer', background: 'none',
-        }}
-      />
-    </div>
-  );
-
-  const ToggleInput = ({ label, settingKey }: { label: string; settingKey: keyof typeof settings }) => (
-    <div className="flex justify-between items-center py-1">
-      <span className="text-xs text-gray-400">{label}</span>
-      <button
-        onClick={() => updateSetting(settingKey as any, !settings[settingKey])}
-        className={`w-8 h-4 rounded-full relative transition-colors ${
-          settings[settingKey] ? 'bg-[#26A69A]' : 'bg-[#2A2E39]'
-        }`}
-      >
-        <span 
-          className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-            settings[settingKey] ? 'left-4' : 'left-0.5'
-          }`}
-        />
-      </button>
-    </div>
-  );
 
   return (
     <div className="absolute top-0 right-0 h-full w-80 bg-[#151A23] border-l border-[#2A2E39] shadow-2xl z-50 flex flex-col">
@@ -75,8 +94,8 @@ export default function ChartSettingsPanel({ onClose }: { onClose: () => void })
         <div>
           <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">Appearance</h3>
           <div className="space-y-1">
-            <ColorInput label="Background" settingKey="backgroundColor" />
-            <ColorInput label="Grid Lines" settingKey="gridColor" />
+            <ColorInput label="Background" settingKey="backgroundColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Grid Lines" settingKey="gridColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 
@@ -84,10 +103,10 @@ export default function ChartSettingsPanel({ onClose }: { onClose: () => void })
         <div>
           <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">Candles</h3>
           <div className="space-y-1">
-            <ColorInput label="Bullish Body" settingKey="upCandleColor" />
-            <ColorInput label="Bullish Wick" settingKey="upWickColor" />
-            <ColorInput label="Bearish Body" settingKey="downCandleColor" />
-            <ColorInput label="Bearish Wick" settingKey="downWickColor" />
+            <ColorInput label="Bullish Body" settingKey="upCandleColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Bullish Wick" settingKey="upWickColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Bearish Body" settingKey="downCandleColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Bearish Wick" settingKey="downWickColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 
@@ -95,20 +114,20 @@ export default function ChartSettingsPanel({ onClose }: { onClose: () => void })
         <div>
           <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">SMC Colors</h3>
           <div className="space-y-1">
-            <ColorInput label="BOS / Break (Up)" settingKey="bosUpColor" />
-            <ColorInput label="BOS / Break (Down)" settingKey="bosDownColor" />
-            <ColorInput label="CHoCH" settingKey="chochColor" />
-            <ColorInput label="MSS" settingKey="mssColor" />
+            <ColorInput label="BOS / Break (Up)" settingKey="bosUpColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="BOS / Break (Down)" settingKey="bosDownColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="CHoCH" settingKey="chochColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="MSS" settingKey="mssColor" settings={settings} updateSetting={updateSetting} />
             <br/>
-            <ColorInput label="Bullish OB" settingKey="bullOBColor" />
-            <ColorInput label="Bearish OB" settingKey="bearOBColor" />
-            <ColorInput label="Breaker Block" settingKey="breakerColor" />
+            <ColorInput label="Bullish OB" settingKey="bullOBColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Bearish OB" settingKey="bearOBColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Breaker Block" settingKey="breakerColor" settings={settings} updateSetting={updateSetting} />
             <br/>
-            <ColorInput label="Buy Side Liq (BSL)" settingKey="bslColor" />
-            <ColorInput label="Sell Side Liq (SSL)" settingKey="sslColor" />
+            <ColorInput label="Buy Side Liq (BSL)" settingKey="bslColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Sell Side Liq (SSL)" settingKey="sslColor" settings={settings} updateSetting={updateSetting} />
             <br/>
-            <ColorInput label="FVG (Up)" settingKey="fvgBullColor" />
-            <ColorInput label="FVG (Down)" settingKey="fvgBearColor" />
+            <ColorInput label="FVG (Up)" settingKey="fvgBullColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="FVG (Down)" settingKey="fvgBearColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 
@@ -116,15 +135,15 @@ export default function ChartSettingsPanel({ onClose }: { onClose: () => void })
         <div>
           <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">Visibility</h3>
           <div className="space-y-1">
-            <ToggleInput label="Show BOS" settingKey="showBOS" />
-            <ToggleInput label="Show CHoCH" settingKey="showCHoCH" />
-            <ToggleInput label="Show MSS" settingKey="showMSS" />
-            <ToggleInput label="Show Order Blocks" settingKey="showOrderBlocks" />
-            <ToggleInput label="Show Breaker Blocks" settingKey="showBreakerBlocks" />
-            <ToggleInput label="Show Liquidity (BSL/SSL)" settingKey="showLiquidity" />
-            <ToggleInput label="Show FVG" settingKey="showFVG" />
-            <ToggleInput label="Show Inducement" settingKey="showInducement" />
-            <ToggleInput label="Show Volume" settingKey="showVolume" />
+            <ToggleInput label="Show BOS" settingKey="showBOS" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show CHoCH" settingKey="showCHoCH" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show MSS" settingKey="showMSS" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Order Blocks" settingKey="showOrderBlocks" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Breaker Blocks" settingKey="showBreakerBlocks" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Liquidity (BSL/SSL)" settingKey="showLiquidity" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show FVG" settingKey="showFVG" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Inducement" settingKey="showInducement" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Volume" settingKey="showVolume" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
       </div>

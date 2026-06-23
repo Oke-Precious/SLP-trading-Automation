@@ -93,6 +93,8 @@ interface ChartSettingsStore {
   syncWithFirebase: (uid: string) => () => void;
 }
 
+let saveTimeout: any = null;
+
 export const useChartSettingsStore = create<ChartSettingsStore>()(
   persist(
     (set, get) => ({
@@ -105,9 +107,12 @@ export const useChartSettingsStore = create<ChartSettingsStore>()(
         const user = useAuthStore.getState().user;
         const uid = user?.uid || user?.id;
         if (uid) {
-          saveUserChartSettings(uid, nextSettings).catch(err =>
-            console.error('[Firestore] Failed to save chart settings:', err)
-          );
+          if (saveTimeout) clearTimeout(saveTimeout);
+          saveTimeout = setTimeout(() => {
+            saveUserChartSettings(uid, nextSettings).catch(err =>
+              console.error('[Firestore] Failed to save chart settings:', err)
+            );
+          }, 800);
         }
       },
 
@@ -118,6 +123,7 @@ export const useChartSettingsStore = create<ChartSettingsStore>()(
         const user = useAuthStore.getState().user;
         const uid = user?.uid || user?.id;
         if (uid) {
+          if (saveTimeout) clearTimeout(saveTimeout);
           saveUserChartSettings(uid, nextSettings).catch(err =>
             console.error('[Firestore] Failed to apply chart preset settings:', err)
           );
@@ -130,6 +136,7 @@ export const useChartSettingsStore = create<ChartSettingsStore>()(
         const user = useAuthStore.getState().user;
         const uid = user?.uid || user?.id;
         if (uid) {
+          if (saveTimeout) clearTimeout(saveTimeout);
           saveUserChartSettings(uid, DEFAULTS).catch(err =>
             console.error('[Firestore] Failed to reset chart settings:', err)
           );
