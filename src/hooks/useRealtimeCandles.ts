@@ -35,12 +35,20 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
     if (!isCrypto || !symbol || !timeframe) return
 
     const tfLower = timeframe.toLowerCase()
-    const binanceTF = tfLower === '1h' ? '1h'
-      : tfLower === '4h' ? '4h'
-      : tfLower === '1d' ? '1d'
-      : tfLower === '30m' ? '30m'
-      : tfLower === '15m' ? '15m'
+    const binanceTF = tfLower === '1m' ? '1m'
+      : tfLower === '3m' ? '3m'
       : tfLower === '5m' ? '5m'
+      : tfLower === '15m' ? '15m'
+      : tfLower === '30m' ? '30m'
+      : tfLower === '45m' ? '15m' // Binance REST/WS lacks 45m; fetch 15m as base
+      : tfLower === '1h' ? '1h'
+      : tfLower === '2h' ? '2h'
+      : tfLower === '4h' ? '4h'
+      : tfLower === '8h' ? '8h'
+      : tfLower === '12h' ? '12h'
+      : tfLower === '1d' ? '1d'
+      : tfLower === '1w' ? '1w'
+      : tfLower === '1m' || tfLower === '1M' || timeframe === '1M' ? '1M'
       : '1d'
 
     const unsubscribe = binanceWS.subscribeCandles(

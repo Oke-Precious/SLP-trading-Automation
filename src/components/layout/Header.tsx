@@ -145,7 +145,11 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const timeframes: Timeframe[] = ['1D', '4H', '1H', '30m', '15m'];
+  const timeframes: Timeframe[] = [
+    '1m', '3m', '5m', '15m', '30m', '45m',
+    '1H', '2H', '4H', '8H', '12H',
+    '1D', '1W', '1M'
+  ];
 
   const filteredInstruments = ALL_INSTRUMENTS.filter(ins => {
     const q = searchQuery.toLowerCase().trim();
@@ -281,14 +285,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex bg-surface border border-[#2A2E39] rounded-full p-0.5">
+        <div className="flex bg-surface border border-[#2A2E39] rounded-lg p-0.5 overflow-x-auto max-w-[280px] md:max-w-none scrollbar-none whitespace-nowrap scroll-smooth">
           {timeframes.map((tf) => (
             <button
               key={tf}
               onClick={() => setSelectedTimeframe(tf)}
-              className={`px-3 py-0.5 rounded-full text-xs transition-all duration-200 cursor-pointer ${
+              className={`px-2.5 py-0.5 rounded text-xs transition-all duration-200 cursor-pointer font-mono ${
                 selectedTimeframe === tf 
-                  ? 'bg-[#2A3245] text-light font-semibold shadow-inner' 
+                  ? 'bg-[#2A3245] text-light font-bold shadow-inner' 
                   : 'text-gray-400 hover:text-white'
               }`}
             >

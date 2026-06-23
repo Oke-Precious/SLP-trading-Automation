@@ -11,7 +11,7 @@ import { useAuthStore } from './useAuthStore';
 import { saveUserBias, listenToUserBias } from '../lib/firebase/firestoreService';
 
 interface BiasState {
-  biasMap: Record<CurrencyPair, Record<Timeframe, BiasValue>>;
+  biasMap: Record<CurrencyPair, Partial<Record<Timeframe, BiasValue>>>;
   setBias: (pair: CurrencyPair, tf: Timeframe, bias: BiasValue) => void;
   setBiasMap: (biasMap: BiasState['biasMap']) => void;
   syncWithFirebase: (uid: string) => () => void;

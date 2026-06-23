@@ -18,5 +18,5 @@ export interface StructuralPhase {
 }
 
 export interface DirectionalBiasState {
-  biasMap: Record<CurrencyPair, Record<Timeframe, BiasValue>>;
+  biasMap: Record<CurrencyPair, Partial<Record<Timeframe, BiasValue>>>;
 }

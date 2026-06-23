@@ -11,7 +11,21 @@ export interface Persona {
 }
 
 export type CurrencyPair = string;
-export type Timeframe = '1D' | '4H' | '1H' | '30m' | '15m' | '5m';
+export type Timeframe =
+  | '1m'
+  | '3m'
+  | '5m'
+  | '15m'
+  | '30m'
+  | '45m'
+  | '1H'
+  | '2H'
+  | '4H'
+  | '8H'
+  | '12H'
+  | '1D'
+  | '1W'
+  | '1M';
 
 export interface POI {
   id: string;

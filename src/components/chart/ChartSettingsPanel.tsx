@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useChartSettingsStore, PRESETS, ChartSettings } from '../../store/useChartSettingsStore';
 import { X, Settings2 } from 'lucide-react';
 
@@ -9,25 +9,64 @@ interface ColorInputProps {
   updateSetting: <K extends keyof ChartSettings>(key: K, value: ChartSettings[K]) => void;
 }
 
-const ColorInput = ({ label, settingKey, settings, updateSetting }: ColorInputProps) => (
-  <div className="flex justify-between items-center py-1">
-    <span className="text-xs text-gray-400">{label}</span>
-    <input
-      type="color"
-      value={settings[settingKey] as string}
-      onChange={(e) => updateSetting(settingKey, e.target.value as any)}
-      style={{
-        width: 32,
-        height: 24,
-        padding: 0,
-        border: '1px solid #2A2E39',
-        borderRadius: 4,
-        cursor: 'pointer',
-        background: 'none',
-      }}
-    />
-  </div>
-);
+const ColorInput = React.memo(({ label, settingKey, settings, updateSetting }: ColorInputProps) => {
+  const storeValue = settings[settingKey] as string;
+  const [localValue, setLocalValue] = useState(storeValue);
+  const updateTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    setLocalValue(storeValue);
+  }, [storeValue]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setLocalValue(newVal);
+
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    updateTimeoutRef.current = setTimeout(() => {
+      updateSetting(settingKey, newVal as any);
+    }, 150);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    updateSetting(settingKey, e.target.value as any);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="flex justify-between items-center py-1">
+      <span className="text-xs text-gray-400">{label}</span>
+      <input
+        type="color"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        style={{
+          width: 32,
+          height: 24,
+          padding: 0,
+          border: '1px solid #2A2E39',
+          borderRadius: 4,
+          cursor: 'pointer',
+          background: 'none',
+        }}
+      />
+    </div>
+  );
+});
+ColorInput.displayName = 'ColorInput';
 
 interface ToggleInputProps {
   label: string;
@@ -54,7 +93,7 @@ const ToggleInput = ({ label, settingKey, settings, updateSetting }: ToggleInput
   </div>
 );
 
-export default function ChartSettingsPanel({ onClose }: { onClose: () => void }) {
+const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: { onClose: () => void }) {
   const { settings, updateSetting, applyPreset, resetToDefaults } = useChartSettingsStore();
 
   return (
@@ -164,4 +203,6 @@ export default function ChartSettingsPanel({ onClose }: { onClose: () => void })
       </div>
     </div>
   );
-}
+});
+
+export default ChartSettingsPanel;

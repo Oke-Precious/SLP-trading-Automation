@@ -8,11 +8,17 @@ const CRYPTO_PAIRS = [
   'adausdt', 'dotusdt', 'linkusdt', 'avaxusdt', 'maticusdt'
 ];
 
-const TIMEFRAMES = ['1d', '4h', '1h', '30m', '15m', '5m'];
+const TIMEFRAMES = [
+  '1m', '3m', '5m', '15m', '30m', '45m',
+  '1h', '2h', '4h', '8h', '12h',
+  '1d', '1w', '1M'
+];
 
 // Maps Binance interval codes to our TF codes
 const TF_MAP: Record<string, string> = {
-  '1d': '1D', '4h': '4H', '1h': '1H', '30m': '30m', '15m': '15m', '5m': '5m'
+  '1m': '1m', '3m': '3m', '5m': '5m', '15m': '15m', '30m': '30m', '45m': '45m',
+  '1h': '1H', '2h': '2H', '4h': '4H', '8h': '8H', '12h': '12H',
+  '1d': '1D', '1w': '1W', '1M': '1M'
 };
 
 const DEFAULT_PRICES: Record<string, number> = {

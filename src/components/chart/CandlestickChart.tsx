@@ -47,6 +47,9 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+  }, []);
   const [activeDrawTool, setActiveDrawTool] = useState<'cursor' | 'trendline'>('cursor');
   
   const [drawings, setDrawings] = useState<Array<{ id: string, points: {time: Time, price: number}[], seriesRef: any }>>([]);
@@ -136,10 +139,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     setChartInitialized((prev) => prev + 1);
 
     const ro = new ResizeObserver((entries) => {
-      if (chartRef.current && chartApi.current) {
-        const { width, height: elHeight } = entries[0].contentRect;
-        chartApi.current.resize(width, elHeight > 0 ? elHeight : height);
-      }
+      if (!entries || !entries[0]) return;
+      const { width, height: elHeight } = entries[0].contentRect;
+      requestAnimationFrame(() => {
+        if (chartRef.current && chartApi.current) {
+          chartApi.current.resize(width, elHeight > 0 ? elHeight : height);
+        }
+      });
     });
     ro.observe(chartRef.current);
 
@@ -552,7 +558,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         {/* Settings Overlay Slide out */}
         {showSettings && (
           <div className="absolute top-0 right-0 h-full w-80 shadow-2xl z-20">
-            <ChartSettingsPanel onClose={() => setShowSettings(false)} />
+            <ChartSettingsPanel onClose={handleCloseSettings} />
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -59,6 +59,10 @@ export default function DashboardChart({
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
   const [chartViewMode, setChartViewMode] = useState<'live' | 'drawing'>('live');
   const [showSettings, setShowSettings] = useState(false);
+
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+  }, []);
 
   const chartOuterRef = useRef<SVGSVGElement | null>(null);
   const ticker = useMarketStore(state => state.ticker);
@@ -236,7 +240,7 @@ export default function DashboardChart({
       </div>
 
       <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-        {showSettings && <ChartSettingsPanel onClose={() => setShowSettings(false)} />}
+        {showSettings && <ChartSettingsPanel onClose={handleCloseSettings} />}
         {chartViewMode === 'live' ? (
           <div className="w-full flex-1 flex min-h-0">
             <CandlestickChart height={isFullscreen ? 800 : 400} />

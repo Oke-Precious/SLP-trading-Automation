@@ -39,13 +39,31 @@ export const ALL_INSTRUMENTS = [...CRYPTO_PAIRS, ...FOREX_PAIRS, ...METALS_INDIC
 // ── TIMEFRAME MAPPING ────────────────────────────────────
 export const TIMEFRAME_MAP = {
   '1m':  { binance: '1m',  twelvedata: '1min',  alphaVantage: '1min',  minutes: 1    },
+  '1M':  { binance: '1M',  twelvedata: '1month',alphaVantage: 'monthly',minutes: 43200},
+  '3m':  { binance: '3m',  twelvedata: '3min',  alphaVantage: '3min',  minutes: 3    },
+  '3M':  { binance: '3m',  twelvedata: '3min',  alphaVantage: '3min',  minutes: 3    },
   '5m':  { binance: '5m',  twelvedata: '5min',  alphaVantage: '5min',  minutes: 5    },
+  '5M':  { binance: '5m',  twelvedata: '5min',  alphaVantage: '5min',  minutes: 5    },
   '15m': { binance: '15m', twelvedata: '15min', alphaVantage: '15min', minutes: 15   },
+  '15M': { binance: '15m', twelvedata: '15min', alphaVantage: '15min', minutes: 15   },
   '30m': { binance: '30m', twelvedata: '30min', alphaVantage: '30min', minutes: 30   },
+  '30M': { binance: '30m', twelvedata: '30min', alphaVantage: '30min', minutes: 30   },
+  '45m': { binance: '45m', twelvedata: '45min', alphaVantage: '45min', minutes: 45   },
+  '45M': { binance: '45m', twelvedata: '45min', alphaVantage: '45min', minutes: 45   },
   '1h':  { binance: '1h',  twelvedata: '1h',    alphaVantage: '60min', minutes: 60   },
+  '1H':  { binance: '1h',  twelvedata: '1h',    alphaVantage: '60min', minutes: 60   },
+  '2h':  { binance: '2h',  twelvedata: '2h',    alphaVantage: '2h',    minutes: 120  },
+  '2H':  { binance: '2h',  twelvedata: '2h',    alphaVantage: '2h',    minutes: 120  },
   '4h':  { binance: '4h',  twelvedata: '4h',    alphaVantage: 'N/A',   minutes: 240  },
+  '4H':  { binance: '4h',  twelvedata: '4h',    alphaVantage: 'N/A',   minutes: 240  },
+  '8h':  { binance: '8h',  twelvedata: '8h',    alphaVantage: 'N/A',   minutes: 480  },
+  '8H':  { binance: '8h',  twelvedata: '8h',    alphaVantage: 'N/A',   minutes: 480  },
+  '12h': { binance: '12h', twelvedata: '12h',   alphaVantage: 'N/A',   minutes: 720  },
+  '12H': { binance: '12h', twelvedata: '12h',   alphaVantage: 'N/A',   minutes: 720  },
   '1d':  { binance: '1d',  twelvedata: '1day',  alphaVantage: 'daily', minutes: 1440 },
+  '1D':  { binance: '1d',  twelvedata: '1day',  alphaVantage: 'daily', minutes: 1440 },
   '1w':  { binance: '1w',  twelvedata: '1week', alphaVantage: 'weekly',minutes: 10080},
+  '1W':  { binance: '1w',  twelvedata: '1week', alphaVantage: 'weekly',minutes: 10080},
 }
 
 // ── NORMALISED CANDLE TYPE ───────────────────────────────
@@ -95,7 +113,7 @@ export async function fetchCryptoCandles(
     }))
   } catch (err: any) {
     console.warn(`[Binance Direct Bypass] Failed to fetch ${symbol} ${interval}: ${err?.message || err}. Local emulation initiated.`);
-    return generateFallbackCandles(symbol, limit)
+    return generateFallbackCandles(symbol, limit, interval)
   }
 }
 
@@ -280,13 +298,13 @@ export async function fetchCandlesWithFlag(
        }
      } catch (err) {
        console.error(`[Binance] Failed ${symbol} ${timeframe}:`, err)
-       return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+       return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
      }
   }
   
   const key = getTwelveDataKey()
   if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
-    return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+    return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
   }
 
   const tf = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
@@ -301,7 +319,7 @@ export async function fetchCandlesWithFlag(
     })
     if (data.status === 'error' || !data.values) {
       console.error('[TwelveData] Error:', data.message)
-      return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+      return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
     }
     return {
       isRealData: true,
@@ -316,7 +334,7 @@ export async function fetchCandlesWithFlag(
     }
   } catch (err) {
     console.error(`[TwelveData] Failed ${symbol} ${timeframe}:`, err)
-    return { isRealData: false, candles: generateFallbackCandles(symbol, limit) }
+    return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
   }
 }
 
@@ -367,11 +385,29 @@ const SEED_PRICES: Record<string, number> = {
   US30: 38500, SPX500: 5200, NAS100: 18200,
 }
 
-function generateFallbackCandles(symbol: string, limit: number): Candle[] {
+// ── FALLBACK — realistic generated candles (when no API key/failure) ──
+function generateFallbackCandles(symbol: string, limit: number, timeframe?: string): Candle[] {
   const basePrice = SEED_PRICES[symbol] || 100
   const volatility = basePrice * 0.012
   const now = Math.floor(Date.now() / 1000)
-  const interval = 86400 // 1 day in seconds
+
+  const tf = timeframe || '1d'
+  let interval = 86400 // 1 day default
+
+  if (tf === '1m') interval = 60
+  else if (tf === '3m' || tf === '3M') interval = 180
+  else if (tf === '5m' || tf === '5M') interval = 300
+  else if (tf === '15m' || tf === '15M') interval = 900
+  else if (tf === '30m' || tf === '30M') interval = 1800
+  else if (tf === '45m' || tf === '45M') interval = 2700
+  else if (tf === '1h' || tf === '1H') interval = 3600
+  else if (tf === '2h' || tf === '2H') interval = 7200
+  else if (tf === '4h' || tf === '4H') interval = 14400
+  else if (tf === '8h' || tf === '8H') interval = 28800
+  else if (tf === '12h' || tf === '12H') interval = 43200
+  else if (tf === '1d' || tf === '1D') interval = 86400
+  else if (tf === '1w' || tf === '1W') interval = 604800
+  else if (tf === '1M') interval = 2592000
 
   let price = basePrice
   const candles: Candle[] = []
