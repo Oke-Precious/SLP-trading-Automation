@@ -123,9 +123,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ openPersonasModal }) => {
           onClick={openPersonasModal}
           className="w-full flex items-center hover:bg-[#2C354E] p-2 rounded-md transition-colors text-left text-xs text-gray-400 hover:text-white relative group cursor-pointer"
         >
-          <Users size={18} className="shrink-0 text-[#CAAA98] group-hover:scale-110 transition-transform" />
+          <BookOpen size={18} className="shrink-0 text-[#CAAA98] group-hover:scale-110 transition-transform" />
           <span className={`ml-3 text-[10px] uppercase tracking-wider font-semibold ${isExpanded ? 'inline' : 'hidden'}`}>
-            Trader Personas
+            Documentation
           </span>
         </button>
 

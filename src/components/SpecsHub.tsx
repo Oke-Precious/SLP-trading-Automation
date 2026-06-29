@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TRADER_PERSONAS, DESIGN_SPECIFICATION_MARKDOWN } from '../data/specData';
 import { USER_DOCUMENTATION, DEVELOPER_DOCUMENTATION, DocSection, DocCategory } from '../data/documentationData';
 import { 
@@ -30,6 +31,7 @@ interface SpecsHubProps {
 }
 
 export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'spec' | 'user_docs' | 'dev_docs' | 'personas'>(initialTab);
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,9 +70,11 @@ export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps
     switch (catId) {
       case 'overview': return <Info size={14} className="text-[#CAAA98]" />;
       case 'user_guide': return <BookOpen size={14} className="text-[#CAAA98]" />;
+      case 'beginner_trading': return <HelpCircle size={14} className="text-amber-400 animate-pulse" />;
       case 'get_started': return <Terminal size={14} className="text-emerald-400" />;
       case 'architecture': return <Layers size={14} className="text-[#CAAA98]" />;
       case 'developer_docs': return <Code size={14} className="text-[#CAAA98]" />;
+      case 'api_connections': return <Cpu size={14} className="text-cyan-400 animate-pulse" />;
       case 'trading_logic': return <Activity size={14} className="text-emerald-400" />;
       case 'maintenance': return <Wrench size={14} className="text-red-400" />;
       default: return <FileText size={14} className="text-gray-400" />;
@@ -99,13 +103,41 @@ export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps
     lines.forEach((line, idx) => {
       const trimmed = line.trim();
 
+      // Heading 1
+      if (trimmed.startsWith('# ')) {
+        flushList(idx);
+        elements.push(
+          <h1 
+            key={idx} 
+            className="text-lg font-bold text-white mt-8 mb-4 border-b border-[#2A2E39] pb-2.5 font-display"
+          >
+            {parseInlineMarkdown(trimmed.substring(2))}
+          </h1>
+        );
+        return;
+      }
+
+      // Heading 2
+      if (trimmed.startsWith('## ')) {
+        flushList(idx);
+        elements.push(
+          <h2 
+            key={idx} 
+            className="text-base font-bold text-[#CAAA98] mt-6 mb-3 font-display border-l-2 border-emerald-500 pl-2.5"
+          >
+            {parseInlineMarkdown(trimmed.substring(3))}
+          </h2>
+        );
+        return;
+      }
+
       // Heading 3
       if (trimmed.startsWith('### ')) {
         flushList(idx);
         elements.push(
           <h3 
             key={idx} 
-            className="text-sm font-bold text-white mt-6 mb-3 font-display uppercase tracking-wider border-l-2 border-[#CAAA98] pl-2.5"
+            className="text-sm font-bold text-white mt-6 mb-3 font-display uppercase tracking-wider border-l border-emerald-500/50 pl-2.5"
           >
             {trimmed.replace('### ', '')}
           </h3>
@@ -127,13 +159,22 @@ export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps
         return;
       }
 
+      // Horizontal Rule / Divider Demarcation
+      if (trimmed === '---' || trimmed === '***') {
+        flushList(idx);
+        elements.push(
+          <div key={`hr-${idx}`} className="my-6 border-t border-[#2A2E39] h-px w-full" />
+        );
+        return;
+      }
+
       // Code block lines (skip marker, render standard monospace blocks)
       if (trimmed.startsWith('```')) {
         flushList(idx);
         return;
       }
 
-      if (trimmed.startsWith('//') || trimmed.startsWith('# ') || trimmed.startsWith('cd ') || trimmed.startsWith('npm ') || trimmed.startsWith('npx ') || trimmed.startsWith('interface ') || trimmed.startsWith('const ')) {
+      if (trimmed.startsWith('//') || trimmed.startsWith('cd ') || trimmed.startsWith('npm ') || trimmed.startsWith('npx ') || trimmed.startsWith('interface ') || trimmed.startsWith('const ')) {
         flushList(idx);
         if (trimmed !== '') {
           elements.push(
@@ -172,7 +213,7 @@ export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps
             }`}
           >
             {cells.map((cell, cIdx) => (
-              <div key={cIdx} className="truncate" title={cell}>
+              <div key={cIdx} className="truncate" title={cell.replace(/\*\*/g, '').replace(/`/g, '')}>
                 {parseInlineMarkdown(cell)}
               </div>
             ))}
@@ -204,29 +245,94 @@ export default function SpecsHub({ onClose, initialTab = 'spec' }: SpecsHubProps
   };
 
   const parseInlineMarkdown = (text: string) => {
-    let parts: React.ReactNode[] = [text];
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
     
-    // Parse Bold (**text**)
-    const boldRegex = /\*\*(.*?)\*\*/g;
-    if (text.match(boldRegex)) {
-      const segments = text.split(/\*\*(.*?)\*\*/g);
-      parts = segments.map((seg, i) => i % 2 === 1 ? <strong key={`b-${i}`} className="text-[#CAAA98] font-bold">{seg}</strong> : seg);
+    while ((match = linkRegex.exec(text)) !== null) {
+      const matchIndex = match.index;
+      const label = match[1];
+      const url = match[2];
+      
+      if (matchIndex > lastIndex) {
+        parts.push(text.substring(lastIndex, matchIndex));
+      }
+      
+      const isInternal = url.startsWith('/');
+      parts.push(
+        isInternal ? (
+          <button
+            key={`link-${matchIndex}`}
+            onClick={() => {
+              navigate(url);
+              onClose();
+            }}
+            className="text-emerald-400 hover:text-emerald-300 hover:underline font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block cursor-pointer mx-1 text-[11px] align-baseline transition-all duration-150 hover:scale-105 active:scale-95"
+          >
+            {label}
+          </button>
+        ) : (
+          <a
+            key={`link-${matchIndex}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#CAAA98] hover:text-[#e5c6b6] underline font-bold inline-flex items-center"
+          >
+            <span>{label}</span>
+            <ArrowUpRight size={10} className="ml-0.5 shrink-0" />
+          </a>
+        )
+      );
+      
+      lastIndex = linkRegex.lastIndex;
     }
     
-    // Parse Inline Code (`code`)
-    const codeRegex = /`(.*?)`/g;
-    parts = parts.map((part) => {
-      if (typeof part !== 'string') return part;
-      if (!part.match(codeRegex)) return part;
-      const segments = part.split(/`(.*?)`/g);
-      return segments.map((seg, i) => i % 2 === 1 ? (
-        <code key={`c-${i}`} className="bg-[#111622] text-emerald-400 font-mono px-1.5 py-0.5 rounded border border-[#2A2E39] text-[10px]">
-          {seg}
-        </code>
-      ) : seg);
-    });
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    if (parts.length === 0) {
+      parts = [text];
+    }
 
-    return <>{parts}</>;
+    // Now, process any string segments for bold and code
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (typeof part !== 'string') return part;
+          
+          let subParts: React.ReactNode[] = [part];
+          
+          // Parse Bold (**text**)
+          const boldRegex = /\*\*(.*?)\*\*/g;
+          if (part.match(boldRegex)) {
+            const segments = part.split(/\*\*(.*?)\*\*/g);
+            subParts = segments.map((seg, i) => 
+              i % 2 === 1 ? <strong key={`b-${idx}-${i}`} className="text-[#CAAA98] font-bold">{seg}</strong> : seg
+            );
+          }
+          
+          // Parse Inline Code (`code`)
+          const codeRegex = /`(.*?)`/g;
+          subParts = subParts.flatMap((subPart, sIdx) => {
+            if (typeof subPart !== 'string') return subPart;
+            if (!subPart.match(codeRegex)) return subPart;
+            const segments = subPart.split(/`(.*?)`/g);
+            return segments.map((seg, i) => 
+              i % 2 === 1 ? (
+                <code key={`c-${idx}-${sIdx}-${i}`} className="bg-[#111622] text-emerald-400 font-mono px-1.5 py-0.5 rounded border border-[#2A2E39] text-[10px]">
+                  {seg}
+                </code>
+              ) : seg
+            );
+          });
+          
+          return <React.Fragment key={idx}>{subParts}</React.Fragment>;
+        })}
+      </>
+    );
   };
 
   // Document Searching Engine
