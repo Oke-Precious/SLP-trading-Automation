@@ -37,12 +37,24 @@ function getAuthErrorMessage(errorCode: string, errorMsg?: string): string {
     }
   }
 
+  if (code === 'auth/password-does-not-meet-requirements' || msgLower.includes('password-does-not-meet-requirements')) {
+    if (errorMsg) {
+      const match = errorMsg.match(/\[(.*?)\]/);
+      if (match && match[1]) {
+        const requirements = match[1].split(',').map(r => r.trim());
+        if (requirements.length > 0) {
+          return `Password does not meet complexity requirements:\n• ${requirements.join('\n• ')}`;
+        }
+      }
+    }
+    return 'Password does not meet complexity requirements. Please include an uppercase letter, a numeric character, and a special character.';
+  }
+
   const messages: Record<string, string> = {
     'auth/user-not-found': 'No account found with this email. Please check your email or create an account.',
     'auth/wrong-password': 'Incorrect password. Please try again.',
     'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
     'auth/weak-password': 'Your password must be at least 8 characters.',
-    'auth/password-does-not-meet-requirements': 'Your password does not meet the complexity requirements. Please include an uppercase letter, a numeric character, and a special character.',
     'auth/invalid-email': 'Please enter a valid email address.',
     'auth/too-many-requests': 'Too many failed attempts. Please wait a few minutes before trying again.',
     'auth/network-request-failed': 'Connection error. Please check your internet and try again.',
@@ -51,6 +63,46 @@ function getAuthErrorMessage(errorCode: string, errorMsg?: string): string {
     'auth/invalid-credential': 'Your email or password is incorrect. Please try again.',
   };
   return messages[code] || 'Something went wrong. Please try again.';
+}
+
+async function generateUsernameSuggestions(baseUsername: string, db: any): Promise<string[]> {
+  const suffixes = ['_slp', '_trader', '123', '2026', '_auto', '99'];
+  const candidates = suffixes.map(suffix => baseUsername + suffix);
+  
+  const suggestions: string[] = [];
+  
+  // Check candidates in parallel
+  const checks = candidates.map(async (candidate) => {
+    try {
+      const { getDocWithTimeout } = await import('../../lib/firebase/firebase');
+      const { doc } = await import('firebase/firestore');
+      const docRef = doc(db, 'usernames', candidate.toLowerCase());
+      const snap = await getDocWithTimeout(docRef);
+      if (!snap.exists()) {
+        return candidate;
+      }
+    } catch (e) {
+      return candidate;
+    }
+    return null;
+  });
+  
+  const results = await Promise.all(checks);
+  for (const res of results) {
+    if (res && suggestions.length < 3) {
+      suggestions.push(res);
+    }
+  }
+  
+  while (suggestions.length < 3) {
+    const randomNum = Math.floor(100 + Math.random() * 900);
+    const candidate = `${baseUsername}${randomNum}`;
+    if (!suggestions.includes(candidate)) {
+      suggestions.push(candidate);
+    }
+  }
+  
+  return suggestions;
 }
 
 export default function RegisterPage() {
@@ -66,6 +118,7 @@ export default function RegisterPage() {
   const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,9 +161,34 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
-      const { auth, db } = await import('../../lib/firebase/firebase');
+      const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
       const { doc, setDoc } = await import('firebase/firestore');
+
+      // Check if username is already taken
+      const usernameLower = username.toLowerCase().trim();
+      const usernameRef = doc(db, 'usernames', usernameLower);
+      let isTaken = false;
+      try {
+        const usernameSnap = await getDocWithTimeout(usernameRef);
+        if (usernameSnap.exists()) {
+          isTaken = true;
+        }
+      } catch (checkErr) {
+        console.warn("⚠️ Username check warning (proceeding):", checkErr);
+      }
+
+      if (isTaken) {
+        const generatedSuggestions = await generateUsernameSuggestions(username.trim(), db);
+        setSuggestions(generatedSuggestions);
+        const errorMsg = `Username '${username}' is already taken.`;
+        setAuthError({ code: 'client/username-taken', message: errorMsg });
+        setErrorMessage(errorMsg);
+        setShakeKey(prev => prev + 1);
+        setLoading(false);
+        return;
+      }
+
+      const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
 
       // Create firebase auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -140,8 +218,14 @@ export default function RegisterPage() {
       // Set user profile in Firestore (best effort)
       try {
         await setDoc(doc(db, 'users', fbUser.uid), newUserData);
+        // Reserve the username in public registry
+        await setDoc(doc(db, 'usernames', usernameLower), {
+          uid: fbUser.uid,
+          username: username,
+          createdAt: timestamp
+        });
       } catch (dbErr) {
-        console.warn("⚠️ [Firebase] Could not create Firestore user document, registration completed on Auth only:", dbErr);
+        console.warn("⚠️ [Firebase] Could not create Firestore user document or username registry, registration completed on Auth only:", dbErr);
       }
 
       const idToken = await fbUser.getIdToken();
@@ -283,12 +367,41 @@ export default function RegisterPage() {
             <div>
               <label className="block text-xs text-[#9AA3B2] uppercase tracking-wider mb-2">Username</label>
               <input
-                type="text" value={username} onChange={e => setUsername(e.target.value)} required
+                type="text" value={username} onChange={e => {
+                  setUsername(e.target.value);
+                  if (authError?.code === 'client/username-taken') {
+                    setAuthError(null);
+                    setErrorMessage(null);
+                    setSuggestions([]);
+                  }
+                }} required
                 className="w-full bg-[#131722] border border-[#2A2E39] rounded-md px-4 py-2.5
                            text-white text-sm placeholder-[#4A5568] focus:outline-none
                            focus:border-[#CAAA98] transition-colors"
                 placeholder="trader_name"
               />
+              {suggestions.length > 0 && (
+                <div className="mt-2.5 p-3 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md">
+                  <p className="text-[#CAAA98] font-bold block mb-2 uppercase tracking-wider text-[9px]">💡 Available Suggestions:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => {
+                          setUsername(sug);
+                          setSuggestions([]);
+                          setAuthError(null);
+                          setErrorMessage(null);
+                        }}
+                        className="px-2.5 py-1.5 bg-[#2A2E39] hover:bg-[#CAAA98] hover:text-[#202940] text-gray-200 rounded text-xs transition-colors font-mono cursor-pointer"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -325,7 +438,7 @@ export default function RegisterPage() {
             </div>
 
             {errorMessage && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4">
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4 whitespace-pre-line">
                 {errorMessage}
               </div>
             )}

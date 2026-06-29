@@ -20,6 +20,11 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Public usernames registry for signup uniqueness and suggestions
+    match /usernames/{username} {
+      allow read, create: if true;
+    }
+
     // Explicit match for user's settings or subcollection documents (like users/{userId}/settings/bias)
     match /users/{userId}/{subcollection}/{documentId} {
       allow read, write: if isOwner(userId);

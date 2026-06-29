@@ -37,12 +37,24 @@ function getAuthErrorMessage(errorCode: string, errorMsg?: string): string {
     }
   }
 
+  if (code === 'auth/password-does-not-meet-requirements' || msgLower.includes('password-does-not-meet-requirements')) {
+    if (errorMsg) {
+      const match = errorMsg.match(/\[(.*?)\]/);
+      if (match && match[1]) {
+        const requirements = match[1].split(',').map(r => r.trim());
+        if (requirements.length > 0) {
+          return `Password does not meet complexity requirements:\n• ${requirements.join('\n• ')}`;
+        }
+      }
+    }
+    return 'Password does not meet complexity requirements. Please include an uppercase letter, a numeric character, and a special character.';
+  }
+
   const messages: Record<string, string> = {
     'auth/user-not-found': 'No account found with this email. Please check your email or create an account.',
     'auth/wrong-password': 'Incorrect password. Please try again.',
     'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
     'auth/weak-password': 'Your password must be at least 8 characters.',
-    'auth/password-does-not-meet-requirements': 'Your password does not meet the complexity requirements. Please include an uppercase letter, a numeric character, and a special character.',
     'auth/invalid-email': 'Please enter a valid email address.',
     'auth/too-many-requests': 'Too many failed attempts. Please wait a few minutes before trying again.',
     'auth/network-request-failed': 'Connection error. Please check your internet and try again.',
@@ -334,7 +346,7 @@ export default function LoginPage() {
             </div>
 
             {errorMessage && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4">
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4 whitespace-pre-line">
                 {errorMessage}
               </div>
             )}
