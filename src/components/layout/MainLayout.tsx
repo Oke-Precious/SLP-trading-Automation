@@ -16,7 +16,7 @@ export default function MainLayout() {
   const setCurrentTimeframe = useMarketStore((state) => state.setSelectedTimeframe);
   
   const [isSpecsHubOpen, setIsSpecsHubOpen] = useState(false);
-  const [initialSpecsTab, setInitialSpecsTab] = useState<'spec' | 'personas'>('spec');
+  const [initialSpecsTab, setInitialSpecsTab] = useState<'spec' | 'user_docs' | 'dev_docs' | 'personas'>('spec');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingProgress, setLoadingProgress] = useState<number | null>(null);
@@ -90,6 +90,8 @@ export default function MainLayout() {
     { type: 'Asset', label: 'EURUSD', phrase: 'Switch main asset to Euro (OANDA Forex)', action: () => setCurrentPair('EURUSD') },
     { type: 'Asset', label: 'GBPUSD', phrase: 'Switch main asset to Pound (OANDA Forex)', action: () => setCurrentPair('GBPUSD') },
     { type: 'System', label: 'Show Technical Specifications Blueprint', phrase: 'Open product specifications markdown files', action: () => { setInitialSpecsTab('spec'); setIsSpecsHubOpen(true); } },
+    { type: 'System', label: 'Show User Manual & FAQs', phrase: 'Learn how to navigate, configure, and troubleshoot the app', action: () => { setInitialSpecsTab('user_docs'); setIsSpecsHubOpen(true); } },
+    { type: 'System', label: 'Show Developer & Architecture Guide', phrase: 'Technical standards, code walkthroughs, and db schemas', action: () => { setInitialSpecsTab('dev_docs'); setIsSpecsHubOpen(true); } },
     { type: 'System', label: 'Show Trader Personas Dossiers', phrase: 'Browse Marcus, Chloe, or David dossiers', action: () => { setInitialSpecsTab('personas'); setIsSpecsHubOpen(true); } }
   ];
 

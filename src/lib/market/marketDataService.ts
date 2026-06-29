@@ -91,7 +91,9 @@ export interface Ticker {
 // CRYPTO DATA — BINANCE (free, no key required)
 // ════════════════════════════════════════════════════════
 
-const BINANCE = process.env.NEXT_PUBLIC_BINANCE_REST || 'https://api.binance.com/api/v3'
+const BINANCE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BINANCE_REST) ||
+  (import.meta as any).env?.VITE_BINANCE_REST ||
+  'https://api.binance.com/api/v3';
 
 export async function fetchCryptoCandles(
   symbol: string,
@@ -162,7 +164,9 @@ export async function fetchAllCryptoTickers(): Promise<Ticker[]> {
 // FOREX + METALS DATA — TWELVE DATA (800 req/day free)
 // ════════════════════════════════════════════════════════
 
-const TWELVE = process.env.NEXT_PUBLIC_TWELVE_DATA_REST || 'https://api.twelvedata.com'
+const TWELVE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_TWELVE_DATA_REST) ||
+  (import.meta as any).env?.VITE_TWELVE_DATA_REST ||
+  'https://api.twelvedata.com';
 
 function getTwelveDataKey(): string {
   const storeKey = useSettingsStore.getState().twelveDataApiKey?.trim()

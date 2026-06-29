@@ -351,7 +351,7 @@ export const Header: React.FC<HeaderProps> = ({
           className="flex items-center space-x-1.5 bg-light/10 hover:bg-light/20 text-light border border-light/30 px-3 py-1.5 rounded-md text-xs font-semibold cursor-pointer transition-all duration-200 hover:scale-105"
         >
           <FileText size={15} />
-          <span className="hidden sm:inline">Specs & Personas</span>
+          <span className="hidden sm:inline">Docs & Blueprints</span>
         </button>
 
         <button

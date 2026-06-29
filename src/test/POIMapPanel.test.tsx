@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POIMapPanel } from '../components/dashboard/POIMapPanel';
 import { usePOIStore } from '../store/usePOIStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 // Mock react-query useQuery hook and client
 let mockPois: any[] = [];
@@ -70,6 +71,9 @@ describe('POIMapPanel Component', () => {
   it('add POI button opens modal, form submits and closes modal on success', async () => {
     mockPois = [];
     usePOIStore.setState({ activePOI: null });
+    useAuthStore.setState({
+      user: { uid: 'test-user', isSandbox: true } as any
+    });
 
     render(<POIMapPanel />);
 

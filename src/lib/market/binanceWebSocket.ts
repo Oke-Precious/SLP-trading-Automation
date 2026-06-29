@@ -4,7 +4,9 @@ type CandleCallback = (candle: Candle, isClosed: boolean) => void
 type TickerCallback = (price: number, changePct: number) => void
 type ConnectionCallback = (connected: boolean) => void
 
-const WS_BASE = process.env.NEXT_PUBLIC_BINANCE_WS || 'wss://stream.binance.com:9443/ws'
+const WS_BASE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BINANCE_WS) ||
+  (import.meta as any).env?.VITE_BINANCE_WS ||
+  'wss://stream.binance.com:9443/ws';
 
 class BinanceWebSocketManager {
   private sockets: Map<string, WebSocket> = new Map()
@@ -22,6 +24,11 @@ class BinanceWebSocketManager {
     const url = `${WS_BASE}/${key}`
 
     const connect = () => {
+      if (typeof WebSocket === 'undefined') {
+        console.warn(`[WS] WebSocket is not supported in this environment.`);
+        onConnection?.(false);
+        return;
+      }
       const ws = new WebSocket(url)
       this.sockets.set(key, ws)
 
@@ -55,7 +62,7 @@ class BinanceWebSocketManager {
       }
 
       ws.onerror = (err) => {
-        console.error(`[WS] Error on ${key}:`, err)
+        console.warn(`[WS] Error on ${key} ignored gracefully.`);
         ws.close()
       }
     }
@@ -86,6 +93,11 @@ class BinanceWebSocketManager {
     const key = `${symbol.toLowerCase()}@miniTicker`
     const url = `${WS_BASE}/${key}`
 
+    if (typeof WebSocket === 'undefined') {
+      console.warn(`[WS] WebSocket is not supported in this environment.`);
+      return () => {};
+    }
+
     const ws = new WebSocket(url)
     this.sockets.set(key, ws)
 
@@ -95,6 +107,10 @@ class BinanceWebSocketManager {
       const open24h = parseFloat(d.o)
       const changePct = ((price - open24h) / open24h) * 100
       onTicker(price, changePct)
+    }
+
+    ws.onerror = () => {
+      // Ignored gracefully
     }
 
     ws.onclose = () => {
@@ -116,6 +132,11 @@ class BinanceWebSocketManager {
     const streams = symbols.map(s => `${s.toLowerCase()}@miniTicker`).join('/')
     const url = `${WS_BASE.replace('/ws', '/stream')}?streams=${streams}`
 
+    if (typeof WebSocket === 'undefined') {
+      console.warn(`[WS] WebSocket is not supported in this environment.`);
+      return () => {};
+    }
+
     const ws = new WebSocket(url)
 
     ws.onmessage = (event) => {
@@ -126,6 +147,10 @@ class BinanceWebSocketManager {
       const open24h = parseFloat(d.o)
       const changePct = ((price - open24h) / open24h) * 100
       onUpdate({ [d.s]: { price, changePct } })
+    }
+
+    ws.onerror = () => {
+      // Ignored gracefully
     }
 
     return () => {
