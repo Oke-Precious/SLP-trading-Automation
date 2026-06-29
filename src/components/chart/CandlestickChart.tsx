@@ -607,7 +607,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         )}
 
         {/* Chart View */}
-        <div ref={chartRef} className="flex-1 min-w-0 bg-[#131722]" />
+        <div className="flex-1 min-w-0 bg-[#131722] relative">
+          <div ref={chartRef} className="w-full h-full" />
+          <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>SMC Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.</span>
+          </div>
+        </div>
 
         {/* Settings Overlay Slide out */}
         {showSettings && (

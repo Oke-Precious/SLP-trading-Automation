@@ -8,6 +8,7 @@ import { Target } from 'lucide-react';
 import { useMarketStore } from '../../store/useMarketStore';
 import { usePOIStore } from '../../store/usePOIStore';
 import { formatPrice } from '../../lib/market/marketDataService';
+import { EmptyState } from '../ui/EmptyState';
 
 export const ActiveSignalCard: React.FC = () => {
   const { selectedPair } = useMarketStore();
@@ -18,7 +19,17 @@ export const ActiveSignalCard: React.FC = () => {
   if (!firstActivePOI) {
     return (
       <div className="bg-card border border-border-custom rounded-xl p-5 hover:border-[#3A455E] transition-all duration-300">
-        <p className="text-xs text-gray-500 font-mono text-center">No active POI to execute trades from.</p>
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center space-x-2">
+            <Target className="text-light shrink-0" size={18} />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SMC Execution</h3>
+          </div>
+        </div>
+        <EmptyState 
+          icon="⚡" 
+          title="No Active POI Setup" 
+          message="Define and activate an HTF Point of Interest (OB/BB) to compute real-time risk-to-reward execution parameters." 
+        />
       </div>
     );
   }

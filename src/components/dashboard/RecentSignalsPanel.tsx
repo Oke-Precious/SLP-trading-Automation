@@ -10,6 +10,7 @@ import { useMarketStore } from '../../store/useMarketStore';
 import { Bell, ArrowUpRight, ArrowDownRight, RotateCw } from 'lucide-react';
 import { Skeleton } from '../ui/Skeleton';
 import { Signal } from '../../types';
+import { EmptyState } from '../ui/EmptyState';
 
 export const RecentSignalsPanel: React.FC = () => {
   const { selectedPair } = useMarketStore();
@@ -51,9 +52,11 @@ export const RecentSignalsPanel: React.FC = () => {
             <Skeleton className="w-full h-12" />
           </div>
         ) : signals.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-xs font-mono">
-            No active signals triggered recently.
-          </div>
+          <EmptyState 
+            icon="📊" 
+            title="No signals yet" 
+            message="SMC signals will appear here as the market is scanned." 
+          />
         ) : (
           signals.map((sig) => (
             <div 

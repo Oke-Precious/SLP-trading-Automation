@@ -11,6 +11,7 @@ import { useMarketStore } from '../../store/useMarketStore';
 import { Layers, Plus, X, RotateCw } from 'lucide-react';
 import { POI } from '../../types';
 import { Skeleton } from '../ui/Skeleton';
+import { EmptyState } from '../ui/EmptyState';
 
 export const POIMapPanel: React.FC = () => {
   const { selectedPair } = useMarketStore();
@@ -118,9 +119,11 @@ export const POIMapPanel: React.FC = () => {
             <Skeleton className="w-full h-16" />
           </div>
         ) : pois.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-xs font-mono">
-            No active Points of Interest (POIs) found.
-          </div>
+          <EmptyState 
+            icon="🧱" 
+            title="No HTF POIs" 
+            message="No active Points of Interest (POIs) found. Add an Order Block or Breaker Block to get started." 
+          />
         ) : (
           pois.map((poi) => {
             const isActive = activePOI?.id === poi.id;

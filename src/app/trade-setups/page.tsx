@@ -6,6 +6,7 @@ import { runSMCAnalysis } from '../../lib/analysis/smcEngine';
 import { Target, Layers, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { formatPrice } from '../../lib/market/marketDataService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { EmptyState } from '../../components/ui/EmptyState';
 
 export default function TradeSetupsPage() {
   const { selectedPair, selectedTimeframe } = useMarketStore();
@@ -83,12 +84,12 @@ export default function TradeSetupsPage() {
           <span className="mt-4 font-mono text-xs uppercase tracking-widest">Loading Market Context...</span>
         </div>
       ) : setups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 bg-[#1A1F2C] border border-[#2A2E39]/50 rounded-xl">
-          <Layers size={48} className="text-gray-600 mb-4" />
-          <h3 className="text-lg font-bold text-gray-300">No Active Setups</h3>
-          <p className="text-sm text-gray-500 mt-2 text-center max-w-sm">
-            The SMC engine has not detected any unmitigated order blocks or breaker blocks for {selectedPair} on {selectedTimeframe}.
-          </p>
+        <div className="bg-[#1A1F2C] border border-[#2A2E39]/50 rounded-xl p-8">
+          <EmptyState 
+            icon="🎯" 
+            title="No Active Setups" 
+            message={`The SMC engine has not detected any unmitigated order blocks or breaker blocks for ${selectedPair} on ${selectedTimeframe}.`} 
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

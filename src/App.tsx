@@ -28,6 +28,7 @@ import Alerts from './app/alerts/page';
 import Backtest from './app/backtest/page';
 import Journal from './app/journal/page';
 import Settings from './app/settings/page';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   const { clearAuth, setAuth } = useAuthStore();
@@ -121,7 +122,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
           </Route>
           
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </>

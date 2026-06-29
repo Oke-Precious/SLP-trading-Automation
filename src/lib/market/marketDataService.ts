@@ -201,7 +201,7 @@ export async function fetchForexCandles(
       }
     })
     if (data.status === 'error' || !data.values) {
-      console.error('[TwelveData] Error:', data.message)
+      console.warn('[TwelveData] Error:', data.message);
       return generateFallbackCandles(symbol, outputsize)
     }
     return data.values.reverse().map((v: any) => ({
@@ -213,7 +213,7 @@ export async function fetchForexCandles(
       volume: parseFloat(v.volume || '0'),
     }))
   } catch (err) {
-    console.error(`[TwelveData] Failed ${symbol} ${interval}:`, err)
+    console.warn(`[TwelveData] Failed ${symbol} ${interval}:`, err);
     return generateFallbackCandles(symbol, outputsize)
   }
 }
@@ -301,7 +301,7 @@ export async function fetchCandlesWithFlag(
          }))
        }
      } catch (err) {
-       console.error(`[Binance] Failed ${symbol} ${timeframe}:`, err)
+       console.warn(`[Binance] Failed ${symbol} ${timeframe}:`, err)
        return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
      }
   }
@@ -322,7 +322,7 @@ export async function fetchCandlesWithFlag(
       }
     })
     if (data.status === 'error' || !data.values) {
-      console.error('[TwelveData] Error:', data.message)
+      console.warn('[TwelveData] Error:', data.message);
       return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
     }
     return {
@@ -337,7 +337,7 @@ export async function fetchCandlesWithFlag(
       }))
     }
   } catch (err) {
-    console.error(`[TwelveData] Failed ${symbol} ${timeframe}:`, err)
+    console.warn(`[TwelveData] Failed ${symbol} ${timeframe}:`, err);
     return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
   }
 }

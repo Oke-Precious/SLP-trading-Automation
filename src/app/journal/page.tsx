@@ -9,6 +9,7 @@ import {
   Percent, Sparkles, AlertTriangle, Check, X, Edit, Layers
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function JournalPage() {
   const { trades, addTrade, updateTrade, closeTrade, deleteTrade, getStats } = useJournalStore()
@@ -709,11 +710,11 @@ export default function JournalPage() {
             {/* LIST OF TRADES */}
             <div className="space-y-3.5">
               {filteredTrades.length === 0 ? (
-                <div className="bg-[#1E2433] rounded-xl border border-[#2A2E39] py-20 text-center text-gray-500">
-                  <Layers size={40} className="mx-auto block text-gray-600 mb-3" />
-                  <p className="text-sm font-bold uppercase text-white tracking-wide">No ledger entries filtered</p>
-                  <p className="text-xs font-mono text-[#9AA3B2] mt-1">Try relaxing filters or add your first masterclass trade above.</p>
-                </div>
+                <EmptyState 
+                  icon="📒" 
+                  title="No ledger entries filtered" 
+                  message="Try relaxing filters or add your first masterclass trade above to populate your journal." 
+                />
               ) : (
                 filteredTrades.map((trade) => {
                   const isTradeOpen = trade.status === 'OPEN'
@@ -1023,7 +1024,11 @@ export default function JournalPage() {
               </h3>
 
               {Object.keys(setupCounts).length === 0 ? (
-                <div className="text-center py-10 text-gray-500 font-mono text-xs">No analytics trades closed.</div>
+                <EmptyState 
+                  icon="🔍" 
+                  title="No closed trades" 
+                  message="Metrics will be calculated as soon as you record closed trade setups in your ledger." 
+                />
               ) : (
                 <div className="space-y-4">
                   {Object.entries(setupCounts).map(([setup, info]) => {
@@ -1064,7 +1069,11 @@ export default function JournalPage() {
               </h3>
 
               {Object.keys(sessionCounts).length === 0 ? (
-                <div className="text-center py-10 text-gray-500 font-mono text-xs">No analytics trades closed.</div>
+                <EmptyState 
+                  icon="⏰" 
+                  title="No session data" 
+                  message="Hourly session distributions will appear once trade entries are finalized." 
+                />
               ) : (
                 <div className="space-y-4">
                   {Object.entries(sessionCounts).map(([sess, info]) => {
@@ -1105,7 +1114,11 @@ export default function JournalPage() {
               </h3>
 
               {Object.keys(pairCounts).length === 0 ? (
-                <div className="text-center py-10 text-gray-500 font-mono text-xs">No analytics trades closed.</div>
+                <EmptyState 
+                  icon="📈" 
+                  title="No asset analytics" 
+                  message="Instrument-specific performance metrics will appear here once trades are registered." 
+                />
               ) : (
                 <div className="space-y-4">
                   {Object.entries(pairCounts).map(([pair, info]) => {

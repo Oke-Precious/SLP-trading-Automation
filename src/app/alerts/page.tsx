@@ -6,6 +6,7 @@ import { alertEngine, Alert, AlertCondition } from '../../lib/alerts/alertEngine
 import { ALL_INSTRUMENTS } from '../../lib/market/marketDataService'
 import toast from 'react-hot-toast'
 import { Bell, BellOff, Trash2, Plus, Volume2, Globe, Play, Sparkles } from 'lucide-react'
+import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function AlertsPage() {
   const { alerts, addAlert, updateAlert, deleteAlert, disableAlert, reenableAlert } = useAlertStore()
@@ -102,15 +103,13 @@ export default function AlertsPage() {
       </div>
 
       {/* Alerts Table/Card container */}
-      <div className="bg-[#1E2433] rounded-xl border border-[#2A2E39] overflow-hidden shadow-xl">
+      <div className="bg-[#1E2433] rounded-xl border border-[#2A2E39] overflow-hidden shadow-xl p-6">
         {alerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <BellOff className="text-[#9AA3B2]" size={48} />
-            <div className="text-center">
-              <span className="text-sm font-bold text-[#E0E3EB] uppercase tracking-wider block">No alerts configured</span>
-              <span className="text-xs text-[#9AA3B2] font-mono mt-0.5 block">Alarms trigger when prices cross target boundaries.</span>
-            </div>
-          </div>
+          <EmptyState 
+            icon="🔔" 
+            title="No Alerts Configured" 
+            message="Alarms trigger when prices cross target boundaries. Click 'New Alert' to set up a notification boundary." 
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse font-sans text-xs">
@@ -158,7 +157,24 @@ export default function AlertsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-[#9AA3B2] font-mono text-[10px]">
-                      {new Date(alert.createdAt).toLocaleString()}
+                      {(() => {
+                        const d = alert.createdAt;
+                        if (d === null || d === undefined) return 'N/A';
+                        if (typeof d === 'object') {
+                          const obj = d as any;
+                          if (typeof obj.toDate === 'function') {
+                            try { return obj.toDate().toLocaleString(); } catch (e) {}
+                          }
+                          if (typeof obj.seconds === 'number') {
+                            return new Date(obj.seconds * 1000).toLocaleString();
+                          }
+                        }
+                        const dateVal = new Date(d as any);
+                        if (!isNaN(dateVal.getTime())) return dateVal.toLocaleString();
+                        const num = Number(d);
+                        if (!isNaN(num)) return new Date(num).toLocaleString();
+                        return 'N/A';
+                      })()}
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">
                       <div className="flex gap-3 justify-center text-[10px] font-mono">
