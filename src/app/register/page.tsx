@@ -7,6 +7,52 @@ import { useAuthStore } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { motion } from 'motion/react';
 
+function getAuthErrorMessage(errorCode: string, errorMsg?: string): string {
+  let code = errorCode;
+  const msgLower = (errorMsg || '').toLowerCase();
+  
+  if (code === 'unknown' || !code) {
+    if (msgLower.includes('invalid-credential') || msgLower.includes('invalid_credential')) {
+      code = 'auth/invalid-credential';
+    } else if (msgLower.includes('user-not-found')) {
+      code = 'auth/user-not-found';
+    } else if (msgLower.includes('wrong-password')) {
+      code = 'auth/wrong-password';
+    } else if (msgLower.includes('email-already-in-use')) {
+      code = 'auth/email-already-in-use';
+    } else if (msgLower.includes('weak-password')) {
+      code = 'auth/weak-password';
+    } else if (msgLower.includes('password-does-not-meet-requirements')) {
+      code = 'auth/password-does-not-meet-requirements';
+    } else if (msgLower.includes('invalid-email')) {
+      code = 'auth/invalid-email';
+    } else if (msgLower.includes('too-many-requests')) {
+      code = 'auth/too-many-requests';
+    } else if (msgLower.includes('network-request-failed')) {
+      code = 'auth/network-request-failed';
+    } else if (msgLower.includes('popup-closed-by-user')) {
+      code = 'auth/popup-closed-by-user';
+    } else if (msgLower.includes('cancelled-popup-request')) {
+      code = 'auth/cancelled-popup-request';
+    }
+  }
+
+  const messages: Record<string, string> = {
+    'auth/user-not-found': 'No account found with this email. Please check your email or create an account.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/email-already-in-use': 'An account with this email already exists. Try signing in instead.',
+    'auth/weak-password': 'Your password must be at least 8 characters.',
+    'auth/password-does-not-meet-requirements': 'Your password does not meet the complexity requirements. Please include an uppercase letter, a numeric character, and a special character.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/too-many-requests': 'Too many failed attempts. Please wait a few minutes before trying again.',
+    'auth/network-request-failed': 'Connection error. Please check your internet and try again.',
+    'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again.',
+    'auth/cancelled-popup-request': 'Sign-in was cancelled. Please try again.',
+    'auth/invalid-credential': 'Your email or password is incorrect. Please try again.',
+  };
+  return messages[code] || 'Something went wrong. Please try again.';
+}
+
 export default function RegisterPage() {
   const router  = useNavigate();
   const setAuth = useAuthStore(s => s.setAuth);
@@ -18,43 +64,45 @@ export default function RegisterPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<{ code: string; message: string } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setErrorMessage(null);
 
     // Clean client-side pre-validation to avoid hitting backend if details are incorrectly structured
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
       const errorMsg = 'Please enter a valid email address format.';
       setAuthError({ code: 'client/invalid-email', message: errorMsg });
+      setErrorMessage(errorMsg);
       setShakeKey(prev => prev + 1);
-      toast.error(errorMsg);
       return;
     }
 
     if (!username || username.trim().length < 3) {
       const errorMsg = 'Username must be at least 3 characters.';
       setAuthError({ code: 'client/invalid-username', message: errorMsg });
+      setErrorMessage(errorMsg);
       setShakeKey(prev => prev + 1);
-      toast.error(errorMsg);
       return;
     }
 
     if (password.length < 8) {
       const errorMsg = 'Password must be at least 8 characters long.';
       setAuthError({ code: 'client/weak-password', message: errorMsg });
+      setErrorMessage(errorMsg);
       setShakeKey(prev => prev + 1);
-      toast.error(errorMsg);
       return;
     }
 
     if (password !== confirmPassword) {
       const errorMsg = 'Passwords do not match.';
       setAuthError({ code: 'client/password-mismatch', message: errorMsg });
+      setErrorMessage(errorMsg);
       setShakeKey(prev => prev + 1);
-      toast.error(errorMsg);
       return;
     }
 
@@ -105,29 +153,23 @@ export default function RegisterPage() {
       router('/dashboard');
     } catch (err: any) {
       console.error('Firebase Registration Error:', err);
-      let errorMsg = err.message || 'Registration failed';
       const errorCode = err.code || 'unknown';
+      const errorMsg = err.message || '';
       setShakeKey(prev => prev + 1);
+      
+      const isPopupError = 
+        errorCode.toLowerCase().includes('popup') || 
+        errorMsg.toLowerCase().includes('popup') || 
+        errorCode === 'auth/cancelled-popup-request' || 
+        errorMsg.toLowerCase().includes('cancelled-popup-request');
 
-      if (err.code === 'auth/email-already-in-use') {
-        errorMsg = 'This email is already registered. Please login or try another email.';
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error(errorMsg);
-      } else if (err.code === 'auth/weak-password') {
-        errorMsg = 'Weak password. Please choose a stronger password.';
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error(errorMsg);
-      } else if (err.code === 'auth/invalid-email') {
-        errorMsg = 'Invalid email address format.';
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error(errorMsg);
-      } else if (err.code === 'auth/operation-not-allowed' || errorMsg.includes('auth/operation-not-allowed')) {
-        errorMsg = 'Email/Password registration is currently not enabled in your Firebase console.';
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error('Email & Password provider is disabled. Follow the guide on your screen to enable it!', { duration: 6000 });
+      if (isPopupError) {
+        setErrorMessage(null);
+        setAuthError(null);
       } else {
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error(errorMsg);
+        const friendlyMsg = getAuthErrorMessage(errorCode, errorMsg);
+        setErrorMessage(friendlyMsg);
+        setAuthError({ code: errorCode, message: friendlyMsg });
       }
     } finally {
       setLoading(false);
@@ -137,6 +179,7 @@ export default function RegisterPage() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setAuthError(null);
+    setErrorMessage(null);
     try {
       const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
       const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
@@ -183,14 +226,20 @@ export default function RegisterPage() {
     } catch (err: any) {
       console.error('Google Sign-In Error:', err);
       const errorCode = err.code || 'unknown';
-      let errorMsg = err.message || 'Google Sign-In failed';
-      if (err.code === 'auth/popup-closed-by-user' || err.message?.includes('popup-closed-by-user')) {
-        errorMsg = 'Google authentication popup was closed before completion. If popups are restricted in this embedded preview frame, we highly recommend launching the app in a new tab.';
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error('Sign-in popup closed. Tap "Open App in New Tab" at top right to bypass iframe limits.', { duration: 7000 });
+      const errorMsg = err.message || '';
+      const isPopupError = 
+        errorCode.toLowerCase().includes('popup') || 
+        errorMsg.toLowerCase().includes('popup') || 
+        errorCode === 'auth/cancelled-popup-request' || 
+        errorMsg.toLowerCase().includes('cancelled-popup-request');
+
+      if (isPopupError) {
+        setErrorMessage(null);
+        setAuthError(null);
       } else {
-        setAuthError({ code: errorCode, message: errorMsg });
-        toast.error(errorMsg);
+        const friendlyMsg = getAuthErrorMessage(errorCode, errorMsg);
+        setErrorMessage(friendlyMsg);
+        setAuthError({ code: errorCode, message: friendlyMsg });
       }
     } finally {
       setLoading(false);
@@ -213,85 +262,11 @@ export default function RegisterPage() {
         <div className="bg-[#1E2433] border border-[#2A2E39] rounded-xl p-8 shadow-2xl">
           <h1 className="text-xl font-semibold text-white mb-6 font-display">Create Account</h1>
 
-          {/* Dynamic Interactive Troubleshooting Alert */}
-          {authError ? (
-            <motion.div
-              key={shakeKey}
-              initial={{ x: 0, opacity: 0, scale: 0.95 }}
-              animate={{ 
-                x: [0, -10, 10, -10, 10, -5, 5, 0],
-                opacity: 1, 
-                scale: 1 
-              }}
-              transition={{ 
-                x: { duration: 0.4, ease: "easeInOut" },
-                opacity: { duration: 0.2 },
-                scale: { duration: 0.2 }
-              }}
-              className={`mb-5 p-4 rounded-lg text-xs leading-relaxed border ${
-                authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
-                  ? 'bg-red-500/10 border-red-500/30 text-red-200'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
-              }`}
-            >
-              <span className={`font-bold block mb-2 uppercase tracking-wider text-[10px] flex items-center gap-1.5 font-sans ${
-                authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
-                  ? 'text-red-400'
-                  : 'text-amber-400'
-              }`}>
-                ⚠️ {authError.code.startsWith('client/') ? 'Validation Error' : 'Connection Helper'} ({authError.code})
-              </span>
-              
-              {authError.code === 'auth/operation-not-allowed' ? (
-                <div className="space-y-2 text-[#C8D1E0]">
-                  <p className="text-[#F1F5F9] font-medium font-sans">
-                    Email/Password registration is not enabled in your Firebase Console.
-                  </p>
-                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Quick Setup Steps:</p>
-                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
-                    <li>Go to your <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline hover:text-amber-300">Firebase Console</a>.</li>
-                    <li>Click <strong>Authentication</strong> in the left menu.</li>
-                    <li>Navigate to the <strong>Sign-in method</strong> tab.</li>
-                    <li>Click <strong>Add new provider</strong>, select <strong>Email/Password</strong>, choose <strong>Enable</strong>, and click <strong>Save</strong>!</li>
-                  </ol>
-                  <p className="text-[10px] text-[#718096] italic mt-2">
-                    (Once enabled in Firebase, you can register or sign-in with any custom email instantly.)
-                  </p>
-                </div>
-              ) : authError.code === 'auth/popup-closed-by-user' ? (
-                <div className="space-y-2 text-[#C8D1E0]">
-                  <p className="text-[#F1F5F9] font-medium font-sans">
-                    Google sign-in popup was blocked or closed before completion.
-                  </p>
-                  <p className="text-amber-300 font-semibold uppercase tracking-wider text-[9px] mt-2">👉 Resolution Steps:</p>
-                  <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-[#A0AEC0]">
-                    <li>Look at the very top-right of your AI Studio/preview screen panel.</li>
-                    <li>Click the <strong className="text-white">"Open App in New Tab" ↗</strong> button.</li>
-                    <li>In the standalone tab, complete Google Sign-In flawlessly in 1 click!</li>
-                  </ol>
-                </div>
-              ) : (
-                <p className="text-[#E2E8F0] font-sans">{authError.message}</p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setAuthError(null)}
-                className={`mt-3.5 text-[9px] hover:underline cursor-pointer font-bold block uppercase tracking-wider px-2 py-1.5 rounded w-full text-center border transition-all ${
-                  authError.code.startsWith('client/') || authError.code === 'auth/email-already-in-use' || authError.code === 'auth/weak-password'
-                    ? 'text-red-300 bg-red-500/10 hover:bg-red-500/20 border-red-500/20'
-                    : 'text-[#CAAA98] bg-[#CAAA98]/10 hover:bg-[#CAAA98]/20 border-[#CAAA98]/20'
-                }`}
-              >
-                Dismiss Error Help
-              </button>
-            </motion.div>
-          ) : (
-            <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed animate-fadeIn">
-              <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">🔒 Create Real Account</span>
-              Sign up securely with your Google Account as your primary, 1-click option. If you prefer to register standard Email/Password accounts, make sure "Email/Password" is enabled in your Firebase console.
-            </div>
-          )}
+          {/* Welcome Banner */}
+          <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed">
+            <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">Create Your Account</span>
+            Join AutoSLP to access real-time Smart Money Concepts detection across crypto, forex, metals, and indices.
+          </div>
 
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
@@ -331,6 +306,9 @@ export default function RegisterPage() {
                   {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
               </div>
+              {password.length > 0 && password.length < 8 && (
+                <p className="text-red-400 text-xs mt-1.5">Password must be at least 8 characters</p>
+              )}
             </div>
 
             <div>
@@ -341,12 +319,21 @@ export default function RegisterPage() {
                            text-white text-sm focus:outline-none focus:border-[#CAAA98] transition-colors"
                 placeholder="Repeat password"
               />
+              {confirmPassword.length > 0 && password !== confirmPassword && (
+                <p className="text-red-400 text-xs mt-1.5">Passwords do not match</p>
+              )}
             </div>
 
-            <button type="submit" disabled={loading}
+            {errorMessage && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4">
+                {errorMessage}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading || password.length < 8 || password !== confirmPassword}
               className="w-full bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-bold uppercase tracking-wider
                          py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-2 text-xs">
-              {loading ? 'Creating account...' : 'Registers Account'}
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 
