@@ -190,6 +190,17 @@ function getTwelveDataKey(): string {
   )
 }
 
+export function mapSymbolForTwelveData(symbol: string): string {
+  const clean = symbol.replace('/', '').toUpperCase();
+  if (clean === 'US30') return 'DJI';
+  if (clean === 'SPX500') return 'SPX';
+  if (clean === 'NAS100') return 'NDX';
+  if (clean === 'XAUUSD') return 'XAU/USD';
+  if (clean === 'XAGUSD') return 'XAG/USD';
+  if (clean.length === 6) return `${clean.slice(0, 3)}/${clean.slice(3)}`;
+  return symbol;
+}
+
 export async function fetchForexCandles(
   symbol: string,
   interval: string,
@@ -201,8 +212,9 @@ export async function fetchForexCandles(
     return generateFallbackCandles(symbol, outputsize)
   }
 
+  const mappedSymbol = mapSymbolForTwelveData(symbol)
   const tf = TIMEFRAME_MAP[interval as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
-  const url = `${TWELVE}/time_series?symbol=${symbol}&interval=${tf}&outputsize=${outputsize}&apikey=${key}`
+  const url = `${TWELVE}/time_series?symbol=${mappedSymbol}&interval=${tf}&outputsize=${outputsize}&apikey=${key}`
   
   try {
     const { data } = await axios.get(url, {
@@ -234,12 +246,13 @@ export async function fetchForexTicker(symbol: string): Promise<Ticker | null> {
   if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
     return generateFallbackTicker(symbol, 'forex')
   }
+  const mappedSymbol = mapSymbolForTwelveData(symbol)
   try {
     const [priceRes, quoteRes] = await Promise.all([
-      axios.get(`${TWELVE}/price?symbol=${symbol}&apikey=${key}`, {
+      axios.get(`${TWELVE}/price?symbol=${mappedSymbol}&apikey=${key}`, {
         headers: { 'apikey': key, 'Authorization': `apikey ${key}` }
       }),
-      axios.get(`${TWELVE}/quote?symbol=${symbol}&apikey=${key}`, {
+      axios.get(`${TWELVE}/quote?symbol=${mappedSymbol}&apikey=${key}`, {
         headers: { 'apikey': key, 'Authorization': `apikey ${key}` }
       })
     ])
@@ -294,6 +307,28 @@ export async function fetchCandlesWithFlag(
   }
 
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
+  const cleanSym = symbol.replace('/', '').toUpperCase()
+  
+  if (cleanSym === 'XAUUSD') {
+     const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
+     try {
+       const url = `${BINANCE}/klines?symbol=PAXGUSDT&interval=${tfBinance}&limit=${limit}`
+       const { data } = await axios.get(url)
+       return {
+         isRealData: true,
+         candles: data.map((d: any) => ({
+           time:   Math.floor(d[0] / 1000),
+           open:   parseFloat(d[1]),
+           high:   parseFloat(d[2]),
+           low:    parseFloat(d[3]),
+           close:  parseFloat(d[4]),
+           volume: parseFloat(d[5]),
+         }))
+       }
+     } catch (err) {
+       console.warn(`[Binance PAXGUSDT Fallback] Failed for XAUUSD:`, err)
+     }
+  }
   
   if (isCrypto) {
      const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
@@ -322,8 +357,9 @@ export async function fetchCandlesWithFlag(
     return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
   }
 
+  const mappedSymbol = mapSymbolForTwelveData(symbol)
   const tf = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
-  const url = `${TWELVE}/time_series?symbol=${symbol}&interval=${tf}&outputsize=${limit}&apikey=${key}`
+  const url = `${TWELVE}/time_series?symbol=${mappedSymbol}&interval=${tf}&outputsize=${limit}&apikey=${key}`
   
   try {
     const { data } = await axios.get(url, {
@@ -383,6 +419,27 @@ export async function fetchTicker(symbol: string): Promise<Ticker | null> {
   }
 
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
+  const cleanSym = symbol.replace('/', '').toUpperCase()
+
+  if (cleanSym === 'XAUUSD') {
+    try {
+      const url = `${BINANCE}/ticker/24hr?symbol=PAXGUSDT`
+      const { data: t } = await axios.get(url)
+      return {
+        symbol,
+        price: Number(t.lastPrice),
+        change24h: Number(t.priceChange),
+        changePct24h: Number(t.priceChangePercent),
+        high24h: Number(t.highPrice),
+        low24h: Number(t.lowPrice),
+        volume24h: Number(t.volume),
+        category: 'forex'
+      }
+    } catch (err) {
+      console.warn(`[Binance PAXGUSDT Fallback] Failed ticker for XAUUSD:`, err)
+    }
+  }
+
   if (isCrypto) return fetchCryptoTicker(symbol)
   return fetchForexTicker(symbol)
 }
@@ -396,7 +453,7 @@ const SEED_PRICES: Record<string, number> = {
   XRPUSDT: 0.52,  ADAUSDT: 0.45, DOGEUSDT: 0.12, AVAXUSDT: 35,
   EURUSD: 1.085,  GBPUSD: 1.265, USDJPY: 154.5,  GBPJPY: 195.2,
   AUDUSD: 0.645,  USDCAD: 1.364, USDCHF: 0.901,  NZDUSD: 0.593,
-  EURJPY: 167.5,  XAUUSD: 2320,  XAGUSD: 27.5,
+  EURJPY: 167.5,  XAUUSD: 4032.69, XAGUSD: 32.50,
   US30: 38500, SPX500: 5200, NAS100: 18200,
 }
 

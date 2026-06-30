@@ -48,6 +48,20 @@ export const marketService = {
   getSupportedPairs: () => SUPPORTED_PAIRS,
 
   async getCandles(pair: string, timeframe: string, limit: number, from?: string, to?: string) {
+    const cacheKey = `candles:${pair}:${timeframe}:${limit}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return parsed.map((c: any) => ({
+          ...c,
+          timestamp: new Date(c.timestamp)
+        }));
+      }
+    } catch (cacheErr) {
+      console.warn('Redis read error for candles:', cacheErr);
+    }
+
     let candles;
     try {
       if (isCrypto(pair)) {
@@ -57,8 +71,15 @@ export const marketService = {
       }
 
       if (candles && candles.length > 0) {
+        // Cache candles in Redis for 60 seconds (1 minute)
+        try {
+          await redis.setex(cacheKey, 60, JSON.stringify(candles));
+        } catch (cacheErr) {
+          console.warn('Redis write error for candles:', cacheErr);
+        }
+
         // Run upsert async without blocking
-         Promise.all(candles.map((c: any) => 
+        Promise.all(candles.map((c: any) => 
           prisma.candle.upsert({
             where:  { pair_timeframe_timestamp: { pair: c.pair, timeframe: c.timeframe, timestamp: c.timestamp } },
             update: { open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume },
@@ -86,7 +107,7 @@ export const marketService = {
   },
 
   async getTicker(pair: string) {
-    // Try Redis cache first (5s TTL)
+    // Try Redis cache first (15s TTL)
     const cached = await redis.get(`ticker:${pair}`);
     if (cached) return JSON.parse(cached);
 
@@ -94,20 +115,82 @@ export const marketService = {
       ? await binance.fetchTicker(pair)
       : await twelveData.fetchTicker(toForexSymbol(pair));
 
-    await redis.setex(`ticker:${pair}`, 5, JSON.stringify(ticker));
+    await redis.setex(`ticker:${pair}`, 15, JSON.stringify(ticker));
     return ticker;
   },
 
   async getAllTickers() {
+    const cryptoPairs = SUPPORTED_PAIRS.crypto.map(p => p.symbol);
+    const nonCryptoPairs = [
+      ...SUPPORTED_PAIRS.forex.map(p => p.symbol),
+      ...SUPPORTED_PAIRS.commodities.map(p => p.symbol),
+    ];
+
+    const results: any[] = [];
+    const missingNonCrypto: string[] = [];
+
+    // Fetch crypto tickers individually (Binance is free, fast, and has no strict limit)
+    const cryptoPromises = cryptoPairs.map(async (p) => {
+      try {
+        const ticker = await marketService.getTicker(p);
+        if (ticker) results.push(ticker);
+      } catch (err) {
+        console.error(`Error fetching crypto ticker ${p}:`, err);
+      }
+    });
+
+    // Check Redis cache for non-crypto tickers
+    const nonCryptoPromises = nonCryptoPairs.map(async (p) => {
+      try {
+        const cached = await redis.get(`ticker:${p}`);
+        if (cached) {
+          results.push(JSON.parse(cached));
+        } else {
+          missingNonCrypto.push(p);
+        }
+      } catch (err) {
+        missingNonCrypto.push(p);
+      }
+    });
+
+    await Promise.all([...cryptoPromises, ...nonCryptoPromises]);
+
+    // If there are missing non-crypto tickers, fetch them as a single Twelve Data batch
+    if (missingNonCrypto.length > 0) {
+      try {
+        const batchTickers = await twelveData.fetchTickersBatch(missingNonCrypto);
+        for (const [cleanSymbol, ticker] of Object.entries(batchTickers)) {
+          results.push(ticker);
+          try {
+            await redis.setex(`ticker:${cleanSymbol}`, 15, JSON.stringify(ticker));
+          } catch (cacheErr) {
+            console.warn('Redis cache write error in batch tickers:', cacheErr);
+          }
+        }
+      } catch (err) {
+        console.warn('Batch ticker fetch failed, falling back to individual fetching:', err);
+        // Fallback to individual getTicker which handles simulation/Yahoo gracefully
+        await Promise.all(missingNonCrypto.map(async (p) => {
+          try {
+            const ticker = await marketService.getTicker(p);
+            if (ticker) results.push(ticker);
+          } catch (individualErr) {
+            console.error(`Failed individual ticker fallback for ${p}:`, individualErr);
+          }
+        }));
+      }
+    }
+
+    // Sort the results to match the unified register's order
+    const orderMap = new Map();
     const allPairs = [
       ...SUPPORTED_PAIRS.crypto.map(p => p.symbol),
       ...SUPPORTED_PAIRS.forex.map(p => p.symbol),
       ...SUPPORTED_PAIRS.commodities.map(p => p.symbol),
     ];
-    const tickers = await Promise.allSettled(allPairs.map(p => marketService.getTicker(p)));
-    return tickers
-      .filter(r => r.status === 'fulfilled')
-      .map(r => (r as any).value);
+    allPairs.forEach((sym, idx) => orderMap.set(sym, idx));
+
+    return results.sort((a, b) => (orderMap.get(a.symbol || a.pair) ?? 99) - (orderMap.get(b.symbol || b.pair) ?? 99));
   },
 
   async getBias(pair: string, timeframe: string) {

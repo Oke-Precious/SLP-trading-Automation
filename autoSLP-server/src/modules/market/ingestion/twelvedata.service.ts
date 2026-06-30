@@ -10,8 +10,8 @@ const DEFAULT_PRICES: Record<string, number> = {
   'AUD/USD': 0.6650,
   'USD/CAD': 1.3650,
   'EUR/JPY': 169.50,
-  'XAU/USD': 2350.00,
-  'XAG/USD': 29.50,
+  'XAU/USD': 4032.69,
+  'XAG/USD': 32.50,
 };
 
 export class TwelveDataService {
@@ -156,8 +156,34 @@ export class TwelveDataService {
   }
 
   async fetchHistoricalCandles(symbol: string, timeframe: string, limit = 500) {
-    const cleanSymbol = symbol.replace('/', '');
+    const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const mappedInterval = timeframe === '1D' ? '1day' : timeframe.toLowerCase();
+
+    // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
+    if (cleanSymbol === 'XAUUSD') {
+      try {
+        const binanceTf = timeframe.toLowerCase() === '1d' || timeframe.toUpperCase() === '1D' ? '1d' : timeframe.toLowerCase();
+        const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${binanceTf}&limit=${limit}`;
+        const response = await fetch(binanceUrl);
+        if (response.ok) {
+          const klines = await response.json();
+          if (Array.isArray(klines) && klines.length > 0) {
+            return klines.map((k: any) => ({
+              pair: 'XAUUSD',
+              timeframe,
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4]),
+              volume: parseFloat(k[5]),
+              timestamp: new Date(k[0]),
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('[TwelveDataService] Binance PAXGUSDT historical candles fallback failed:', err);
+      }
+    }
 
     if (!this.hasValidKey()) {
       try {
@@ -203,8 +229,31 @@ export class TwelveDataService {
   }
 
   async fetchTicker(symbol: string) {
-    const cleanSymbol = symbol.replace('/', '');
+    const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const basePrice = DEFAULT_PRICES[symbol] || DEFAULT_PRICES[toForexFormat(symbol)] || 1.0;
+
+    // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
+    if (cleanSymbol === 'XAUUSD') {
+      try {
+        const binanceUrl = `https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT`;
+        const response = await fetch(binanceUrl);
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            pair: 'XAUUSD',
+            price: parseFloat(data.lastPrice),
+            change: parseFloat(data.priceChange),
+            changePct: parseFloat(data.priceChangePercent),
+            high24h: parseFloat(data.highPrice),
+            low24h: parseFloat(data.lowPrice),
+            volume24h: parseFloat(data.volume),
+            quoteVol: parseFloat(data.volume) * parseFloat(data.lastPrice),
+          };
+        }
+      } catch (err) {
+        console.warn('[TwelveDataService] Binance PAXGUSDT ticker fallback failed:', err);
+      }
+    }
 
     if (!this.hasValidKey()) {
       try {
@@ -247,6 +296,80 @@ export class TwelveDataService {
       } catch {
         return this.generateSimulatedTicker(cleanSymbol, basePrice);
       }
+    }
+  }
+
+  async fetchTickersBatch(symbols: string[]): Promise<Record<string, any>> {
+    const formattedSymbols = symbols.map(s => toForexFormat(s));
+    const csvSymbols = formattedSymbols.join(',');
+
+    if (!this.hasValidKey()) {
+      const fallbackResult: Record<string, any> = {};
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
+        } catch {
+          const basePrice = DEFAULT_PRICES[sym] || DEFAULT_PRICES[toForexFormat(sym)] || 1.0;
+          fallbackResult[sym.replace('/', '')] = this.generateSimulatedTicker(sym.replace('/', ''), basePrice);
+        }
+      }));
+      return fallbackResult;
+    }
+
+    try {
+      const url = `https://api.twelvedata.com/quote?symbol=${csvSymbols}&apikey=${this.apiKey}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`TwelveData REST API batch quote error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'error' || data.code === 400 || data.code === 401 || data.code === 403 || data.code === 429) {
+        throw new Error(data.message || 'Twelve Data batch request returned error status');
+      }
+
+      const parsedTickers: Record<string, any> = {};
+
+      for (const rawSym of symbols) {
+        const cleanSymbol = rawSym.replace('/', '');
+        const formattedSym = toForexFormat(rawSym);
+        
+        const item = data[formattedSym] || data[cleanSymbol] || (data.symbol && (data.symbol === formattedSym || data.symbol === cleanSymbol) ? data : null);
+        if (item && (item.close || item.price)) {
+          const price = parseFloat(item.close || item.price || '0');
+          parsedTickers[cleanSymbol] = {
+            pair: cleanSymbol,
+            price,
+            change: parseFloat(item.change || '0'),
+            changePct: parseFloat(item.percent_change || '0'),
+            high24h: parseFloat(item.high || (price * 1.008).toString()),
+            low24h: parseFloat(item.low || (price * 0.993).toString()),
+            volume24h: parseFloat(item.volume || '100000'),
+            quoteVol: parseFloat(item.volume || '100000') * price,
+          };
+        } else {
+          try {
+            parsedTickers[cleanSymbol] = await this.fetchTicker(rawSym);
+          } catch {
+            const basePrice = DEFAULT_PRICES[rawSym] || DEFAULT_PRICES[formattedSym] || 1.0;
+            parsedTickers[cleanSymbol] = this.generateSimulatedTicker(cleanSymbol, basePrice);
+          }
+        }
+      }
+
+      return parsedTickers;
+    } catch (err: any) {
+      const fallbackResult: Record<string, any> = {};
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
+        } catch {
+          const basePrice = DEFAULT_PRICES[sym] || DEFAULT_PRICES[toForexFormat(sym)] || 1.0;
+          fallbackResult[sym.replace('/', '')] = this.generateSimulatedTicker(sym.replace('/', ''), basePrice);
+        }
+      }));
+      return fallbackResult;
     }
   }
 

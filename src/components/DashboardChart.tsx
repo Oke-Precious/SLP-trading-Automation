@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CurrencyPair, Timeframe, POI } from '../types';
 import CandlestickChart from './chart/CandlestickChart';
+import TradingViewWidget from './chart/TradingViewWidget';
 import ChartSettingsPanel from './chart/ChartSettingsPanel';
 import { useMarketStore } from '../store/useMarketStore';
 
@@ -57,7 +58,7 @@ export default function DashboardChart({
   const [hoveredCandle, setHoveredCandle] = useState<any>(null);
   const [hoveredCandleIndex, setHoveredCandleIndex] = useState<number | null>(null);
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
-  const [chartViewMode, setChartViewMode] = useState<'live' | 'drawing'>('live');
+  const [chartViewMode, setChartViewMode] = useState<'live' | 'tradingview' | 'drawing'>('tradingview');
   const [showSettings, setShowSettings] = useState(false);
 
   const handleCloseSettings = useCallback(() => {
@@ -137,8 +138,21 @@ export default function DashboardChart({
           <div className="flex bg-[#111622] p-0.5 rounded border border-[#2D3345] text-[10px] h-fit md:-my-1">
             <button
               onClick={() => {
+                setChartViewMode('tradingview');
+                showToast('Switched to Official Real-Time TradingView Chart');
+              }}
+              className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
+                chartViewMode === 'tradingview' 
+                  ? 'bg-[#CAAA98] text-slate-950 font-bold' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              TradingView Chart
+            </button>
+            <button
+              onClick={() => {
                 setChartViewMode('live');
-                showToast('Switched to Real-Time Advanced Livefeed');
+                showToast('Switched to Local SMC Engine Analysis');
               }}
               className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
                 chartViewMode === 'live' 
@@ -146,7 +160,7 @@ export default function DashboardChart({
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              Real-time Livefeed
+              SMC Engine
             </button>
             <button
               onClick={() => {
@@ -241,7 +255,15 @@ export default function DashboardChart({
 
       <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
         {showSettings && <ChartSettingsPanel onClose={handleCloseSettings} />}
-        {chartViewMode === 'live' ? (
+        {chartViewMode === 'tradingview' ? (
+          <div className="w-full flex-1 flex min-h-0">
+            <TradingViewWidget 
+              symbol={currentPair} 
+              timeframe={currentTimeframe} 
+              height={isFullscreen ? 800 : 400} 
+            />
+          </div>
+        ) : chartViewMode === 'live' ? (
           <div className="w-full flex-1 flex min-h-0">
             <CandlestickChart height={isFullscreen ? 800 : 400} />
           </div>
