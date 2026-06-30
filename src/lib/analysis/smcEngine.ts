@@ -34,6 +34,7 @@ export interface LiquidityLevel {
   swept: boolean; // true = price swept through it
   time: number;
   strength: number; // number of touches
+  sweepTime?: number;
 }
 
 export interface Inducement {
@@ -48,6 +49,7 @@ export interface FVG {
   type: "BULLISH" | "BEARISH";
   time: number;
   filled: boolean; // true = price traded back through the gap
+  endTime?: number;
 }
 
 export interface SMCResult {
@@ -144,9 +146,9 @@ export function detectBOS(candles: Candle[], swingHighs: SwingPoint[], swingLows
     }
   }
 
-  const seen = new Set<number>()
+  const seen = new Set<string>()
   return events.filter(e => {
-    const key = Math.round(e.price)
+    const key = e.price.toFixed(6)
     if (seen.has(key)) return false
     seen.add(key); return true
   }).slice(-4)   // cap at 4 — keeps chart readable per the polish requirement
@@ -159,7 +161,6 @@ export function detectOrderBlocks(
   bosEvents: BOSEvent[],
 ): OrderBlock[] {
   const blocks: OrderBlock[] = [];
-  const currentPrice = candles[candles.length - 1]?.close ?? 0;
 
   bosEvents.forEach((bos, bosIdx) => {
     const breakCandle = candles.find((c) => c.time === bos.breakTime);
@@ -181,9 +182,25 @@ export function detectOrderBlocks(
       const top = obCandle.high;
       const bottom = Math.min(obCandle.open, obCandle.close);
 
+      // Find mitigation/breaker candle
+      let mitigationTime: number | null = null;
+      let breakerTime: number | null = null;
       let status: OrderBlock["status"] = "ACTIVE";
-      if (currentPrice < bottom) status = "BREAKER";
-      else if (currentPrice <= top) status = "MITIGATED";
+
+      for (let j = breakIndex; j < candles.length; j++) {
+        const c = candles[j];
+        if (c.low <= top && mitigationTime === null) {
+          mitigationTime = c.time;
+          status = "MITIGATED";
+        }
+        if (c.close < bottom) {
+          breakerTime = c.time;
+          status = "BREAKER";
+          break; // once it's a breaker, the OB phase is over
+        }
+      }
+
+      const endTime = breakerTime ?? mitigationTime ?? candles[candles.length - 1].time;
 
       blocks.push({
         id: `bull-ob-${bosIdx}`,
@@ -191,7 +208,7 @@ export function detectOrderBlocks(
         top,
         bottom,
         startTime: obCandle.time,
-        endTime: candles[candles.length - 1].time,
+        endTime,
         status,
         isBroken: status === "BREAKER",
       });
@@ -208,9 +225,25 @@ export function detectOrderBlocks(
       const top = Math.max(obCandle.open, obCandle.close);
       const bottom = obCandle.low;
 
+      // Find mitigation/breaker candle
+      let mitigationTime: number | null = null;
+      let breakerTime: number | null = null;
       let status: OrderBlock["status"] = "ACTIVE";
-      if (currentPrice > top) status = "BREAKER";
-      else if (currentPrice >= bottom) status = "MITIGATED";
+
+      for (let j = breakIndex; j < candles.length; j++) {
+        const c = candles[j];
+        if (c.high >= bottom && mitigationTime === null) {
+          mitigationTime = c.time;
+          status = "MITIGATED";
+        }
+        if (c.close > top) {
+          breakerTime = c.time;
+          status = "BREAKER";
+          break; // once it's a breaker, the OB phase is over
+        }
+      }
+
+      const endTime = breakerTime ?? mitigationTime ?? candles[candles.length - 1].time;
 
       blocks.push({
         id: `bear-ob-${bosIdx}`,
@@ -218,7 +251,7 @@ export function detectOrderBlocks(
         top,
         bottom,
         startTime: obCandle.time,
-        endTime: candles[candles.length - 1].time,
+        endTime,
         status,
         isBroken: status === "BREAKER",
       });
@@ -238,7 +271,6 @@ export function detectLiquidity(
 ): LiquidityLevel[] {
   const levels: LiquidityLevel[] = [];
   const tolerance = atr * 0.15;
-  const currentPrice = candles[candles.length - 1]?.close ?? 0;
 
   const visitedHighs = new Set<number>();
   swingHighs.forEach((h, i) => {
@@ -253,7 +285,21 @@ export function detectLiquidity(
 
       const avgPrice =
         (h.price + group.reduce((s, x) => s + x.price, 0)) / (group.length + 1);
-      const swept = currentPrice > avgPrice;
+      
+      const latestPointTime = Math.max(h.time, ...group.map(x => x.time));
+      let swept = false;
+      let sweepTime: number | undefined;
+
+      // Scan subsequent candles to see if any swept this level
+      for (let j = 0; j < candles.length; j++) {
+        if (candles[j].time > latestPointTime) {
+          if (candles[j].high > avgPrice) {
+            swept = true;
+            sweepTime = candles[j].time;
+            break;
+          }
+        }
+      }
 
       levels.push({
         price: avgPrice,
@@ -261,6 +307,7 @@ export function detectLiquidity(
         swept,
         time: h.time,
         strength: group.length + 1,
+        sweepTime,
       });
     }
   });
@@ -278,7 +325,21 @@ export function detectLiquidity(
 
       const avgPrice =
         (l.price + group.reduce((s, x) => s + x.price, 0)) / (group.length + 1);
-      const swept = currentPrice < avgPrice;
+
+      const latestPointTime = Math.max(l.time, ...group.map(x => x.time));
+      let swept = false;
+      let sweepTime: number | undefined;
+
+      // Scan subsequent candles to see if any swept this level
+      for (let j = 0; j < candles.length; j++) {
+        if (candles[j].time > latestPointTime) {
+          if (candles[j].low < avgPrice) {
+            swept = true;
+            sweepTime = candles[j].time;
+            break;
+          }
+        }
+      }
 
       levels.push({
         price: avgPrice,
@@ -286,6 +347,7 @@ export function detectLiquidity(
         swept,
         time: l.time,
         strength: group.length + 1,
+        sweepTime,
       });
     }
   });
@@ -316,21 +378,47 @@ return indu.slice(-2)
 
 // ── STEP 6: DETECT FAIR VALUE GAPS (FVG) ───────────────────
 
-export function detectFVG(candles: Candle[]): FVG[] {
-const fvgs: FVG[] = []
-const currentPrice = candles[candles.length - 1]?.close ?? 0
-for (let i = 1; i < candles.length - 1; i++) {
-const prev = candles[i-1], curr = candles[i], next = candles[i+1]
-if (next.low > prev.high) {
-fvgs.push({ top: next.low, bottom: prev.high, type: 'BULLISH',
-time: curr.time, filled: currentPrice < prev.high })
-}
-if (next.high < prev.low) {
-fvgs.push({ top: prev.low, bottom: next.high, type: 'BEARISH',
-time: curr.time, filled: currentPrice > prev.low })
-}
-}
-return fvgs.filter(f => !f.filled).slice(-2)
+export function detectFVG(candles: Candle[]): (FVG & { endTime?: number })[] {
+  const fvgs: (FVG & { endTime?: number })[] = []
+  const currentPrice = candles[candles.length - 1]?.close ?? 0
+  for (let i = 1; i < candles.length - 1; i++) {
+    const prev = candles[i-1], curr = candles[i], next = candles[i+1]
+    if (next.low > prev.high) {
+      let filledTime: number | null = null;
+      for (let j = i + 2; j < candles.length; j++) {
+        if (candles[j].low <= prev.high) {
+          filledTime = candles[j].time;
+          break;
+        }
+      }
+      fvgs.push({ 
+        top: next.low, 
+        bottom: prev.high, 
+        type: 'BULLISH',
+        time: curr.time, 
+        filled: filledTime !== null,
+        endTime: filledTime ?? candles[candles.length - 1].time
+      })
+    }
+    if (next.high < prev.low) {
+      let filledTime: number | null = null;
+      for (let j = i + 2; j < candles.length; j++) {
+        if (candles[j].high >= prev.low) {
+          filledTime = candles[j].time;
+          break;
+        }
+      }
+      fvgs.push({ 
+        top: prev.low, 
+        bottom: next.high, 
+        type: 'BEARISH',
+        time: curr.time, 
+        filled: filledTime !== null,
+        endTime: filledTime ?? candles[candles.length - 1].time
+      })
+    }
+  }
+  return fvgs.filter(f => !f.filled).slice(-3)
 }
 
 // ── MASTER FUNCTION: Run all detection ─────────────────────

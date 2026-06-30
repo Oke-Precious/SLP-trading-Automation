@@ -58,7 +58,7 @@ export default function DashboardChart({
   const [hoveredCandle, setHoveredCandle] = useState<any>(null);
   const [hoveredCandleIndex, setHoveredCandleIndex] = useState<number | null>(null);
   const [hoveredPoi, setHoveredPoi] = useState<string | null>(null);
-  const [chartViewMode, setChartViewMode] = useState<'live' | 'tradingview' | 'drawing'>('tradingview');
+  const [chartViewMode, setChartViewMode] = useState<'live' | 'tradingview'>('live');
   const [showSettings, setShowSettings] = useState(false);
 
   const handleCloseSettings = useCallback(() => {
@@ -138,19 +138,6 @@ export default function DashboardChart({
           <div className="flex bg-[#111622] p-0.5 rounded border border-[#2D3345] text-[10px] h-fit md:-my-1">
             <button
               onClick={() => {
-                setChartViewMode('tradingview');
-                showToast('Switched to Official Real-Time TradingView Chart');
-              }}
-              className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
-                chartViewMode === 'tradingview' 
-                  ? 'bg-[#CAAA98] text-slate-950 font-bold' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              TradingView Chart
-            </button>
-            <button
-              onClick={() => {
                 setChartViewMode('live');
                 showToast('Switched to Local SMC Engine Analysis');
               }}
@@ -164,70 +151,21 @@ export default function DashboardChart({
             </button>
             <button
               onClick={() => {
-                setChartViewMode('drawing');
-                showToast('Switched to SVG Drawing Canvas');
+                setChartViewMode('tradingview');
+                showToast('Switched to Official Real-Time TradingView Chart');
               }}
               className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
-                chartViewMode === 'drawing' 
+                chartViewMode === 'tradingview' 
                   ? 'bg-[#CAAA98] text-slate-950 font-bold' 
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              SVG Drawings
+              TradingView Chart
             </button>
           </div>
         </div>
 
-        <div className={`flex items-center space-x-1 sm:space-x-2 transition-all ${chartViewMode !== 'drawing' ? 'opacity-40 select-none cursor-not-allowed' : ''}`}>
-          <button
-            id="btn-tool-pointer"
-            onClick={() => {
-              setActiveDrawTool(activeDrawTool === 'pointer' ? null : 'pointer');
-              showToast('Pointer/Inspection tool selected. Click points to extract price logs.');
-            }}
-            className={`p-1.5 rounded-md hover:bg-slate-800 transition-colors cursor-pointer ${
-              activeDrawTool === 'pointer' ? 'bg-[#CAAA98] text-[#111622]' : 'text-gray-400 hover:text-white'
-            }`}
-            title="Crosshair price cursor"
-          >
-            <Activity size={14} />
-          </button>
-          
-          <button
-            id="btn-tool-trendline"
-            onClick={() => {
-              setActiveDrawTool(activeDrawTool === 'trendline' ? null : 'trendline');
-              setClickCoordinates([]);
-              showToast('Click two points on the chart to overlay a manual trendline segment.');
-            }}
-            className={`p-1.5 rounded-md hover:bg-slate-800 transition-colors cursor-pointer ${
-              activeDrawTool === 'trendline' ? 'bg-[#CAAA98] text-[#111622]' : 'text-gray-400 hover:text-white'
-            }`}
-            title="Trendline Draw segment"
-          >
-            <TrendingUp size={14} />
-          </button>
-
-          <button
-            id="btn-tool-screenshot"
-            onClick={() => showToast('Simulating Hi-Res canvas snapshot export to clipboard... Done!')}
-            className="p-1.5 rounded-md hover:bg-slate-800 transition-colors text-gray-400 hover:text-white cursor-pointer"
-            title="Screenshot Chart"
-          >
-            <Camera size={14} />
-          </button>
-
-          <button
-            id="btn-tool-reset"
-            onClick={handleResetDrawings}
-            className="p-1.5 rounded-md hover:bg-slate-800 transition-colors text-gray-400 hover:text-white cursor-pointer"
-            title="Reset Drawings"
-          >
-            <RotateCcw size={14} />
-          </button>
-
-          <div className="h-4 w-[1px] bg-[#2A2E39] mx-1" />
-
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <button
             onClick={() => setShowSettings(!showSettings)}
             className={`p-1.5 rounded-md transition-colors cursor-pointer ${
@@ -255,7 +193,11 @@ export default function DashboardChart({
 
       <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
         {showSettings && <ChartSettingsPanel onClose={handleCloseSettings} />}
-        {chartViewMode === 'tradingview' ? (
+        {chartViewMode === 'live' ? (
+          <div className="w-full flex-1 flex min-h-0">
+            <CandlestickChart height={isFullscreen ? 800 : 400} />
+          </div>
+        ) : (
           <div className="w-full flex-1 flex min-h-0">
             <TradingViewWidget 
               symbol={currentPair} 
@@ -263,11 +205,10 @@ export default function DashboardChart({
               height={isFullscreen ? 800 : 400} 
             />
           </div>
-        ) : chartViewMode === 'live' ? (
-          <div className="w-full flex-1 flex min-h-0">
-            <CandlestickChart height={isFullscreen ? 800 : 400} />
-          </div>
-        ) : (
+        )}
+
+        {/* Disabled fallback SVG canvas */}
+        {false && (
           <svg 
             ref={chartOuterRef}
           onClick={handleChartClick}
@@ -580,7 +521,7 @@ export default function DashboardChart({
         )}
 
         {/* Tooltip */}
-        {chartViewMode === 'drawing' && hoveredCandle && mouseX !== null && (
+        {(chartViewMode as any) === 'drawing' && hoveredCandle && mouseX !== null && (
           <div 
             style={{
               top: Math.min(mouseY ? mouseY + 12 : 60, 160),
@@ -631,7 +572,7 @@ export default function DashboardChart({
           </div>
         )}
 
-        {chartViewMode === 'drawing' && (
+        {(chartViewMode as any) === 'drawing' && (
           <div className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md p-3 rounded border border-[#2A2E39] font-mono text-[10px] text-gray-400 space-y-1 select-none pointer-events-none">
             <div className="text-white font-bold mb-1 opacity-100 flex items-center space-x-1">
               <span>AutoSLP Algos V3.1</span>

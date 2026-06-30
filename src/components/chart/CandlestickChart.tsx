@@ -332,13 +332,15 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         const obCandles = candles.filter((c) => c.time >= ob.startTime && c.time <= ob.endTime);
         obSeries.setData(obCandles.map((c) => ({ time: c.time as Time, value: ob.top, color })));
 
+        const endLineTime = ob.endTime || candles[candles.length - 1].time;
+
         const topLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        topLine.setData([{ time: ob.startTime as Time, value: ob.top }, { time: candles[candles.length - 1].time as Time, value: ob.top }]);
+        topLine.setData([{ time: ob.startTime as Time, value: ob.top }, { time: endLineTime as Time, value: ob.top }]);
         
         allMarkers.push({ time: ob.startTime as Time, position: "aboveBar", color: borderCol, shape: "circle", text: ob.isBroken ? "BB" : ob.type === "BULLISH" ? "Bull OB" : "Bear OB", size: 0.5 });
 
         const botLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        botLine.setData([{ time: ob.startTime as Time, value: ob.bottom }, { time: candles[candles.length - 1].time as Time, value: ob.bottom }]);
+        botLine.setData([{ time: ob.startTime as Time, value: ob.bottom }, { time: endLineTime as Time, value: ob.bottom }]);
 
         smcOverlayRefs.current.seriesList.push(obSeries, topLine, botLine);
       });
@@ -350,7 +352,8 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         // @ts-ignore
         const color = liq.type === "BUY_SIDE" ? settings.bslColor : settings.sslColor;
         const liqLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: liq.swept ? 1 : 2, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        liqLine.setData([{ time: liq.time as Time, value: liq.price }, { time: candles[candles.length - 1].time as Time, value: liq.price }]);
+        const endLineTime = liq.sweepTime || candles[candles.length - 1].time;
+        liqLine.setData([{ time: liq.time as Time, value: liq.price }, { time: endLineTime as Time, value: liq.price }]);
         
         // @ts-ignore
         allMarkers.push({ time: liq.time as Time, position: liq.type === "BUY_SIDE" ? "aboveBar" : "belowBar", color, shape: "circle", text: liq.swept ? liq.type === "BUY_SIDE" ? "BSL ✓" : "SSL ✓" : liq.type === "BUY_SIDE" ? `BSL×${liq.strength}` : `SSL×${liq.strength}`, size: 0.5 });
@@ -362,13 +365,15 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     if (settings.showFVG) {
       smcResult.fvgs.forEach((fvg) => {
         const color = fvg.type === "BULLISH" ? settings.fvgBullColor : settings.fvgBearColor;
+        const endLineTime = fvg.endTime || candles[candles.length - 1].time;
+
         const topLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        topLine.setData([{ time: fvg.time as Time, value: fvg.top }, { time: candles[candles.length - 1].time as Time, value: fvg.top }]);
+        topLine.setData([{ time: fvg.time as Time, value: fvg.top }, { time: endLineTime as Time, value: fvg.top }]);
         
         allMarkers.push({ time: fvg.time as Time, position: "aboveBar", color, shape: "circle", text: fvg.type === "BULLISH" ? "FVG ↑" : "FVG ↓", size: 0.5 });
 
         const botLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        botLine.setData([{ time: fvg.time as Time, value: fvg.bottom }, { time: candles[candles.length - 1].time as Time, value: fvg.bottom }]);
+        botLine.setData([{ time: fvg.time as Time, value: fvg.bottom }, { time: endLineTime as Time, value: fvg.bottom }]);
         
         smcOverlayRefs.current.seriesList.push(topLine, botLine);
       });
@@ -610,8 +615,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         <div className="flex-1 min-w-0 bg-[#131722] relative">
           <div ref={chartRef} className="w-full h-full" />
           <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>SMC Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
+            <span>
+              {candles.length < 30 
+                ? 'SMC Engine: Insufficient data to compute structure levels confidently (minimum 30 candles required).'
+                : 'SMC Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.'
+              }
+            </span>
           </div>
         </div>
 
