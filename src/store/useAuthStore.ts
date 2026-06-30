@@ -5,9 +5,11 @@ interface AuthState {
   user:         any | null;
   accessToken:  string | null;
   isLoggedIn:   boolean;
+  isInitializing: boolean;
   setAuth:      (user: any, token: string) => void;
   clearAuth:    () => void;
   setToken:     (token: string) => void;
+  setInitializing: (isInitializing: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -16,9 +18,11 @@ export const useAuthStore = create<AuthState>()(
       user:        null,
       accessToken: null,
       isLoggedIn:  false,
-      setAuth:     (user, accessToken) => set({ user, accessToken, isLoggedIn: true }),
-      clearAuth:   ()                  => set({ user: null, accessToken: null, isLoggedIn: false }),
+      isInitializing: true,
+      setAuth:     (user, accessToken) => set({ user, accessToken, isLoggedIn: true, isInitializing: false }),
+      clearAuth:   ()                  => set({ user: null, accessToken: null, isLoggedIn: false, isInitializing: false }),
       setToken:    (accessToken)       => set({ accessToken }),
+      setInitializing: (isInitializing) => set({ isInitializing }),
     }),
     { 
       name: 'autoSLP-auth', 

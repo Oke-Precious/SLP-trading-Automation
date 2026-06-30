@@ -52,45 +52,50 @@ export default function App() {
       syncUnsubscribes.forEach(unsub => unsub());
       syncUnsubscribes = [];
 
-      if (fbUser) {
-        let userData: any = {
-          id: fbUser.uid,
-          email: fbUser.email,
-          username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
-          plan: 'FREE',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+      try {
+        if (fbUser) {
+          let userData: any = {
+            id: fbUser.uid,
+            email: fbUser.email,
+            username: fbUser.displayName || fbUser.email?.split('@')[0] || 'Trader',
+            plan: 'FREE',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
 
-        try {
-          const userDocRef = doc(db, 'users', fbUser.uid);
-          const userSnap = await getDocWithTimeout(userDocRef);
-          if (userSnap && userSnap.exists()) {
-            userData = userSnap.data();
+          try {
+            const userDocRef = doc(db, 'users', fbUser.uid);
+            const userSnap = await getDocWithTimeout(userDocRef);
+            if (userSnap && userSnap.exists()) {
+              userData = userSnap.data();
+            }
+          } catch (error) {
+            console.warn("⚠️ [Firebase] Could not fetch user profile from Firestore:", error);
           }
-        } catch (error) {
-          console.warn("⚠️ [Firebase] Could not fetch user profile from Firestore:", error);
-        }
-        
-        try {
-          const token = await fbUser.getIdToken();
-          setAuth(userData, token);
+          
+          try {
+            const token = await fbUser.getIdToken();
+            setAuth(userData, token);
 
-          const unsubPOI = usePOIStore.getState().syncWithFirebase(fbUser.uid);
-          const unsubJournal = useJournalStore.getState().syncWithFirebase(fbUser.uid);
-          const unsubAlert = useAlertStore.getState().syncWithFirebase(fbUser.uid);
-          const unsubSettings = useSettingsStore.getState().syncWithFirebase(fbUser.uid);
-          const unsubBias = useBiasStore.getState().syncWithFirebase(fbUser.uid);
-          const unsubChartSettings = useChartSettingsStore.getState().syncWithFirebase(fbUser.uid);
-          syncUnsubscribes = [unsubPOI, unsubJournal, unsubAlert, unsubSettings, unsubBias, unsubChartSettings];
-        } catch (tokenErr) {
-          console.error("Failed to retrieve auth ID token:", tokenErr);
+            const unsubPOI = usePOIStore.getState().syncWithFirebase(fbUser.uid);
+            const unsubJournal = useJournalStore.getState().syncWithFirebase(fbUser.uid);
+            const unsubAlert = useAlertStore.getState().syncWithFirebase(fbUser.uid);
+            const unsubSettings = useSettingsStore.getState().syncWithFirebase(fbUser.uid);
+            const unsubBias = useBiasStore.getState().syncWithFirebase(fbUser.uid);
+            const unsubChartSettings = useChartSettingsStore.getState().syncWithFirebase(fbUser.uid);
+            syncUnsubscribes = [unsubPOI, unsubJournal, unsubAlert, unsubSettings, unsubBias, unsubChartSettings];
+          } catch (tokenErr) {
+            console.error("Failed to retrieve auth ID token:", tokenErr);
+            clearAuth();
+          }
+        } else {
+          clearAuth();
+          usePOIStore.getState().clearUserPOIs();
+          useJournalStore.getState().clearTrades();
+          useAlertStore.getState().clearAlerts();
         }
-      } else {
-        clearAuth();
-        usePOIStore.getState().clearUserPOIs();
-        useJournalStore.getState().clearTrades();
-        useAlertStore.getState().clearAlerts();
+      } finally {
+        useAuthStore.getState().setInitializing(false);
       }
     });
 

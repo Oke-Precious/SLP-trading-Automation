@@ -172,9 +172,20 @@ function getTwelveDataKey(): string {
   const storeKey = useSettingsStore.getState().twelveDataApiKey?.trim()
   if (storeKey) return storeKey
   return (
-    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_TWELVE_DATA_KEY) ||
-    (import.meta as any).env?.NEXT_PUBLIC_TWELVE_DATA_KEY ||
+    (typeof process !== 'undefined' && (
+      process.env?.TWELVE_DATA_KEY ||
+      process.env?.VITE_TWELVE_DATA_KEY ||
+      process.env?.TWELVE_DATA_API_KEY ||
+      process.env?.TWELVEDATA_API_KEY ||
+      process.env?.TWELVEDATA_KEY ||
+      process.env?.NEXT_PUBLIC_TWELVE_DATA_KEY
+    )) ||
+    (import.meta as any).env?.TWELVE_DATA_KEY ||
     (import.meta as any).env?.VITE_TWELVE_DATA_KEY ||
+    (import.meta as any).env?.TWELVE_DATA_API_KEY ||
+    (import.meta as any).env?.TWELVEDATA_API_KEY ||
+    (import.meta as any).env?.TWELVEDATA_KEY ||
+    (import.meta as any).env?.NEXT_PUBLIC_TWELVE_DATA_KEY ||
     ''
   )
 }
@@ -392,7 +403,6 @@ const SEED_PRICES: Record<string, number> = {
 // ── FALLBACK — realistic generated candles (when no API key/failure) ──
 function generateFallbackCandles(symbol: string, limit: number, timeframe?: string): Candle[] {
   const basePrice = SEED_PRICES[symbol] || 100
-  const volatility = basePrice * 0.012
   const now = Math.floor(Date.now() / 1000)
 
   const tf = timeframe || '1d'
@@ -413,42 +423,115 @@ function generateFallbackCandles(symbol: string, limit: number, timeframe?: stri
   else if (tf === '1w' || tf === '1W') interval = 604800
   else if (tf === '1M') interval = 2592000
 
-  let price = basePrice
+  // Standardize now to the boundary of the current interval to prevent shift-on-refresh
+  const alignedNow = Math.floor(now / interval) * interval
+
+  // Hash symbol for a stable offset
+  let symbolHash = 0
+  for (let idx = 0; idx < symbol.length; idx++) {
+    symbolHash = (symbolHash * 31 + symbol.charCodeAt(idx)) & 0xFFFFFFFF
+  }
+  const hashVal = Math.abs(symbolHash)
+
   const candles: Candle[] = []
   
   for (let i = limit; i >= 0; i--) {
-    const trend = Math.sin(i / 20) * volatility * 0.5
-    const noise = (Math.random() - 0.48) * volatility
-    price = Math.max(price + trend + noise, basePrice * 0.5)
-    
-    const range = price * 0.008 + Math.random() * volatility * 0.5
-    const open = price - noise * 0.3
-    const close = price
-    const high = Math.max(open, close) + Math.random() * range
-    const low  = Math.min(open, close) - Math.random() * range
-    
+    const candleTime = alignedNow - i * interval
+    const t = candleTime / 100000 // scale timestamp
+
+    // Multi-frequency sine waves to model realistic macro cycles, swing trends, and intraday waves
+    const longTerm = Math.sin(t / 24 + (hashVal % 100)) * 0.12
+    const medTerm = Math.cos(t / 6 + (hashVal % 37)) * 0.04
+    const shortTerm = Math.sin(t * 2 + (hashVal % 13)) * 0.012
+    const micro = Math.cos(t * 15 + (hashVal % 7)) * 0.003
+
+    const closePrice = basePrice * (1 + longTerm + medTerm + shortTerm + micro)
+
+    // Detemine open price using the timestamp of the previous candle boundary
+    const prevT = (candleTime - interval) / 100000
+    const prevLongTerm = Math.sin(prevT / 24 + (hashVal % 100)) * 0.12
+    const prevMedTerm = Math.cos(prevT / 6 + (hashVal % 37)) * 0.04
+    const prevShortTerm = Math.sin(prevT * 2 + (hashVal % 13)) * 0.012
+    const prevMicro = Math.cos(prevT * 15 + (hashVal % 7)) * 0.003
+    const openPrice = basePrice * (1 + prevLongTerm + prevMedTerm + prevShortTerm + prevMicro)
+
+    // Generate deterministic high and low using candle timestamp as seed
+    const deterministicNoise = (Math.abs(Math.sin(candleTime + hashVal)) * 10000) % 1
+    const minOC = Math.min(openPrice, closePrice)
+    const maxOC = Math.max(openPrice, closePrice)
+    const wickRange = basePrice * (0.002 + 0.006 * deterministicNoise)
+
+    const highPrice = maxOC + wickRange * 0.7
+    const lowPrice = Math.max(minOC - wickRange * 0.7, basePrice * 0.1)
+
+    // Decide dec count based on instrument type
+    let decimals = 5
+    if (symbol.includes('JPY')) decimals = 3
+    else if (symbol.includes('XAU') || symbol === 'US30' || symbol === 'SPX500' || symbol === 'NAS100') decimals = 2
+    else if (symbol.includes('XAG')) decimals = 3
+
     candles.push({
-      time:   now - i * interval,
-      open:   parseFloat(open.toFixed(symbol.includes('JPY') ? 3 : 5)),
-      high:   parseFloat(high.toFixed(symbol.includes('JPY') ? 3 : 5)),
-      low:    parseFloat(low.toFixed(symbol.includes('JPY') ? 3 : 5)),
-      close:  parseFloat(close.toFixed(symbol.includes('JPY') ? 3 : 5)),
-      volume: parseFloat((Math.random() * 1000000 + 500000).toFixed(2)),
+      time:   candleTime,
+      open:   parseFloat(openPrice.toFixed(decimals)),
+      high:   parseFloat(highPrice.toFixed(decimals)),
+      low:    parseFloat(lowPrice.toFixed(decimals)),
+      close:  parseFloat(closePrice.toFixed(decimals)),
+      volume: parseFloat(((100000 + (hashVal % 50000)) * (0.5 + 0.5 * deterministicNoise)).toFixed(2)),
     })
   }
   return candles
 }
 
 function generateFallbackTicker(symbol: string, category: string): Ticker {
-  const price = SEED_PRICES[symbol] || 100
+  const basePrice = SEED_PRICES[symbol] || 100
+  const now = Math.floor(Date.now() / 1000)
+  
+  // Align with current minute for stable price across page reloads
+  const alignedNow = Math.floor(now / 60) * 60
+
+  let symbolHash = 0
+  for (let idx = 0; idx < symbol.length; idx++) {
+    symbolHash = (symbolHash * 31 + symbol.charCodeAt(idx)) & 0xFFFFFFFF
+  }
+  const hashVal = Math.abs(symbolHash)
+
+  // Derive price deterministically
+  const t = alignedNow / 100000
+  const longTerm = Math.sin(t / 24 + (hashVal % 100)) * 0.12
+  const medTerm = Math.cos(t / 6 + (hashVal % 37)) * 0.04
+  const shortTerm = Math.sin(t * 2 + (hashVal % 13)) * 0.012
+  const micro = Math.cos(t * 15 + (hashVal % 7)) * 0.003
+  const price = basePrice * (1 + longTerm + medTerm + shortTerm + micro)
+
+  // Derive price from 24h ago for a stable change24h
+  const prevT = (alignedNow - 86400) / 100000
+  const prevLongTerm = Math.sin(prevT / 24 + (hashVal % 100)) * 0.12
+  const prevMedTerm = Math.cos(prevT / 6 + (hashVal % 37)) * 0.04
+  const prevShortTerm = Math.sin(prevT * 2 + (hashVal % 13)) * 0.012
+  const prevMicro = Math.cos(prevT * 15 + (hashVal % 7)) * 0.003
+  const prevPrice = basePrice * (1 + prevLongTerm + prevMedTerm + prevShortTerm + prevMicro)
+
+  const change24h = price - prevPrice
+  const changePct24h = (change24h / prevPrice) * 100
+
+  // High & Low ranges
+  const volatility = basePrice * 0.015
+  const high24h = Math.max(price, prevPrice) + volatility * 0.5
+  const low24h = Math.max(Math.min(price, prevPrice) - volatility * 0.5, basePrice * 0.1)
+
+  let decimals = 5
+  if (symbol.includes('JPY')) decimals = 3
+  else if (symbol.includes('XAU') || symbol === 'US30' || symbol === 'SPX500' || symbol === 'NAS100') decimals = 2
+  else if (symbol.includes('XAG')) decimals = 3
+
   return {
     symbol,
-    price,
-    change24h:    parseFloat((price * (Math.random() * 0.04 - 0.02)).toFixed(4)),
-    changePct24h: parseFloat((Math.random() * 4 - 2).toFixed(2)),
-    high24h:      parseFloat((price * 1.015).toFixed(4)),
-    low24h:       parseFloat((price * 0.985).toFixed(4)),
-    volume24h:    Math.floor(Math.random() * 1000000000),
+    price:        parseFloat(price.toFixed(decimals)),
+    change24h:    parseFloat(change24h.toFixed(decimals)),
+    changePct24h: parseFloat(changePct24h.toFixed(2)),
+    high24h:      parseFloat(high24h.toFixed(decimals)),
+    low24h:       parseFloat(low24h.toFixed(decimals)),
+    volume24h:    Math.floor((500000 + (hashVal % 250000))),
     category,
   }
 }
