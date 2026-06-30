@@ -50,109 +50,131 @@ export class TwelveDataService {
     const queryInterval = timeframe === '4H' ? '1h' : interval;
     const queryLimit = timeframe === '4H' ? limit * 4 : limit;
     
-    try {
-      const url = `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Yahoo Finance responded with status ${response.status}`);
-      }
-      
-      const body = await response.json();
-      const result = body?.chart?.result?.[0];
-      if (!result) {
-        throw new Error('Yahoo Finance returned no result data');
-      }
-      
-      const timestamps = result.timestamp || [];
-      const quote = result.indicators?.quote?.[0];
-      if (!quote || timestamps.length === 0) {
-        throw new Error('Yahoo Finance indicators quote or timestamps is empty');
-      }
-      
-      const candles = [];
-      for (let i = 0; i < timestamps.length; i++) {
-        const timestamp = timestamps[i];
-        const open = quote.open?.[i];
-        const high = quote.high?.[i];
-        const low = quote.low?.[i];
-        const close = quote.close?.[i];
-        const volume = quote.volume?.[i] || 0;
-        
-        if (open === null || open === undefined || close === null || close === undefined) {
-          continue;
-        }
-        
-        candles.push({
-          pair: cleanSymbol,
-          timeframe: queryInterval === '1h' && timeframe === '4H' ? '1H' : timeframe,
-          open: parseFloat(open),
-          high: parseFloat(high),
-          low: parseFloat(low),
-          close: parseFloat(close),
-          volume: parseFloat(volume),
-          timestamp: new Date(timestamp * 1000),
+    const urls = [
+      `https://query2.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`,
+      `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`
+    ];
+
+    let lastError: any = null;
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://finance.yahoo.com/'
+          }
         });
+        
+        if (!response.ok) {
+          throw new Error(`Yahoo Finance responded with status ${response.status}`);
+        }
+        
+        const body = await response.json();
+        const result = body?.chart?.result?.[0];
+        if (!result) {
+          throw new Error('Yahoo Finance returned no result data');
+        }
+        
+        const timestamps = result.timestamp || [];
+        const quote = result.indicators?.quote?.[0];
+        if (!quote || timestamps.length === 0) {
+          throw new Error('Yahoo Finance indicators quote or timestamps is empty');
+        }
+        
+        const candles = [];
+        for (let i = 0; i < timestamps.length; i++) {
+          const timestamp = timestamps[i];
+          const open = quote.open?.[i];
+          const high = quote.high?.[i];
+          const low = quote.low?.[i];
+          const close = quote.close?.[i];
+          const volume = quote.volume?.[i] || 0;
+          
+          if (open === null || open === undefined || close === null || close === undefined) {
+            continue;
+          }
+          
+          candles.push({
+            pair: cleanSymbol,
+            timeframe: queryInterval === '1h' && timeframe === '4H' ? '1H' : timeframe,
+            open: parseFloat(open),
+            high: parseFloat(high),
+            low: parseFloat(low),
+            close: parseFloat(close),
+            volume: parseFloat(volume),
+            timestamp: new Date(timestamp * 1000),
+          });
+        }
+        
+        if (timeframe === '4H') {
+          const aggregated = aggregateTo4H(candles);
+          return aggregated.slice(-limit);
+        }
+        
+        return candles.slice(-limit);
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Yahoo Finance Backup] Failed URL ${url}: ${err?.message || err}`);
       }
-      
-      if (timeframe === '4H') {
-        const aggregated = aggregateTo4H(candles);
-        return aggregated.slice(-limit);
-      }
-      
-      return candles.slice(-limit);
-    } catch (err: any) {
-      // logger.debug(`[Yahoo Finance Backup] Error fetching candles for ${yahooSymbol}: ${err?.message || err}`);
-      throw err;
     }
+    
+    throw lastError || new Error('All Yahoo Finance servers failed');
   }
 
   private async fetchYahooTicker(symbol: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const yahooSymbol = getYahooSymbol(cleanSymbol);
     
-    try {
-      const url = `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`;
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    const urls = [
+      `https://query2.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`,
+      `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`
+    ];
+
+    let lastError: any = null;
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Referer': 'https://finance.yahoo.com/'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Yahoo ticker response error status ${response.status}`);
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Yahoo ticker response error status ${response.status}`);
+        
+        const body = await response.json();
+        const result = body?.chart?.result?.[0];
+        const meta = result?.meta;
+        if (!meta) {
+          throw new Error('No metadata returned from Yahoo ticker');
+        }
+        
+        const price = parseFloat(meta.regularMarketPrice);
+        const previousClose = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
+        const change = price - previousClose;
+        const changePct = previousClose > 0 ? (change / previousClose) * 100 : 0;
+        
+        return {
+          pair: cleanSymbol,
+          price,
+          change,
+          changePct,
+          high24h: meta.high || price * 1.006,
+          low24h: meta.low || price * 0.994,
+          volume24h: meta.regularMarketVolume || 420000,
+          quoteVol: (meta.regularMarketVolume || 420000) * price,
+        };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Yahoo Ticker Backup] Failed URL ${url}: ${err?.message || err}`);
       }
-      
-      const body = await response.json();
-      const result = body?.chart?.result?.[0];
-      const meta = result?.meta;
-      if (!meta) {
-        throw new Error('No metadata returned from Yahoo ticker');
-      }
-      
-      const price = parseFloat(meta.regularMarketPrice);
-      const previousClose = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
-      const change = price - previousClose;
-      const changePct = previousClose > 0 ? (change / previousClose) * 100 : 0;
-      
-      return {
-        pair: cleanSymbol,
-        price,
-        change,
-        changePct,
-        high24h: meta.high || price * 1.006,
-        low24h: meta.low || price * 0.994,
-        volume24h: meta.regularMarketVolume || 420000,
-        quoteVol: (meta.regularMarketVolume || 420000) * price,
-      };
-    } catch (err: any) {
-      // logger.debug(`[Yahoo Ticker Backup] Error fetching ticker for ${yahooSymbol}: ${err?.message || err}`);
-      throw err;
     }
+    
+    throw lastError || new Error('All Yahoo Ticker servers failed');
   }
 
   async fetchHistoricalCandles(symbol: string, timeframe: string, limit = 500) {

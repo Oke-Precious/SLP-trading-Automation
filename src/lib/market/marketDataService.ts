@@ -308,32 +308,21 @@ export async function fetchCandlesWithFlag(
 
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
   const cleanSym = symbol.replace('/', '').toUpperCase()
-  
-  if (cleanSym === 'XAUUSD') {
-     const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
-     try {
-       const url = `${BINANCE}/klines?symbol=PAXGUSDT&interval=${tfBinance}&limit=${limit}`
-       const { data } = await axios.get(url)
-       return {
-         isRealData: true,
-         candles: data.map((d: any) => ({
-           time:   Math.floor(d[0] / 1000),
-           open:   parseFloat(d[1]),
-           high:   parseFloat(d[2]),
-           low:    parseFloat(d[3]),
-           close:  parseFloat(d[4]),
-           volume: parseFloat(d[5]),
-         }))
-       }
-     } catch (err) {
-       console.warn(`[Binance PAXGUSDT Fallback] Failed for XAUUSD:`, err)
-     }
+
+  const FOREX_BINANCE_MAP: Record<string, string> = {
+    'EURUSD': 'EURUSDT',
+    'GBPUSD': 'GBPUSDT',
+    'AUDUSD': 'AUDUSDT',
+    'USDCAD': 'USDCAD',
+    'XAUUSD': 'PAXGUSDT'
   }
+
+  const mappedBinanceSym = FOREX_BINANCE_MAP[cleanSym] || (isCrypto ? symbol.toUpperCase() : null)
   
-  if (isCrypto) {
+  if (mappedBinanceSym) {
      const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
      try {
-       const url = `${BINANCE}/klines?symbol=${symbol.toUpperCase()}&interval=${tfBinance}&limit=${limit}`
+       const url = `${BINANCE}/klines?symbol=${mappedBinanceSym}&interval=${tfBinance}&limit=${limit}`
        const { data } = await axios.get(url)
        return {
          isRealData: true,
@@ -347,8 +336,10 @@ export async function fetchCandlesWithFlag(
          }))
        }
      } catch (err) {
-       console.warn(`[Binance] Failed ${symbol} ${timeframe}:`, err)
-       return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+       console.warn(`[Binance Fallback] Failed for ${cleanSym} using ${mappedBinanceSym}:`, err)
+       if (isCrypto) {
+         return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+       }
      }
   }
   
@@ -421,9 +412,19 @@ export async function fetchTicker(symbol: string): Promise<Ticker | null> {
   const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
   const cleanSym = symbol.replace('/', '').toUpperCase()
 
-  if (cleanSym === 'XAUUSD') {
+  const FOREX_BINANCE_MAP: Record<string, string> = {
+    'EURUSD': 'EURUSDT',
+    'GBPUSD': 'GBPUSDT',
+    'AUDUSD': 'AUDUSDT',
+    'USDCAD': 'USDCAD',
+    'XAUUSD': 'PAXGUSDT'
+  }
+
+  const mappedBinanceSym = FOREX_BINANCE_MAP[cleanSym]
+
+  if (mappedBinanceSym) {
     try {
-      const url = `${BINANCE}/ticker/24hr?symbol=PAXGUSDT`
+      const url = `${BINANCE}/ticker/24hr?symbol=${mappedBinanceSym}`
       const { data: t } = await axios.get(url)
       return {
         symbol,
@@ -436,7 +437,7 @@ export async function fetchTicker(symbol: string): Promise<Ticker | null> {
         category: 'forex'
       }
     } catch (err) {
-      console.warn(`[Binance PAXGUSDT Fallback] Failed ticker for XAUUSD:`, err)
+      console.warn(`[Binance Fallback] Failed ticker for ${cleanSym} using ${mappedBinanceSym}:`, err)
     }
   }
 
