@@ -292,66 +292,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleInstantDemoLogin = async () => {
-    setLoading(true);
-    setAuthError(null);
-    setErrorMessage(null);
-    setEmail('judge@autoslp.com');
-    setPassword('autoslp2026!');
-    try {
-      const { signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
-      const { auth, db, getDocWithTimeout } = await import('../../lib/firebase/firebase');
-      const { doc, setDoc } = await import('firebase/firestore');
-
-      let userCredential;
-      try {
-        userCredential = await signInWithEmailAndPassword(auth, 'judge@autoslp.com', 'autoslp2026!');
-      } catch (signInErr: any) {
-        if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/wrong-password') {
-          try {
-            userCredential = await createUserWithEmailAndPassword(auth, 'judge@autoslp.com', 'autoslp2026!');
-          } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              // Retry sign in
-              userCredential = await signInWithEmailAndPassword(auth, 'judge@autoslp.com', 'autoslp2026!');
-            } else {
-              throw createErr;
-            }
-          }
-        } else {
-          throw signInErr;
-        }
-      }
-
-      const fbUser = userCredential.user;
-      let userData = {
-        id: fbUser.uid,
-        email: fbUser.email,
-        username: 'SMC_Judge',
-        plan: 'PRO',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      try {
-        const userDocRef = doc(db, 'users', fbUser.uid);
-        await setDoc(userDocRef, userData, { merge: true });
-      } catch (dbErr) {
-        console.warn("Could not set user doc on instant login:", dbErr);
-      }
-
-      const idToken = await fbUser.getIdToken();
-      setAuth(userData, idToken);
-      toast.success('Instant evaluator session initiated! Pre-populating seed data...');
-      router('/dashboard');
-    } catch (err: any) {
-      console.error('Instant Demo Login Error:', err);
-      toast.error('Could not initiate instant session: ' + (err.message || 'unknown error'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#131722] flex items-center justify-center p-4 py-8 lg:py-16 overflow-y-auto">
       <div className="w-full max-w-6xl grid lg:grid-cols-12 gap-8 items-center">
@@ -498,27 +438,6 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <h1 className="text-xl font-bold text-white font-display">Sign In</h1>
               <p className="text-xs text-[#9AA3B2]">Access your AutoSLP trading dashboard and real-time confluences.</p>
-            </div>
-
-            {/* Prominent Demo Account Banner */}
-            <div className="p-3.5 bg-gradient-to-r from-[#CAAA98]/10 to-[#CAAA98]/5 border border-[#CAAA98]/30 rounded-lg text-xs text-[#9AA3B2] space-y-2">
-              <div className="flex items-center gap-1.5 text-[#CAAA98] font-bold uppercase tracking-wider text-[10px]">
-                <ShieldAlert size={14} />
-                <span>Judge & Evaluator Quick Access</span>
-              </div>
-              <p className="text-[11px] leading-relaxed">
-                Click the button below to instantly authenticate and auto-seed a fully populated account with realistic mock records, logged signals, active alerts, and POIs.
-              </p>
-              
-              <button
-                type="button"
-                onClick={handleInstantDemoLogin}
-                disabled={loading}
-                className="w-full bg-[#CAAA98] hover:bg-[#b89a88] text-[#202940] font-extrabold text-[10px] uppercase tracking-wider py-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <Play size={10} className="fill-[#202940]" />
-                {loading ? 'Processing instant access...' : '1-Click Instant Evaluator Access'}
-              </button>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
