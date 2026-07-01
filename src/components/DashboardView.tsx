@@ -347,7 +347,7 @@ export default function DashboardView({
           <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div className="p-4 bg-[#1E2433] border-b border-[#2A2E39] flex justify-between items-center text-gray-200">
               <span className="text-xs uppercase tracking-wider font-bold font-display">
-                Plot Custom SMC POI Zone
+                Plot Custom SLP POI Zone
               </span>
               <button 
                 onClick={() => setShowAddPoiModal(false)}
@@ -370,7 +370,7 @@ export default function DashboardView({
               </div>
 
               <div>
-                <label className="block text-gray-400 mb-1 uppercase text-[9px] font-mono">SMC Block Type:</label>
+                <label className="block text-gray-400 mb-1 uppercase text-[9px] font-mono">SLP Block Type:</label>
                 <div className="flex bg-[#111622] p-1 rounded-sm border border-[#2A2E39]">
                   <button
                     type="button"

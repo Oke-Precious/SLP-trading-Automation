@@ -139,7 +139,7 @@ export default function DashboardChart({
             <button
               onClick={() => {
                 setChartViewMode('live');
-                showToast('Switched to Local SMC Engine Analysis');
+                showToast('Switched to Local SLP Engine Analysis');
               }}
               className={`px-3 py-1 rounded transition-all font-semibold cursor-pointer ${
                 chartViewMode === 'live' 
@@ -147,7 +147,7 @@ export default function DashboardChart({
                   : 'text-gray-400 hover:text-white'
               }`}
             >
-              SMC Engine
+              SLP Engine
             </button>
             <button
               onClick={() => {
@@ -348,7 +348,7 @@ export default function DashboardChart({
             />
           )}
 
-          {/* SMC Smart Money Concept Overlays */}
+          {/* SLP Smart Money Concept Overlays */}
           <g>
             {/* BOS Line (Break of Structure from Candle 3 to 10) */}
             <line x1="110" y1="150" x2="330" y2="150" stroke="#26A69A" strokeWidth="1" strokeDasharray="3 2" />
@@ -577,7 +577,7 @@ export default function DashboardChart({
             <div className="text-white font-bold mb-1 opacity-100 flex items-center space-x-1">
               <span>AutoSLP Algos V3.1</span>
             </div>
-            <div>BOS Match: <span className="text-[#26A69A]">SMC Uptrend</span></div>
+            <div>BOS Match: <span className="text-[#26A69A]">SLP Uptrend</span></div>
             <div>Swing Confirmation: <span className="text-[#26A69A]">Validated</span></div>
           </div>
         )}

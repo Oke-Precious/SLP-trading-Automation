@@ -74,7 +74,7 @@ export async function seedUserDataIfEmpty(uid: string, email?: string | null) {
         session: 'NEW_YORK',
         setupType: 'OB_BOUNCE',
         notes: 'Price tapped perfectly into unmitigated 4H bullish order block. Strong 15m bullish candle engulfing rejection with high volume. Entered on limit pull-back. Target hit on New York session expansion.',
-        tags: ['SMC', 'OB', 'NewYork'],
+        tags: ['SLP', 'OB', 'NewYork'],
         bias: 'BULLISH',
         timeframe: '4H',
         grade: 'A'

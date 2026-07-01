@@ -160,7 +160,7 @@ export default function MainLayout() {
           </div>
           <div className="flex items-center space-x-2.5">
             <span className="hidden sm:inline font-mono text-[10px] text-gray-500 tracking-wider">
-              SMC ALGO SYSTEMS READY
+              SLP ALGO SYSTEMS READY
             </span>
             <div className="w-2.5 h-2.5 rounded-full bg-[#26A69A] animate-ping" title="API Streams Active" />
           </div>

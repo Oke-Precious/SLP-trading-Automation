@@ -305,16 +305,16 @@ export default function LoginPage() {
               <span className="text-3xl font-extrabold text-white tracking-tight">AutoSLP</span>
               <span className="bg-[#CAAA98]/10 text-[#CAAA98] border border-[#CAAA98]/20 text-[9px] font-mono uppercase tracking-widest px-2.5 py-1 rounded-full">System v2.4</span>
             </div>
-            <p className="text-xs text-[#CAAA98] font-semibold tracking-wider uppercase">Institutional-Grade Smart Money Concepts (SMC) & Directional Bias System</p>
+            <p className="text-xs text-[#CAAA98] font-semibold tracking-wider uppercase">Institutional-Grade Structure, Liquidity & POI (SLP) & Directional Bias System</p>
           </div>
 
           {/* Hero Pitch */}
           <div className="space-y-4">
             <h2 className="text-xl lg:text-2xl font-bold text-white leading-snug">
-              AutoSLP is the ultimate automated Smart Money Concepts system designed specifically for precision SLP and SMC traders.
+              AutoSLP is the ultimate automated Structure, Liquidity & POI system designed specifically for precision SLP and SLP traders.
             </h2>
             <p className="text-xs text-[#9AA3B2] leading-relaxed">
-              Engineered for professional prop-firm and retail SMC/SLP traders seeking mechanical market structures, directional confluences, and real-time alerts. Stop manual chart-watching and trade with crystal-clear mechanical precision.
+              Engineered for professional prop-firm and retail SLP/SLP traders seeking mechanical market structures, directional confluences, and real-time alerts. Stop manual chart-watching and trade with crystal-clear mechanical precision.
             </p>
           </div>
 
@@ -344,7 +344,7 @@ export default function LoginPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider">Backtest & Journal</span>
               </div>
               <p className="text-[11px] text-[#9AA3B2] leading-relaxed">
-                Replay market rules inside a sandbox, run professional backtests, and log every outcome in a detailed personal SMC trading journal.
+                Replay market rules inside a sandbox, run professional backtests, and log every outcome in a detailed personal SLP trading journal.
               </p>
             </div>
             <div className="p-4 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-lg space-y-2">
@@ -378,7 +378,7 @@ export default function LoginPage() {
 
             {/* Live Chart Preview Header */}
             <div className="flex justify-between items-center relative z-10 text-[10px] font-mono text-gray-400">
-              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>BTCUSDT, 4H (SMC DETECTOR ACTIVE)</span>
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping"></span>BTCUSDT, 4H (SLP DETECTOR ACTIVE)</span>
               <span className="text-[#CAAA98]">Live Structure Mapping</span>
             </div>
 

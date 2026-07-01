@@ -349,7 +349,7 @@ export default function RegisterPage() {
           {/* Welcome Banner */}
           <div className="mb-5 p-3.5 bg-[#CAAA98]/5 border border-[#CAAA98]/20 rounded-md text-xs text-[#9AA3B2] leading-relaxed">
             <span className="text-[#CAAA98] font-bold block mb-1 uppercase tracking-wider text-[10px]">Create Your Account</span>
-            Join AutoSLP to access real-time Smart Money Concepts detection across crypto, forex, metals, and indices.
+            Join AutoSLP to access real-time Structure, Liquidity & POI detection across crypto, forex, metals, and indices.
           </div>
 
           <form onSubmit={handleRegister} className="space-y-4">

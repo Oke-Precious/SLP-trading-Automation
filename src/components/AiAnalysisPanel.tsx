@@ -37,7 +37,7 @@ export default function AiAnalysisPanel({ currentPair, currentTimeframe, bias }:
 
       if (response.data?.success) {
         setAnalysisResult(response.data.analysis);
-        toast.success('Gemini SMC Multi-Timeframe analysis complete!', { icon: '🤖' });
+        toast.success('Gemini SLP Multi-Timeframe analysis complete!', { icon: '🤖' });
         
         // Track visual event
         analytics.track('signal_viewed', { signalId: `ai-suggested-${currentPair}-${Date.now()}` });
@@ -51,7 +51,7 @@ export default function AiAnalysisPanel({ currentPair, currentTimeframe, bias }:
         const mockResponse = {
           structure: `STRONGLY BULLISH. Expansion out of lower liquidity sweep on ${currentTimeframe} TF. Formed bullish MSS at intermediate premium swing low.`,
           pois: [
-            { type: 'ORDER_BLOCK', priceFrom: Number(lastPrice) * 0.982, priceTo: Number(lastPrice) * 0.991, notes: 'SMC Demand block confirmed by volume sweep' }
+            { type: 'ORDER_BLOCK', priceFrom: Number(lastPrice) * 0.982, priceTo: Number(lastPrice) * 0.991, notes: 'SLP Demand block confirmed by volume sweep' }
           ],
           setup: {
             direction: 'LONG',
@@ -65,7 +65,7 @@ export default function AiAnalysisPanel({ currentPair, currentTimeframe, bias }:
           }
         };
         setAnalysisResult(mockResponse);
-        toast.success('Offline analytical rendering loaded (SMC analysis).');
+        toast.success('Offline analytical rendering loaded (SLP analysis).');
         analytics.track('signal_viewed', { signalId: `ai-suggested-offline-${currentPair}` });
         setIsLoading(false);
       }, 1500);
@@ -128,7 +128,7 @@ export default function AiAnalysisPanel({ currentPair, currentTimeframe, bias }:
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-gray-200">Enforce AI-Generated Structural Augmentation</h3>
             <p className="text-[11px] text-gray-400 leading-relaxed font-normal">
-              SMC trend-basing, liquidity sweeps mapping, and order blocks prediction can be augmented using Gemini 3.5 LLMs. This helps locate deeper institutional zones that standard rule algorithms skip.
+              SLP trend-basing, liquidity sweeps mapping, and order blocks prediction can be augmented using Gemini 3.5 LLMs. This helps locate deeper institutional zones that standard rule algorithms skip.
             </p>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function AiAnalysisPanel({ currentPair, currentTimeframe, bias }:
             <Cpu size={32} className="text-gray-500" />
             <div className="space-y-1">
               <span className="text-xs font-bold text-gray-300">Augment Rule-Based Trading Terminal</span>
-              <p className="text-[9px] text-gray-500 max-w-[220px] leading-relaxed">Trigger generative prompt vectors to output SMC market structures and precise setup boundaries.</p>
+              <p className="text-[9px] text-gray-500 max-w-[220px] leading-relaxed">Trigger generative prompt vectors to output SLP market structures and precise setup boundaries.</p>
             </div>
             <button
               onClick={triggerAiAnalysis}

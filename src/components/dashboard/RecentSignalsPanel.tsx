@@ -55,7 +55,7 @@ export const RecentSignalsPanel: React.FC = () => {
           <EmptyState 
             icon="📊" 
             title="No signals yet" 
-            message="SMC signals will appear here as the market is scanned." 
+            message="SLP signals will appear here as the market is scanned." 
           />
         ) : (
           signals.map((sig) => (

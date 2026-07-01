@@ -10,7 +10,7 @@ export const ChartToolbar: React.FC = () => {
   const tools = [
     { name: 'Cursor', icon: MousePointer, active: true },
     { name: 'Breaker', icon: Milestone, active: false },
-    { name: 'SMC POI', icon: Layout, active: false },
+    { name: 'SLP POI', icon: Layout, active: false },
     { name: 'Measure', icon: Compass, active: false },
     { name: 'Overlay', icon: Eye, active: false },
   ];

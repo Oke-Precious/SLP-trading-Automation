@@ -83,7 +83,7 @@ export default function DirectionalBiasView() {
       <div className="flex justify-between items-center mb-6 pb-2 border-b border-[#2A2E39]">
         <div>
           <h2 className="text-sm font-bold text-gray-100 uppercase tracking-wider font-display">Multi-Timeframe Structure Matrix</h2>
-          <p className="text-xs text-gray-400 mt-1">Simultaneous alignment matrix verifying SMC macro elements across all resolutions.</p>
+          <p className="text-xs text-gray-400 mt-1">Simultaneous alignment matrix verifying SLP macro elements across all resolutions.</p>
           <p className="text-[10px] text-gray-500 mt-1">
             {lastRefreshed ? `Last refreshed: ${lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Loading...'}
           </p>

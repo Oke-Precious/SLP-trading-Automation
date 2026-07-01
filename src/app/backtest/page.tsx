@@ -330,7 +330,7 @@ export default function BacktestPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-white font-display uppercase tracking-wider flex items-center">
             <BarChart3 className="text-[#CAAA98] mr-3" size={24} />
-            SMC Mechanical Backtest Engine
+            SLP Mechanical Backtest Engine
           </h1>
           <p className="text-gray-400 text-xs mt-1 font-sans">
             Instantly run historical backtests of core mechanical SLP setups against live exchange candles.

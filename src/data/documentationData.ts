@@ -19,14 +19,14 @@ export const USER_DOCUMENTATION: DocCategory[] = [
         id: 'intro',
         title: 'Introduction to AutoSLP',
         content: `### 1.1 What is AutoSLP?
-**AutoSLP** is a high-performance, real-time algorithmic trading workstation and dashboard designed specifically around **Smart Money Concepts (SMC)** and institutional price action trading strategy. 
+**AutoSLP** is a high-performance, real-time algorithmic trading workstation and dashboard designed specifically around **Structure, Liquidity & POI (SLP)** and institutional price action trading strategy. 
 
 The name "AutoSLP" stands for **Automated Structure, Liquidity, and Points of Interest (POI) system**, as well as safeguarding capital via optimized stop-loss placements ("SLP").
 
 ### 1.2 Purpose of the Application
 The primary goal of AutoSLP is to automate the tedious, manual drawing of institutional market structure (Market Structure Shifts, Break of Structures, Order Blocks, and Breaker Blocks) so traders can focus on pure execution, trade journaling, and systematic backtesting without the fatigue of charting on traditional tools.
 
-### 1.3 The Core SMC Pillar Strategy
+### 1.3 The Core SLP Pillar Strategy
 The application operates on three core pillars of professional-grade market execution:
 1. **Structure (MS / MSS / BOS):** Dissecting high-timeframe swing points (HH/HL/LH/LL) to dictate directional bias.
 2. **Liquidity (BSL / SSL):** Pinpointing Buy-Side and Sell-Side liquidity pools where retail stop-losses reside.
@@ -132,12 +132,12 @@ Trading is the practice of buying and selling financial assets (like Bitcoin or 
 5. **Take Profit (TP):** An automatic exit order that closes your trade at a target profit once the price reaches your desired level.`
       },
       {
-        id: 'smc-explained',
-        title: 'Smart Money Concepts (SMC) Made Easy',
-        content: `### 2.6 Understanding Smart Money Concepts (SMC)
-Retail traders often lose because they use basic retail patterns like "double bottoms" or "trend lines" that big banks easily exploit. **Smart Money Concepts (SMC)** is a professional trading methodology that tracks the footprints of large institutional players (banks, central funds, market makers).
+        id: 'slp-explained',
+        title: 'Structure, Liquidity & POI (SLP) Made Easy',
+        content: `### 2.6 Understanding Structure, Liquidity & POI (SLP)
+Retail traders often lose because they use basic retail patterns like "double bottoms" or "trend lines" that big banks easily exploit. **Structure, Liquidity & POI (SLP)** is a professional trading methodology that tracks the footprints of large institutional players (banks, central funds, market makers).
 
-#### The 3 Core Pillars of SMC:
+#### The 3 Core Pillars of SLP:
 
 1. **Market Structure (BOS / MSS):**
    * **BOS (Break of Structure):** When a trend is healthy, price continues to break previous highs (in an uptrend) or previous lows (in a downtrend), creating new expansion legs.
@@ -268,7 +268,7 @@ The diagram below illustrates how market data, user configurations, and state fl
 ### 4.2 Data Lifecycle Lifecycle
 1. **Hydration Phase:** On app mount, \`AppInitializer.tsx\` fires, loading the current authenticated user's settings, POIs, alert thresholds, and journal history from either Firebase or LocalStorage.
 2. **Streaming Phase:** The active symbol's candles are requested via HTTP. Simultaneously, a persistent WebSocket connection is opened with Binance to stream live candlestick wicks at sub-second intervals.
-3. **SMC Calculation Phase:** Live prices feed into the calculation engine, which automatically evaluates swing pivots, checks for POI crossing, and triggers alert systems.
+3. **SLP Calculation Phase:** Live prices feed into the calculation engine, which automatically evaluates swing pivots, checks for POI crossing, and triggers alert systems.
 4. **Persistence Phase:** When a user creates a journal entry or adds a custom POI, the state is immediately updated in Zustand and persisted safely in the database.`
       },
       {
@@ -431,7 +431,7 @@ When price breaks through an active Order Block with high momentum (characterize
       },
       {
         id: 'signal-generation',
-        title: 'SMC Signal Generation Model',
+        title: 'SLP Signal Generation Model',
         content: `### 6.2 Algorithmic Signal Dispatcher
 Signals are dispatched by monitoring live asset data against established high-timeframe zones:
 

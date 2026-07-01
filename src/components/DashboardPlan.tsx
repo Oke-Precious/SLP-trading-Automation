@@ -155,7 +155,7 @@ export default function DashboardPlan({
 
           <div className="flex items-center space-x-2">
             <Target size={14} className="text-[#26A69A]" />
-            <span className="text-xs font-bold text-gray-200">SMC Long Setup Trigger</span>
+            <span className="text-xs font-bold text-gray-200">SLP Long Setup Trigger</span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-[#26A69A]/15 text-[9px] font-mono">

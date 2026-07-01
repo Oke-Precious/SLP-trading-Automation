@@ -48,7 +48,7 @@ export const MarketSummaryCard: React.FC<MarketSummaryCardProps> = ({ biasResult
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-2">
             <Compass className="text-light shrink-0" size={18} />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white">SMC Market Phase</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">SLP Market Phase</h3>
           </div>
           <div className="flex items-center space-x-1.5">
             <span 

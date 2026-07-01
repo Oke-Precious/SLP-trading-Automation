@@ -7,7 +7,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import { Bell, ShieldAlert } from 'lucide-react';
 
-export const showSMCAlert = (title: string, message: string) => {
+export const showSLPAlert = (title: string, message: string) => {
   toast.custom((t) => (
     <div
       className={`${

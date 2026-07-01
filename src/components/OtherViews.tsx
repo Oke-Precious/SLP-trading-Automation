@@ -424,7 +424,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
               </select>
             </div>
             <div>
-              <label className="block text-gray-500 mb-1 font-mono text-[9px]">SMC Condition Limit:</label>
+              <label className="block text-gray-500 mb-1 font-mono text-[9px]">SLP Condition Limit:</label>
               <input
                 type="text"
                 required
@@ -474,7 +474,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
       <div className="space-y-6">
         <div className="bg-[#1A1F2C] border border-[#2A2E39] rounded-xl p-5 text-gray-300">
           <div className="flex justify-between items-center pb-2 border-b border-[#2A2E39] mb-4">
-            <span className="text-xs uppercase tracking-wider font-bold text-gray-200">SMC Rule Expectancy Engine (Simulations)</span>
+            <span className="text-xs uppercase tracking-wider font-bold text-gray-200">SLP Rule Expectancy Engine (Simulations)</span>
             <span className="text-[#26A69A] text-[10px] font-mono">PRO ACCESS GRANTED</span>
           </div>
           
@@ -559,7 +559,7 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
             <div className="flex-1 leading-normal">
               <span className="font-bold block text-white mb-0.5">Twelve Data API Key Missing</span>
-              Live Forex & Commodity price streams are deactivated. The platform will automatically fall back to high-fidelity simulated SMC market data generation streams.
+              Live Forex & Commodity price streams are deactivated. The platform will automatically fall back to high-fidelity simulated SLP market data generation streams.
             </div>
             <a 
               href="https://twelvedata.com/register" 

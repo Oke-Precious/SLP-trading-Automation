@@ -67,7 +67,7 @@ export default function DashboardSummary({
 
       <div className="space-y-4 pt-4 border-t border-[#2A2E39]/40">
         <div className="p-3 bg-[#111622] rounded border border-[#2A2E39] text-[10px]">
-          <span className="text-gray-500 uppercase tracking-wider block mb-1 font-mono">SMC Legend Map</span>
+          <span className="text-gray-500 uppercase tracking-wider block mb-1 font-mono">SLP Legend Map</span>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#26A69A]" />

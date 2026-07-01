@@ -149,24 +149,22 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
           </div>
         </div>
 
-        {/* SECTION 4 — SMC Overlay Colors */}
+        {/* SECTION 4 — SLP Overlay Colors */}
         <div>
-          <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">SMC Colors</h3>
+          <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">SLP Colors</h3>
           <div className="space-y-1">
             <ColorInput label="BOS / Break (Up)" settingKey="bosUpColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="BOS / Break (Down)" settingKey="bosDownColor" settings={settings} updateSetting={updateSetting} />
-            <ColorInput label="CHoCH" settingKey="chochColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="MSS" settingKey="mssColor" settings={settings} updateSetting={updateSetting} />
             <br/>
             <ColorInput label="Bullish OB" settingKey="bullOBColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Bearish OB" settingKey="bearOBColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Breaker Block" settingKey="breakerColor" settings={settings} updateSetting={updateSetting} />
             <br/>
-            <ColorInput label="Buy Side Liq (BSL)" settingKey="bslColor" settings={settings} updateSetting={updateSetting} />
-            <ColorInput label="Sell Side Liq (SSL)" settingKey="sslColor" settings={settings} updateSetting={updateSetting} />
-            <br/>
-            <ColorInput label="FVG (Up)" settingKey="fvgBullColor" settings={settings} updateSetting={updateSetting} />
-            <ColorInput label="FVG (Down)" settingKey="fvgBearColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Trendline Liq" settingKey="trendlineLiqColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Equal Highs/Lows Liq" settingKey="eqLiqColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Long Wick Liq" settingKey="longWickLiqColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Inducement Pullback" settingKey="inducementColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 
@@ -175,12 +173,10 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
           <h3 className="text-[10px] uppercase font-bold text-gray-500 mb-2">Visibility</h3>
           <div className="space-y-1">
             <ToggleInput label="Show BOS" settingKey="showBOS" settings={settings} updateSetting={updateSetting} />
-            <ToggleInput label="Show CHoCH" settingKey="showCHoCH" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show MSS" settingKey="showMSS" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Order Blocks" settingKey="showOrderBlocks" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Breaker Blocks" settingKey="showBreakerBlocks" settings={settings} updateSetting={updateSetting} />
-            <ToggleInput label="Show Liquidity (BSL/SSL)" settingKey="showLiquidity" settings={settings} updateSetting={updateSetting} />
-            <ToggleInput label="Show FVG" settingKey="showFVG" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Liquidity Levels" settingKey="showLiquidity" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Inducement" settingKey="showInducement" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Volume" settingKey="showVolume" settings={settings} updateSetting={updateSetting} />
           </div>

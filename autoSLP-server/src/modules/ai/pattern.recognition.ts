@@ -75,12 +75,12 @@ export async function detectMarketPatterns(
   }));
 
   const systemInstruction = 
-    `You are an expert Smart Money Concepts (SMC) trader. Analyze the following OHLCV data and identify:
+    `You are an expert Structure, Liquidity & POI (SLP) trader. Analyze the following OHLCV data and identify:
 1) Current market structure (e.g., HH/HL structure, shifting bias, or consolidations).
 2) Significant POIs (Points of Interest like Order Blocks or Breaker Blocks, specifying their price range and importance).
 3) Highest probability setup direction with precise entry zones, stop loss, and take profit targets.
 
-You MUST respond ONLY with a valid JSON matching the exact schema specified. Keep the details grounded, logical, and fully aligned with professional SMC theory. Do not exaggerate or make up fake concepts.`;
+You MUST respond ONLY with a valid JSON matching the exact schema specified. Keep the details grounded, logical, and fully aligned with professional SLP theory. Do not exaggerate or make up fake concepts.`;
 
   const prompt = `Pair: ${pair}
 Timeframe: ${timeframe}
@@ -148,7 +148,7 @@ Perform the analysis and populate the JSON response according to the schema.`;
                 },
                 stopLoss: {
                   type: Type.NUMBER,
-                  description: 'SMC-compliant stop loss limit.',
+                  description: 'SLP-compliant stop loss limit.',
                 },
                 target1: {
                   type: Type.NUMBER,

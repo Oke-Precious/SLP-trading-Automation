@@ -22,7 +22,7 @@ export const ActiveSignalCard: React.FC = () => {
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center space-x-2">
             <Target className="text-light shrink-0" size={18} />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SMC Execution</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SLP Execution</h3>
           </div>
         </div>
         <EmptyState 
@@ -51,7 +51,7 @@ export const ActiveSignalCard: React.FC = () => {
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center space-x-2">
           <Target className="text-light shrink-0" size={18} />
-          <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SMC Execution</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SLP Execution</h3>
         </div>
         <span className="text-[10px] bg-bullish/10 text-bullish border border-bullish/25 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
           ENTRY LIVE
@@ -60,7 +60,7 @@ export const ActiveSignalCard: React.FC = () => {
 
       <div className="space-y-3.5 bg-surface p-4 rounded-xl border border-[#2D313E]/30 text-xs">
         <div className="flex justify-between items-center pb-2 border-b border-[#2D313E]/60">
-          <span className="text-gray-400 font-medium">SMC Asset Setup</span>
+          <span className="text-gray-400 font-medium">SLP Asset Setup</span>
           <span className="font-mono text-white font-bold">{selectedPair} ({direction} LIMIT)</span>
         </div>
 

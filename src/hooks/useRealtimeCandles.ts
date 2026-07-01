@@ -114,7 +114,7 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
         return () => {
           active = false
         }
-      }, 5000); // Polling every 5 seconds
+      }, 30000); // Polling every 30 seconds (optimized for rate-limits)
     }
 
     return () => {

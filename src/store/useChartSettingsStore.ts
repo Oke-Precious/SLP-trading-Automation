@@ -5,36 +5,34 @@ import { saveUserChartSettings, listenToUserChartSettings } from '../lib/firebas
 
 export interface ChartSettings {
   // Background
-  backgroundColor:    string;   // default: '#131722'
+  backgroundColor:    string;
   // Grid
-  gridColor:          string;   // default: '#1E2433'
+  gridColor:          string;
   // Candles
-  upCandleColor:      string;   // default: '#26A69A'
-  downCandleColor:    string;   // default: '#EF5350'
-  upWickColor:        string;   // default: '#26A69A'
-  downWickColor:      string;   // default: '#EF5350'
-  // SMC Overlays
-  bosUpColor:         string;   // default: '#26A69A'
-  bosDownColor:       string;   // default: '#EF5350'
-  chochColor:         string;   // default: '#F0B90B'
-  mssColor:           string;   // default: '#CAAA98'
-  bullOBColor:        string;   // default: '#26A69A'
-  bearOBColor:        string;   // default: '#EF5350'
-  breakerColor:       string;   // default: '#1565C0'
-  bslColor:           string;   // default: '#F0B90B'
-  sslColor:           string;   // default: '#9A8678'
-  fvgBullColor:       string;   // default: '#26A69A'
-  fvgBearColor:       string;   // default: '#EF5350'
+  upCandleColor:      string;
+  downCandleColor:    string;
+  upWickColor:        string;
+  downWickColor:      string;
+  // SLP Overlays
+  bosUpColor:         string;
+  bosDownColor:       string;
+  mssColor:           string;
+  bullOBColor:        string;
+  bearOBColor:        string;
+  breakerColor:       string;
+  // SLP Liquidity Types
+  trendlineLiqColor:  string;
+  eqLiqColor:         string;
+  longWickLiqColor:   string;
+  inducementColor:    string;
   // Visibility toggles
-  showBOS:            boolean;  // default: true
-  showCHoCH:          boolean;  // default: true
-  showMSS:            boolean;  // default: true
-  showOrderBlocks:    boolean;  // default: true
-  showBreakerBlocks:  boolean;  // default: true
-  showLiquidity:      boolean;  // default: true
-  showFVG:            boolean;  // default: true
-  showInducement:     boolean;  // default: true
-  showVolume:         boolean;  // default: true
+  showBOS:            boolean;
+  showMSS:            boolean;
+  showOrderBlocks:    boolean;
+  showBreakerBlocks:  boolean;
+  showLiquidity:      boolean;
+  showInducement:     boolean;
+  showVolume:         boolean;
   // Presets
   preset: 'dark' | 'dark-green' | 'midnight' | 'custom';
 }
@@ -48,22 +46,19 @@ const DEFAULTS: ChartSettings = {
   downWickColor:   '#EF5350',
   bosUpColor:      '#26A69A',
   bosDownColor:    '#EF5350',
-  chochColor:      '#F0B90B',
   mssColor:        '#CAAA98',
   bullOBColor:     '#26A69A',
   bearOBColor:     '#EF5350',
   breakerColor:    '#1565C0',
-  bslColor:        '#F0B90B',
-  sslColor:        '#9A8678',
-  fvgBullColor:    '#26A69A',
-  fvgBearColor:    '#EF5350',
+  trendlineLiqColor: '#F0B90B',
+  eqLiqColor:      '#E040FB',
+  longWickLiqColor: '#29B6F6',
+  inducementColor: '#9A8678',
   showBOS:            true,
-  showCHoCH:          true,
   showMSS:            true,
   showOrderBlocks:    true,
   showBreakerBlocks:  true,
   showLiquidity:      true,
-  showFVG:            true,
   showInducement:     true,
   showVolume:         true,
   preset:             'dark',

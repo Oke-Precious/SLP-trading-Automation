@@ -7,8 +7,8 @@ import React from 'react';
 import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
-  title: 'AutoSLP - SMC Directional Bias System',
-  description: 'Production-grade Smart Money Concepts Trading Terminal',
+  title: 'AutoSLP - SLP Directional Bias System',
+  description: 'Production-grade Structure, Liquidity & POI Trading Terminal',
 };
 
 export default function RootLayout({

@@ -93,7 +93,7 @@ export const useJournalStore = create<JournalStore>()(
           session: 'NEW_YORK',
           setupType: 'OB_BOUNCE',
           notes: 'Price tapped into unmitigated 4H bullish order block on HTF. Strong candle rejection on 15m. Entered with limit. Perfect target hit.',
-          tags: ['SMC', 'OB', 'Framer'],
+          tags: ['SLP', 'OB', 'Framer'],
           bias: 'BULLISH',
           timeframe: '4H',
           grade: 'A'

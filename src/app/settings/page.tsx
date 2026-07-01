@@ -180,7 +180,7 @@ export default function SettingsPage() {
                </div>
 
                <div className="bg-[#131722] border border-[#2A2E39] rounded-xl p-5">
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">SMC Overlays Visibility</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">SLP Overlays Visibility</label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      {[
                        { key: 'showBOS', label: 'BOS' },

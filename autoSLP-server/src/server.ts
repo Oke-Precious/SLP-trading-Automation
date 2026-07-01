@@ -99,7 +99,7 @@ export async function createServer(): Promise<FastifyInstance> {
     openapi: {
       info: {
         title: 'AutoSLP Server Rest APIs',
-        description: 'Automated SMC Order Blocks & Breaker blocks plotting engine',
+        description: 'Automated SLP Order Blocks & Breaker blocks plotting engine',
         version: '1.0.0'
       },
       servers: [

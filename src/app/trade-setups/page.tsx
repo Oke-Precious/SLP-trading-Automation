@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useMarketStore } from '../../store/useMarketStore';
 import { usePOIStore } from '../../store/usePOIStore';
 import { useRealtimeCandles } from '../../hooks/useRealtimeCandles';
-import { runSMCAnalysis } from '../../lib/analysis/smcEngine';
+import { runSLPAnalysis } from '../../lib/analysis/slpEngine';
 import { Target, Layers, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { formatPrice } from '../../lib/market/marketDataService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
@@ -13,26 +13,26 @@ export default function TradeSetupsPage() {
   const { pois } = usePOIStore();
   const { candles, isLoading } = useRealtimeCandles(selectedPair, selectedTimeframe);
 
-  const smcResult = useMemo(() => {
+  const slpResult = useMemo(() => {
     if (!candles || candles.length < 30) return null;
-    return runSMCAnalysis(candles);
+    return runSLPAnalysis(candles);
   }, [candles]);
 
   const setups = useMemo(() => {
     const list: any[] = [];
-    if (!smcResult) return list;
+    if (!slpResult) return list;
 
-    // From SMC Engine
-    smcResult.orderBlocks.forEach((ob, idx) => {
+    // From SLP Engine
+    slpResult.orderBlocks.forEach((ob, idx) => {
       const type = ob.isBroken ? 'Breaker Block' : 'Order Block';
       const direction = ob.type;
       
-      const relatedBos = smcResult.bosEvents.find(b => b.direction === direction && b.breakTime >= ob.startTime);
+      const relatedBos = slpResult.bosEvents.find(b => b.direction === direction && b.breakTime >= ob.startTime);
       const isConfirmed = !!relatedBos;
 
       list.push({
         id: `auto-${idx}`,
-        source: 'Auto-SMC',
+        source: 'Auto-SLP',
         title: `${selectedTimeframe} ${direction} ${type}`,
         direction,
         type,
@@ -62,7 +62,7 @@ export default function TradeSetupsPage() {
     });
 
     return list;
-  }, [smcResult, pois, selectedTimeframe, selectedPair]);
+  }, [slpResult, pois, selectedTimeframe, selectedPair]);
 
   return (
     <div className="p-6 bg-[#111622] text-[#E0E3EB] min-h-full">
@@ -88,7 +88,7 @@ export default function TradeSetupsPage() {
           <EmptyState 
             icon="🎯" 
             title="No Active Setups" 
-            message={`The SMC engine has not detected any unmitigated order blocks or breaker blocks for ${selectedPair} on ${selectedTimeframe}.`} 
+            message={`The SLP engine has not detected any unmitigated order blocks or breaker blocks for ${selectedPair} on ${selectedTimeframe}.`} 
           />
         </div>
       ) : (
@@ -133,7 +133,7 @@ export default function TradeSetupsPage() {
               <div className="mt-4 pt-4 border-t border-[#2A2E39] flex justify-between items-center">
                 <div className="flex items-center text-[10px] text-gray-500 font-mono gap-1.5">
                   <Clock size={12} />
-                  <span>{new Date(setup.time * (setup.source === 'Auto-SMC' ? 1000 : 1)).toLocaleTimeString()}</span>
+                  <span>{new Date(setup.time * (setup.source === 'Auto-SLP' ? 1000 : 1)).toLocaleTimeString()}</span>
                 </div>
                 <button className="text-[10px] font-bold uppercase tracking-wider text-[#CAAA98] hover:text-white transition-colors flex items-center gap-1 cursor-pointer">
                   Setup Alert

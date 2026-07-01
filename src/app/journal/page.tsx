@@ -242,7 +242,7 @@ export default function JournalPage() {
         <div>
           <h1 className="text-2xl font-bold uppercase tracking-wider text-[#CAAA98] font-display flex items-center gap-2">
             <BookOpen className="text-[#CAAA98]" size={24} />
-            SMC Trade Journal
+            SLP Trade Journal
           </h1>
           <p className="text-xs text-[#9AA3B2] font-mono mt-1">
             Analyze, refine, and master high probability setup execution blocks and breaker models.
@@ -345,7 +345,7 @@ export default function JournalPage() {
           <div className="mt-2 text-lg font-extrabold font-mono text-zinc-100">
             1:{stats.avgRR.toFixed(2)}
           </div>
-          <span className="text-[9px] text-[#9AA3B2] font-mono mt-1">SMC Risk allocation</span>
+          <span className="text-[9px] text-[#9AA3B2] font-mono mt-1">SLP Risk allocation</span>
         </div>
 
         {/* Win/Loss Streak card */}
@@ -539,7 +539,7 @@ export default function JournalPage() {
               </div>
             </div>
 
-            {/* SMC Structural metrics */}
+            {/* SLP Structural metrics */}
             <div>
               <label className="text-[10px] text-[#9AA3B2] uppercase mb-1 block">Setup Model</label>
               <select
@@ -599,7 +599,7 @@ export default function JournalPage() {
               <label className="text-[10px] text-[#9AA3B2] uppercase mb-1 block">Custom Tags (Splited by Comma)</label>
               <input
                 type="text"
-                placeholder="SMC, unmitigated, 1H-Shift"
+                placeholder="SLP, unmitigated, 1H-Shift"
                 value={newTrade.tags}
                 onChange={e => setNewTrade(prev => ({ ...prev, tags: e.target.value }))}
                 className="w-full bg-[#131722] border border-[#2A2E39] rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:outline-none"

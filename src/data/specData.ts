@@ -2,7 +2,7 @@ import { Persona } from '../types';
 
 export const TRADER_PERSONAS: Persona[] = [
   {
-    name: 'Marcus "SMC Pure" Vance',
+    name: 'Marcus "SLP Pure" Vance',
     age: 32,
     experience: 'Professional Prop Trader (7+ Years)',
     markets: ['Forex (EURUSD, GBPUSD)', 'Gold (XAUUSD)', 'Indices (US30)'],
@@ -57,7 +57,7 @@ export const TRADER_PERSONAS: Persona[] = [
     workflow: [
       'End of Day (21:30 UTC): Scans high timeframe daily/weekly charts to spot breaker blocks.',
       'Planning: Formulates trade plans for the following morning. Places passive limit/mitigation orders.',
-      'Weekly Checklist: Performs systematic backtesting of SMC structural rules over the weekend to measure strategy expectancy.',
+      'Weekly Checklist: Performs systematic backtesting of SLP structural rules over the weekend to measure strategy expectancy.',
       'Reflecting: Evaluates trade journals to detect repeating psychological errors (e.g. cutting winners short).'
     ],
     painPoints: [
@@ -77,12 +77,12 @@ export const TRADER_PERSONAS: Persona[] = [
 
 export const DESIGN_SPECIFICATION_MARKDOWN = `# AutoSLP — Design & Architecture Specification
 **Version 1.2 (Revised: May 2026)**
-**Role:** Senior Product Designer & SMC Architectural Lead
+**Role:** Senior Product Designer & SLP Architectural Lead
 
 ---
 
 ## 1. Product Overview & Core Thesis
-AutoSLP is a high-performance, algorithmic trading dashboard built around **Smart Money Concepts (SMC)**. The core thesis revolves around three pillars of professional-grade market execution:
+AutoSLP is a high-performance, algorithmic trading dashboard built around **Structure, Liquidity & POI (SLP)**. The core thesis revolves around three pillars of professional-grade market execution:
 1. **Structure (MS / MSS / BOS):** Dissecting high-timeframe swing points (HH/HL/LH/LL) to dictate directional bias.
 2. **Liquidity (BSL / SSL):** Pinpointing buy-side and sell-side liquidity pools where retail stops reside.
 3. **Points of Interest (POIs):** Establishing price zones (Order Blocks, Breaker Blocks) that present premier risk-to-reward entries.

@@ -1,7 +1,7 @@
 {
   "name": "autoslp-server",
   "version": "1.0.0",
-  "description": "AutoSLP SMC Automation Backend Services Server",
+  "description": "AutoSLP SLP Automation Backend Services Server",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {

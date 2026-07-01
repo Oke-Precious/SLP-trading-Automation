@@ -1,6 +1,6 @@
 import { collection, doc, setDoc, getDocs, query, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase/firebase';
-import { BOSEvent } from '../analysis/smcEngine';
+import { BOSEvent } from '../analysis/slpEngine';
 import { Candle } from '../market/marketDataService';
 
 const seenEvents = new Set<string>();
