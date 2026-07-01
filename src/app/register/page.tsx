@@ -236,7 +236,7 @@ export default function RegisterPage() {
       toast.success(`Welcome to AutoSLP, ${username}! Your cloud account is fully setup.`);
       router('/dashboard');
     } catch (err: any) {
-      console.error('Firebase Registration Error:', err);
+      console.warn('Firebase Registration Warning (expected on user-input check):', err);
       const errorCode = err.code || 'unknown';
       const errorMsg = err.message || '';
       setShakeKey(prev => prev + 1);
@@ -308,7 +308,7 @@ export default function RegisterPage() {
       toast.success(`Welcome to AutoSLP, ${userData.username}!`);
       router('/dashboard');
     } catch (err: any) {
-      console.error('Google Sign-In Error:', err);
+      console.warn('Google Sign-In Warning:', err);
       const errorCode = err.code || 'unknown';
       const errorMsg = err.message || '';
       const isPopupError = 

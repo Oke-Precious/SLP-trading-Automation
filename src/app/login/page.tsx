@@ -162,7 +162,7 @@ export default function LoginPage() {
       toast.success(`Welcome back, ${userData.username}!`);
       router('/dashboard');
     } catch (err: any) {
-      console.error('Firebase Login Error:', err);
+      console.warn('Firebase Login Warning (expected on user-input credential check):', err);
       const errorCode = err.code || 'unknown';
       const errorMsg = err.message || '';
       setShakeKey(prev => prev + 1); // Animate and shake on any backend error too!
@@ -206,7 +206,7 @@ export default function LoginPage() {
       toast.success('Password reset email sent! Please check your inbox.');
       setResetSuccess(true);
     } catch (err: any) {
-      console.error('Password reset error:', err);
+      console.warn('Password reset warning (user-input check):', err);
       let errorMsg = err.message || 'Failed to send password reset email.';
       if (err.code === 'auth/user-not-found') {
         errorMsg = 'No registered user was found with this email address.';
@@ -270,7 +270,7 @@ export default function LoginPage() {
       toast.success(`Welcome, ${userData.username}!`);
       router('/dashboard');
     } catch (err: any) {
-      console.error('Google Sign-In Error:', err);
+      console.warn('Google Sign-In Warning:', err);
       const errorCode = err.code || 'unknown';
       const errorMsg = err.message || '';
       const isPopupError = 
