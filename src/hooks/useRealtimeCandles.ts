@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { binanceWS } from '../lib/market/binanceWebSocket'
-import { fetchCandles, Candle } from '../lib/market/marketDataService'
+import { fetchCandlesWithFlag, Candle } from '../lib/market/marketDataService'
 import { CRYPTO_PAIRS } from '../lib/market/marketDataService'
 
 export function useRealtimeCandles(symbol: string, timeframe: string) {
   const [candles, setCandles] = useState<Candle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
+  const [isRealData, setIsRealData] = useState(true)
+  const [apiError, setApiError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const candlesRef = useRef<Candle[]>([])
 
@@ -15,18 +17,29 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
     if (!symbol || !timeframe) return
     setIsLoading(true)
     setError(null)
+    setApiError(null)
 
-    fetchCandles(symbol, timeframe, 200)
-      .then(data => {
-        candlesRef.current = data
-        setCandles(data)
+    let active = true
+
+    fetchCandlesWithFlag(symbol, timeframe, 200)
+      .then(result => {
+        if (!active) return
+        candlesRef.current = result.candles
+        setCandles(result.candles)
+        setIsRealData(result.isRealData)
+        setApiError(result.apiError || null)
         setIsLoading(false)
       })
       .catch(err => {
+        if (!active) return
         console.error(err)
         setError('Failed to load market data')
         setIsLoading(false)
       })
+
+    return () => {
+      active = false
+    }
   }, [symbol, timeframe])
 
   // Subscribe to live updates (crypto only)
@@ -88,10 +101,19 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
     const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
     if (!isCrypto || (!isConnected && !isLoading)) {
       intervalId = setInterval(() => {
-        fetchCandles(symbol, timeframe, 200).then(data => {
-          candlesRef.current = data
-          setCandles(data)
-        }).catch(() => {})
+        let active = true
+        fetchCandlesWithFlag(symbol, timeframe, 200)
+          .then(result => {
+            if (!active) return
+            candlesRef.current = result.candles
+            setCandles(result.candles)
+            setIsRealData(result.isRealData)
+            setApiError(result.apiError || null)
+          })
+          .catch(() => {})
+        return () => {
+          active = false
+        }
       }, 5000); // Polling every 5 seconds
     }
 
@@ -102,10 +124,15 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
 
   const refetch = () => {
     setIsLoading(true)
-    fetchCandles(symbol, timeframe, 200)
-      .then(data => { candlesRef.current = data; setCandles(data) })
+    fetchCandlesWithFlag(symbol, timeframe, 200)
+      .then(result => {
+        candlesRef.current = result.candles
+        setCandles(result.candles)
+        setIsRealData(result.isRealData)
+        setApiError(result.apiError || null)
+      })
       .finally(() => setIsLoading(false))
   }
 
-  return { candles, isLoading, isConnected, error, refetch }
+  return { candles, isLoading, isConnected, isRealData, apiError, error, refetch }
 }

@@ -283,7 +283,7 @@ export async function fetchCandlesWithFlag(
   symbol: string,
   timeframe: string,
   limit: number = 200
-): Promise<{candles: Candle[], isRealData: boolean}> {
+): Promise<{candles: Candle[], isRealData: boolean, apiError?: string | null}> {
   try {
     const { data: res } = await apiClient.get('/market/candles', {
       params: { pair: symbol, timeframe, limit }
@@ -338,14 +338,22 @@ export async function fetchCandlesWithFlag(
      } catch (err) {
        console.warn(`[Binance Fallback] Failed for ${cleanSym} using ${mappedBinanceSym}:`, err)
        if (isCrypto) {
-         return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+         return {
+           isRealData: false,
+           candles: generateFallbackCandles(symbol, limit, timeframe),
+           apiError: "Failed to connect to Binance live feed. Showing sandboxed emulated market data."
+         }
        }
      }
   }
   
   const key = getTwelveDataKey()
   if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
-    return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+    return {
+      isRealData: false,
+      candles: generateFallbackCandles(symbol, limit, timeframe),
+      apiError: "Missing Twelve Data API key in Settings. Showing sandboxed emulated market data."
+    }
   }
 
   const mappedSymbol = mapSymbolForTwelveData(symbol)
@@ -361,7 +369,22 @@ export async function fetchCandlesWithFlag(
     })
     if (data.status === 'error' || !data.values) {
       console.warn('[TwelveData] Error:', data.message);
-      return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+      const msg = data.message?.toLowerCase() || '';
+      let apiError = "Twelve Data API error. Showing sandboxed emulated market data.";
+      if (msg.includes('rate limit') || data.code === 429) {
+        apiError = "Twelve Data API rate limit exceeded (8 req/min limit). Showing sandboxed emulated market data.";
+      } else if (msg.includes('quota') || msg.includes('credits') || msg.includes('limit exceeded')) {
+        apiError = "Twelve Data API daily quota limit reached (800 req/day limit). Showing sandboxed emulated market data.";
+      } else if (msg.includes('api key') || msg.includes('invalid') || msg.includes('unauthorized')) {
+        apiError = "Your Twelve Data API key is invalid or unauthorized. Showing sandboxed emulated market data.";
+      } else if (data.message) {
+        apiError = `Twelve Data API error: ${data.message}. Showing sandboxed emulated market data.`;
+      }
+      return {
+        isRealData: false,
+        candles: generateFallbackCandles(symbol, limit, timeframe),
+        apiError
+      }
     }
     return {
       isRealData: true,
@@ -374,9 +397,17 @@ export async function fetchCandlesWithFlag(
         volume: parseFloat(v.volume || '0'),
       }))
     }
-  } catch (err) {
+  } catch (err: any) {
     console.warn(`[TwelveData] Failed ${symbol} ${timeframe}:`, err);
-    return { isRealData: false, candles: generateFallbackCandles(symbol, limit, timeframe) }
+    let apiError = "Failed to connect to Twelve Data. Showing sandboxed emulated market data.";
+    if (err?.response?.status === 429) {
+      apiError = "Twelve Data API rate limit exceeded (429). Showing sandboxed emulated market data.";
+    }
+    return {
+      isRealData: false,
+      candles: generateFallbackCandles(symbol, limit, timeframe),
+      apiError
+    }
   }
 }
 

@@ -24,6 +24,22 @@ export default function MainLayout() {
   // GDPR Cookie Consent States
   const [showCookieBanner, setShowCookieBanner] = useState(false);
   const [cookieConsent, setCookieConsent] = useState<{ essentialOnly: boolean; optOutAnalytics: boolean } | null>(null);
+  
+  const [online, setOnline] = useState(typeof window !== 'undefined' ? window.navigator.onLine : true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const consent = localStorage.getItem('autoslp_cookie_consent_v1');
@@ -119,6 +135,13 @@ export default function MainLayout() {
         onOpenSpecs={() => { setInitialSpecsTab('spec'); setIsSpecsHubOpen(true); }}
         onOpenSearch={() => setIsSearchOpen(true)}
       />
+
+      {!online && (
+        <div id="offline-global-banner" className="bg-red-500/90 text-white text-xs font-mono py-2.5 px-4 flex items-center justify-center gap-2 z-50 relative shrink-0">
+          <Globe size={14} className="animate-pulse" />
+          <span>You are currently offline. AutoSLP will automatically resume live data synchronization once connection is restored.</span>
+        </div>
+      )}
 
       <Sidebar 
         openPersonasModal={() => { setInitialSpecsTab('personas'); setIsSpecsHubOpen(true); }}

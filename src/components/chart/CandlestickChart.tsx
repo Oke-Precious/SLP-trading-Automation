@@ -18,7 +18,7 @@ import { useMarketStore } from "../../store/useMarketStore";
 import { usePOIStore } from "../../store/usePOIStore";
 import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSMCAnalysis } from "../../lib/analysis/smcEngine";
-import { formatPrice } from "../../lib/market/marketDataService";
+import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown } from 'lucide-react';
 import ChartSettingsPanel from "./ChartSettingsPanel";
@@ -70,7 +70,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     };
   }, []);
 
-  const { candles, isLoading, isConnected, error, refetch } =
+  const { candles, isLoading, isConnected, isRealData, apiError, error, refetch } =
     useRealtimeCandles(selectedPair, selectedTimeframe);
 
   // Toggle Fullscreen logic
@@ -159,6 +159,20 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       requestAnimationFrame(() => {
         if (chartRef.current && chartApi.current) {
           chartApi.current.resize(width, elHeight > 0 ? elHeight : height);
+          
+          // Responsive styling for mobile vs desktop
+          const isMobile = width < 540;
+          chartApi.current.applyOptions({
+            layout: {
+              fontSize: isMobile ? 10 : 12,
+            },
+            rightPriceScale: {
+              alignLabels: true,
+            },
+            timeScale: {
+              minBarSpacing: isMobile ? 3 : 6,
+            }
+          });
         }
       });
     });
@@ -320,17 +334,28 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         if (!ob.isBroken && !settings.showOrderBlocks) return;
         
         const borderCol = ob.isBroken ? settings.breakerColor : (ob.type === "BULLISH" ? settings.bullOBColor : settings.bearOBColor);
-        const color = ob.isBroken ? settings.breakerColor + "20" : (ob.type === "BULLISH" ? settings.bullOBColor + "20" : settings.bearOBColor + "20"); // 20 is Low Opacity hex
+        const color = ob.isBroken ? settings.breakerColor + "12" : (ob.type === "BULLISH" ? settings.bullOBColor + "12" : settings.bearOBColor + "12"); // "12" is ~7% opacity for stacking nicely
 
-        const obSeries = chartApi.current!.addSeries(HistogramSeries, {
-          color,
-          priceFormat: { type: "price" },
-          priceScaleId: "right",
+        const obSeries = chartApi.current!.addSeries(CandlestickSeries, {
+          upColor: color,
+          downColor: color,
+          borderUpColor: 'transparent',
+          borderDownColor: 'transparent',
+          wickUpColor: 'transparent',
+          wickDownColor: 'transparent',
           priceLineVisible: false,
           lastValueVisible: false,
         });
         const obCandles = candles.filter((c) => c.time >= ob.startTime && c.time <= ob.endTime);
-        obSeries.setData(obCandles.map((c) => ({ time: c.time as Time, value: ob.top, color })));
+        if (obCandles.length > 0) {
+          obSeries.setData(obCandles.map((c) => ({
+            time: c.time as Time,
+            open: ob.bottom,
+            high: ob.top,
+            low: ob.bottom,
+            close: ob.top
+          })));
+        }
 
         const endLineTime = ob.endTime || candles[candles.length - 1].time;
 
@@ -367,6 +392,28 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         const color = fvg.type === "BULLISH" ? settings.fvgBullColor : settings.fvgBearColor;
         const endLineTime = fvg.endTime || candles[candles.length - 1].time;
 
+        const fvgShadeColor = fvg.type === "BULLISH" ? settings.fvgBullColor + "10" : settings.fvgBearColor + "10"; // Very transparent 6% opacity
+        const fvgSeries = chartApi.current!.addSeries(CandlestickSeries, {
+          upColor: fvgShadeColor,
+          downColor: fvgShadeColor,
+          borderUpColor: 'transparent',
+          borderDownColor: 'transparent',
+          wickUpColor: 'transparent',
+          wickDownColor: 'transparent',
+          priceLineVisible: false,
+          lastValueVisible: false,
+        });
+        const fvgCandles = candles.filter((c) => c.time >= fvg.time && c.time <= endLineTime);
+        if (fvgCandles.length > 0) {
+          fvgSeries.setData(fvgCandles.map((c) => ({
+            time: c.time as Time,
+            open: fvg.bottom,
+            high: fvg.top,
+            low: fvg.bottom,
+            close: fvg.top
+          })));
+        }
+
         const topLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
         topLine.setData([{ time: fvg.time as Time, value: fvg.top }, { time: endLineTime as Time, value: fvg.top }]);
         
@@ -375,7 +422,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         const botLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
         botLine.setData([{ time: fvg.time as Time, value: fvg.bottom }, { time: endLineTime as Time, value: fvg.bottom }]);
         
-        smcOverlayRefs.current.seriesList.push(topLine, botLine);
+        smcOverlayRefs.current.seriesList.push(fvgSeries, topLine, botLine);
       });
     }
 
@@ -561,7 +608,31 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                 )}
               </div>
             </div>
-            <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 animate-pulse hidden sm:inline">LIVE FEED</span>
+            {CRYPTO_PAIRS.some(p => p.symbol === selectedPair) ? (
+              isConnected ? (
+                <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-[#26A69A] rounded-full animate-pulse" />
+                  LIVE STREAM ACTIVE
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-500 font-bold tracking-wider ml-2 flex items-center gap-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  LIVE UNAVAILABLE, RETRYING...
+                </span>
+              )
+            ) : (
+              isRealData ? (
+                <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-[#26A69A] rounded-full animate-pulse" />
+                  TWELVE DATA SYNCHRONIZED
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-500 font-bold tracking-wider ml-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  SANDBOX MODE (EMULATED)
+                </span>
+              )
+            )}
           </div>
         </div>
 
@@ -574,6 +645,27 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           </button>
         </div>
       </div>
+
+      {/* Dynamic Warning Bar */}
+      {((!isConnected && CRYPTO_PAIRS.some(p => p.symbol === selectedPair) && !isLoading) || apiError) && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between shrink-0 text-xs text-amber-400 font-mono">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+            <span>
+              {apiError 
+                ? apiError 
+                : "Live stream unavailable (connection interrupted). Retrying connection and polling fallback feeds..."
+              }
+            </span>
+          </div>
+          <button 
+            onClick={() => refetch()} 
+            className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded border border-amber-500/30 transition-colors cursor-pointer text-[10px] uppercase font-bold"
+          >
+            Force Reconnect
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0 relative">
         {/* Toolbar */}

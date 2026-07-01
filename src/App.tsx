@@ -16,6 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, getDocWithTimeout } from './lib/firebase/firebase';
 import { doc } from 'firebase/firestore';
 import { alertEngine } from './lib/alerts/alertEngine';
+import { seedUserDataIfEmpty } from './lib/firebase/seeder';
 import toast from 'react-hot-toast';
 
 import Dashboard from './app/dashboard/page';
@@ -76,6 +77,9 @@ export default function App() {
           try {
             const token = await fbUser.getIdToken();
             setAuth(userData, token);
+
+            // Seed user data if their Firestore database is completely empty
+            await seedUserDataIfEmpty(fbUser.uid, fbUser.email);
 
             const unsubPOI = usePOIStore.getState().syncWithFirebase(fbUser.uid);
             const unsubJournal = useJournalStore.getState().syncWithFirebase(fbUser.uid);

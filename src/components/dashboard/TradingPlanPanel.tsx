@@ -28,6 +28,44 @@ export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult }
   const [riskPercent, setRiskPercent] = useState<number>(1);
   const [stopLossDistance, setStopLossDistance] = useState<number>(500); // e.g. difference in price or pips
 
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [riskError, setRiskError] = useState<string | null>(null);
+  const [slError, setSlError] = useState<string | null>(null);
+
+  const handleAccountChange = (valStr: string) => {
+    const val = Number(valStr);
+    if (valStr === '' || isNaN(val) || val <= 0) {
+      setAccountError("Must be greater than 0");
+    } else {
+      setAccountError(null);
+    }
+    setAccountBalance(val);
+  };
+
+  const handleRiskChange = (valStr: string) => {
+    const val = Number(valStr);
+    if (valStr === '' || isNaN(val) || val < 0) {
+      setRiskError("Cannot be negative");
+    } else if (val > 100) {
+      setRiskError("Max 100%");
+    } else {
+      setRiskError(null);
+    }
+    setRiskPercent(val);
+  };
+
+  const handleSlChange = (valStr: string) => {
+    const val = Number(valStr);
+    if (valStr === '' || isNaN(val) || val < 0) {
+      setSlError("Cannot be negative");
+    } else {
+      setSlError(null);
+    }
+    setStopLossDistance(val);
+  };
+
+  const hasCalculatorError = !!(accountError || riskError || slError || accountBalance <= 0 || riskPercent < 0 || stopLossDistance < 0);
+
   const { pois } = usePOIStore();
   const hasActivePois = pois.some(p => p.status === 'Active');
 
@@ -134,48 +172,65 @@ export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult }
         </button>
         
         {showCalculator && (
-          <div className="mt-3 space-y-3 bg-[#131722] p-3 rounded-lg border border-gray-800">
+          <div className="mt-3 space-y-3 bg-[#131722] p-3 rounded-lg border border-gray-800 text-[10px]">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Account ($)</label>
                 <input 
                   type="number" 
-                  value={accountBalance}
-                  onChange={(e) => setAccountBalance(Number(e.target.value))}
-                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                  value={accountBalance || ''}
+                  onChange={(e) => handleAccountChange(e.target.value)}
+                  className={`w-full bg-[#1A1E29] border ${accountError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
                 />
+                {accountError && (
+                  <p className="text-red-400 text-[9px] mt-1 font-mono">{accountError}</p>
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Risk (%)</label>
                 <input 
                   type="number"
                   step="0.1" 
-                  value={riskPercent}
-                  onChange={(e) => setRiskPercent(Number(e.target.value))}
-                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                  value={riskPercent || ''}
+                  onChange={(e) => handleRiskChange(e.target.value)}
+                  className={`w-full bg-[#1A1E29] border ${riskError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
                 />
+                {riskError && (
+                  <p className="text-red-400 text-[9px] mt-1 font-mono">{riskError}</p>
+                )}
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">SL Distance (Price diff/Pips)</label>
                 <input 
                   type="number" 
-                  value={stopLossDistance}
-                  onChange={(e) => setStopLossDistance(Number(e.target.value))}
-                  className="w-full bg-[#1A1E29] border border-gray-700 rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500"
+                  value={stopLossDistance || ''}
+                  onChange={(e) => handleSlChange(e.target.value)}
+                  className={`w-full bg-[#1A1E29] border ${slError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
                 />
+                {slError && (
+                  <p className="text-red-400 text-[9px] mt-1 font-mono">{slError}</p>
+                )}
               </div>
             </div>
             
             <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between items-center">
               <span className="text-[10px] text-gray-400 uppercase tracking-wider">Position Size (Units)</span>
               <span className="text-sm font-bold text-blue-400">
-                {stopLossDistance > 0 ? ((accountBalance * (riskPercent / 100)) / stopLossDistance).toFixed(4) : "0.0000"}
+                {hasCalculatorError ? (
+                  <span className="text-red-400 text-xs font-mono">Invalid Input</span>
+                ) : (
+                  stopLossDistance > 0 ? ((accountBalance * (riskPercent / 100)) / stopLossDistance).toFixed(4) : "0.0000"
+                )}
               </span>
             </div>
             <div className="flex justify-between items-center mt-1">
               <span className="text-[10px] text-gray-400 uppercase tracking-wider">Risk Amount</span>
               <span className="text-xs font-medium text-red-400">
-                ${(accountBalance * (riskPercent / 100)).toFixed(2)}
+                {hasCalculatorError ? (
+                  <span className="text-red-400 text-xs font-mono">Invalid Input</span>
+                ) : (
+                  `$${(accountBalance * (riskPercent / 100)).toFixed(2)}`
+                )}
               </span>
             </div>
           </div>

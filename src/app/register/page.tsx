@@ -440,6 +440,11 @@ export default function RegisterPage() {
             {errorMessage && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-xs mb-4 whitespace-pre-line">
                 {errorMessage}
+                {authError?.code === 'auth/email-already-in-use' && (
+                  <div className="mt-2 text-[#CAAA98] font-semibold">
+                    Already have an account? <Link to="/login" className="underline hover:text-white transition-colors">Click here to sign in</Link> instead.
+                  </div>
+                )}
               </div>
             )}
 

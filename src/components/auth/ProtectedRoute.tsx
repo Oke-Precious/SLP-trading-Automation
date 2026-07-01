@@ -1,10 +1,17 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, isInitializing } = useAuthStore();
+  const wasLoggedInRef = useRef(isLoggedIn);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      wasLoggedInRef.current = true;
+    }
+  }, [isLoggedIn]);
 
   if (isInitializing) {
     return (
@@ -18,6 +25,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   if (!isLoggedIn) {
+    if (wasLoggedInRef.current) {
+      return <Navigate to="/login?expired=true" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 
