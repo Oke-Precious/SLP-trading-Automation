@@ -231,8 +231,8 @@ Copy \`.env.example\` to \`.env\` in the project root to set up local environmen
 
 \`\`\`env
 # .env
-VITE_BINANCE_WS=wss://stream.binance.com:9443/ws
-VITE_BINANCE_REST=https://api.binance.com/api/v3
+VITE_BINANCE_WS=wss://data-stream.binance.vision:9443/ws
+VITE_BINANCE_REST=https://data-api.binance.vision/api/v3
 VITE_TWELVE_DATA_REST=https://api.twelvedata.com
 VITE_TWELVE_DATA_KEY=your_free_twelve_data_api_key_here
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
@@ -494,7 +494,7 @@ Allows developers to query, add, or mitigate institutional zones programmaticall
   * **Response:** \`{ "success": true, "alert": { "id": "string", "fired": true } }\`
 
 #### 7.1.4 External Data Streams
-* **Binance WebSocket API:** \`wss://stream.binance.com:9443/ws\`
+* **Binance WebSocket API:** \`wss://data-stream.binance.vision:9443/ws\`
   * Subscribed Stream: \`<symbol>@kline_<timeframe>\` (e.g. \`btcusdt@kline_1m\`)
 * **Twelve Data REST API:** \`https://api.twelvedata.com/time_series\`
   * Query parameters: \`symbol\`, \`interval\`, \`apikey\`, \`outputsize\``

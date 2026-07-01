@@ -93,7 +93,7 @@ export interface Ticker {
 
 const BINANCE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BINANCE_REST) ||
   (import.meta as any).env?.VITE_BINANCE_REST ||
-  'https://api.binance.com/api/v3';
+  'https://data-api.binance.vision/api/v3';
 
 export async function fetchCryptoCandles(
   symbol: string,

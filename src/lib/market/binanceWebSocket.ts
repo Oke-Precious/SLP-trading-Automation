@@ -6,7 +6,7 @@ type ConnectionCallback = (connected: boolean) => void
 
 const WS_BASE = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BINANCE_WS) ||
   (import.meta as any).env?.VITE_BINANCE_WS ||
-  'wss://stream.binance.com:9443/ws';
+  'wss://data-stream.binance.vision/ws';
 
 class BinanceWebSocketManager {
   private sockets: Map<string, WebSocket> = new Map()
