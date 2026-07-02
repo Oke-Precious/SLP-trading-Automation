@@ -523,10 +523,13 @@ export class TwelveDataService {
 }
 
 function toForexFormat(pair: string): string {
-  if (pair.includes('/')) return pair;
-  if (pair.length === 6) {
-    return `${pair.slice(0, 3)}/${pair.slice(3)}`;
-  }
+  const clean = pair.replace('/', '').toUpperCase();
+  if (clean === 'US30') return 'DJI';
+  if (clean === 'SPX500') return 'SPX';
+  if (clean === 'NAS100') return 'NDX';
+  if (clean === 'XAUUSD') return 'XAU/USD';
+  if (clean === 'XAGUSD') return 'XAG/USD';
+  if (clean.length === 6) return `${clean.slice(0, 3)}/${clean.slice(3)}`;
   return pair;
 }
 

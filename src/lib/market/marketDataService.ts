@@ -302,112 +302,15 @@ export async function fetchCandlesWithFlag(
         }))
       }
     }
-  } catch (backendErr) {
-    console.warn(`[Backend Cache Bypass] Failed to load candles from proxy backend for ${symbol}:`, backendErr)
+  } catch (backendErr: any) {
+    console.warn(`[API Proxy] Failed to load candles for ${symbol}:`, backendErr)
   }
 
-  const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
-  const cleanSym = symbol.replace('/', '').toUpperCase()
-
-  const FOREX_BINANCE_MAP: Record<string, string> = {
-    'EURUSD': 'EURUSDT',
-    'GBPUSD': 'GBPUSDT',
-    'AUDUSD': 'AUDUSDT',
-    'USDCAD': 'USDCAD',
-    'XAUUSD': 'PAXGUSDT'
-  }
-
-  const mappedBinanceSym = FOREX_BINANCE_MAP[cleanSym] || (isCrypto ? symbol.toUpperCase() : null)
-  
-  if (mappedBinanceSym) {
-     const tfBinance = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.binance || '1d'
-     try {
-       const url = `${BINANCE}/klines?symbol=${mappedBinanceSym}&interval=${tfBinance}&limit=${limit}`
-       const { data } = await axios.get(url)
-       return {
-         isRealData: true,
-         candles: data.map((d: any) => ({
-           time:   Math.floor(d[0] / 1000),
-           open:   parseFloat(d[1]),
-           high:   parseFloat(d[2]),
-           low:    parseFloat(d[3]),
-           close:  parseFloat(d[4]),
-           volume: parseFloat(d[5]),
-         }))
-       }
-     } catch (err) {
-       console.warn(`[Binance Fallback] Failed for ${cleanSym} using ${mappedBinanceSym}:`, err)
-       if (isCrypto) {
-         return {
-           isRealData: false,
-           candles: generateFallbackCandles(symbol, limit, timeframe),
-           apiError: "Failed to connect to Binance live feed. Showing sandboxed emulated market data."
-         }
-       }
-     }
-  }
-  
-  const key = getTwelveDataKey()
-  if (!key || key === 'YOUR_TWELVE_DATA_KEY_HERE') {
-    return {
-      isRealData: false,
-      candles: generateFallbackCandles(symbol, limit, timeframe),
-      apiError: "Missing Twelve Data API key in Settings. Showing sandboxed emulated market data."
-    }
-  }
-
-  const mappedSymbol = mapSymbolForTwelveData(symbol)
-  const tf = TIMEFRAME_MAP[timeframe as keyof typeof TIMEFRAME_MAP]?.twelvedata || '1day'
-  const url = `${TWELVE}/time_series?symbol=${mappedSymbol}&interval=${tf}&outputsize=${limit}&apikey=${key}`
-  
-  try {
-    const { data } = await axios.get(url, {
-      headers: {
-        'apikey': key,
-        'Authorization': `apikey ${key}`
-      }
-    })
-    if (data.status === 'error' || !data.values) {
-      console.warn('[TwelveData] Error:', data.message);
-      const msg = data.message?.toLowerCase() || '';
-      let apiError = "Twelve Data API error. Showing sandboxed emulated market data.";
-      if (msg.includes('rate limit') || data.code === 429) {
-        apiError = "Twelve Data API rate limit exceeded (8 req/min limit). Showing sandboxed emulated market data.";
-      } else if (msg.includes('quota') || msg.includes('credits') || msg.includes('limit exceeded')) {
-        apiError = "Twelve Data API daily quota limit reached (800 req/day limit). Showing sandboxed emulated market data.";
-      } else if (msg.includes('api key') || msg.includes('invalid') || msg.includes('unauthorized')) {
-        apiError = "Your Twelve Data API key is invalid or unauthorized. Showing sandboxed emulated market data.";
-      } else if (data.message) {
-        apiError = `Twelve Data API error: ${data.message}. Showing sandboxed emulated market data.`;
-      }
-      return {
-        isRealData: false,
-        candles: generateFallbackCandles(symbol, limit, timeframe),
-        apiError
-      }
-    }
-    return {
-      isRealData: true,
-      candles: data.values.reverse().map((v: any) => ({
-        time:   Math.floor(new Date(v.datetime).getTime() / 1000),
-        open:   parseFloat(v.open),
-        high:   parseFloat(v.high),
-        low:    parseFloat(v.low),
-        close:  parseFloat(v.close),
-        volume: parseFloat(v.volume || '0'),
-      }))
-    }
-  } catch (err: any) {
-    console.warn(`[TwelveData] Failed ${symbol} ${timeframe}:`, err);
-    let apiError = "Failed to connect to Twelve Data. Showing sandboxed emulated market data.";
-    if (err?.response?.status === 429) {
-      apiError = "Twelve Data API rate limit exceeded (429). Showing sandboxed emulated market data.";
-    }
-    return {
-      isRealData: false,
-      candles: generateFallbackCandles(symbol, limit, timeframe),
-      apiError
-    }
+  // Fallback to generated emulated data instead of calling external APIs directly
+  return {
+    isRealData: false,
+    candles: generateFallbackCandles(symbol, limit, timeframe),
+    apiError: "Failed to connect to backend proxy. Showing sandboxed emulated market data."
   }
 }
 
@@ -440,40 +343,8 @@ export async function fetchTicker(symbol: string): Promise<Ticker | null> {
     console.warn(`[Backend Cache Bypass] Failed to fetch ticker for ${symbol}:`, backendErr)
   }
 
-  const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
-  const cleanSym = symbol.replace('/', '').toUpperCase()
-
-  const FOREX_BINANCE_MAP: Record<string, string> = {
-    'EURUSD': 'EURUSDT',
-    'GBPUSD': 'GBPUSDT',
-    'AUDUSD': 'AUDUSDT',
-    'USDCAD': 'USDCAD',
-    'XAUUSD': 'PAXGUSDT'
-  }
-
-  const mappedBinanceSym = FOREX_BINANCE_MAP[cleanSym]
-
-  if (mappedBinanceSym) {
-    try {
-      const url = `${BINANCE}/ticker/24hr?symbol=${mappedBinanceSym}`
-      const { data: t } = await axios.get(url)
-      return {
-        symbol,
-        price: Number(t.lastPrice),
-        change24h: Number(t.priceChange),
-        changePct24h: Number(t.priceChangePercent),
-        high24h: Number(t.highPrice),
-        low24h: Number(t.lowPrice),
-        volume24h: Number(t.volume),
-        category: 'forex'
-      }
-    } catch (err) {
-      console.warn(`[Binance Fallback] Failed ticker for ${cleanSym} using ${mappedBinanceSym}:`, err)
-    }
-  }
-
-  if (isCrypto) return fetchCryptoTicker(symbol)
-  return fetchForexTicker(symbol)
+  const category = CRYPTO_PAIRS.some(p => p.symbol === symbol) ? 'crypto' : 'forex'
+  return generateFallbackTicker(symbol, category)
 }
 
 // ════════════════════════════════════════════════════════

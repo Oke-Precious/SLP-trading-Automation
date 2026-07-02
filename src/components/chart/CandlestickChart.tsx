@@ -746,6 +746,14 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           )}
 
           {isRealData && (
+            <div className="absolute bottom-2 right-2 z-10 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity">
+              <a href="https://tradingview.com/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[10px] text-gray-400 font-sans hover:text-[#CAAA98]">
+                <span>Powered by TradingView</span>
+              </a>
+            </div>
+          )}
+
+          {isRealData && (
             <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
               <span className={`w-1.5 h-1.5 rounded-full ${candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
               <span>

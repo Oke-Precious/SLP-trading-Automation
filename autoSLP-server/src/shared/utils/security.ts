@@ -36,10 +36,7 @@ try {
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 
 // Derive safe 256-bit encryption key
-const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET;
-if (!ENCRYPTION_SECRET) {
-  throw new Error('FATAL: ENCRYPTION_SECRET environment variable is missing.');
-}
+const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'fallback-secret-for-development-do-not-use-in-prod';
 const ENCRYPTION_KEY = crypto.scryptSync(ENCRYPTION_SECRET, 'salt-gcm-autoslp-2026', 32);
 
 export function encrypt(text: string): string {

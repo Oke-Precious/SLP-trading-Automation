@@ -2,11 +2,13 @@ import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
 
 // Get base URL dynamically and robustly across Vite / Node environments
-const NEXT_PUBLIC_API_BASE_URL = 
+const envApiUrl = 
   (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_BASE_URL) ||
   (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL ||
-  (import.meta as any).env?.VITE_API_BASE_URL ||
-  '/api/v1';
+  (import.meta as any).env?.VITE_API_BASE_URL || '';
+
+// Force relative path if the environment variable points to a localhost URL (which breaks in cloud preview)
+const NEXT_PUBLIC_API_BASE_URL = (envApiUrl && !envApiUrl.includes('localhost')) ? envApiUrl : '/api/v1';
 
 export const apiClient = axios.create({
   baseURL: NEXT_PUBLIC_API_BASE_URL,

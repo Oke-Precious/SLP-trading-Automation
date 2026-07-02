@@ -3,7 +3,8 @@
  * @description Standard config and environment fallbacks.
  */
 
-export const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/v1` : 'http://localhost:4000/api/v1');
+const envConstApiUrl = (import.meta as any).env.VITE_API_BASE_URL || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : '');
+export const API_BASE_URL = (envConstApiUrl && !envConstApiUrl.includes('localhost')) ? envConstApiUrl : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/api/v1` : '/api/v1');
 export const WS_URL = (import.meta as any).env.VITE_WS_URL || (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : 'ws://localhost:4000');
 export const BINANCE_WS_URL = (import.meta as any).env.VITE_BINANCE_WS || 'wss://data-stream.binance.vision/ws';
 export const APP_NAME = 'AutoSLP';

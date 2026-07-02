@@ -30,52 +30,18 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // 2. Set up Proxy for local Fastify server
-  // This directs any requests to /auth, /pois, etc., and /socket.io from port 3000 to local port 3002
-  const backendProxy = createProxyMiddleware({
+  // Set up Proxy for local Fastify server
+  const fastifyProxy = createProxyMiddleware({
+    pathFilter: ['/api/v1', '/auth', '/pois', '/market', '/features', '/feedback', '/ai', '/signals', '/alerts', '/user', '/socket.io'],
     target: 'http://127.0.0.1:3002',
     changeOrigin: true,
     ws: true,
-    logLevel: 'debug',
-    onError: (err, req, res) => {
-      console.error('[Unified Proxy Error]', err);
-    },
-    pathRewrite: (pathStr) => {
-      // Robust rewrite rules to map /api/v1 prefix gracefully to standard Fastify endpoints
-      if (pathStr.startsWith('/api/v1/')) {
-        const subPath = pathStr.replace('/api/v1/', '/');
-        if (
-          subPath.startsWith('/auth') ||
-          subPath.startsWith('/pois') ||
-          subPath.startsWith('/market') ||
-          subPath.startsWith('/features') ||
-          subPath.startsWith('/feedback') ||
-          subPath.startsWith('/ai') ||
-          subPath.startsWith('/signals') ||
-          subPath.startsWith('/alerts') ||
-          subPath.startsWith('/user')
-        ) {
-          return subPath;
-        }
-      }
-      return pathStr;
+    pathRewrite: {
+      '^/api/v1': ''
     }
   });
 
-  // Wire the proxy for Fastify routes
-  app.use([
-    '/auth',
-    '/pois',
-    '/market',
-    '/features',
-    '/feedback',
-    '/ai',
-    '/signals',
-    '/alerts',
-    '/user',
-    '/api/v1',
-    '/socket.io'
-  ], backendProxy);
+  app.use(fastifyProxy);
 
   // 3. Mount Vite middleware or Static files depending on NODE_ENV environment
   if (process.env.NODE_ENV !== 'production') {

@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import { Redis } from 'ioredis';
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../../shared/utils/logger.js';
+import ccxt from 'ccxt';
 
 const CRYPTO_PAIRS = [
   'btcusdt', 'ethusdt', 'solusdt', 'bnbusdt', 'xrpusdt',
@@ -43,9 +44,18 @@ export class BinanceService {
   private prisma: PrismaClient;
   private redis: Redis;
 
+  private exchanges: ccxt.Exchange[];
+
   constructor(prisma: PrismaClient, redis: Redis) {
     this.prisma = prisma;
     this.redis = redis;
+
+    // Setup fallback exchanges via ccxt
+    this.exchanges = [
+      new ccxt.binance({ enableRateLimit: true }),
+      new ccxt.bybit({ enableRateLimit: true }),
+      new ccxt.okx({ enableRateLimit: true }),
+    ];
   }
 
   buildStreamUrl(): string {
@@ -161,50 +171,67 @@ export class BinanceService {
   }
 
   async fetchHistoricalCandles(pair: string, timeframe: string, limit = 500) {
-    try {
-      // Fetch historical candles via Binance REST (no key needed for public data)
-      const interval = Object.entries(TF_MAP).find(([k, v]) => v === timeframe)?.[0] || '1d';
-      const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`;
+    // Format pair for ccxt: BTCUSDT -> BTC/USDT
+    const formattedPair = pair.length > 5 ? `${pair.slice(0, pair.length - 4)}/USDT` : pair;
+    
+    // Convert our timeframe code back to standard for CCXT if necessary
+    let interval = Object.entries(TF_MAP).find(([k, v]) => v === timeframe)?.[0] || '1d';
+    if (interval === '1w') interval = '1w'; // etc
+    
+    for (const exchange of this.exchanges) {
+      try {
+        if (!exchange.has['fetchOHLCV']) continue;
+        
+        const ohlcv = await exchange.fetchOHLCV(formattedPair, interval, undefined, limit);
+        if (!ohlcv || ohlcv.length === 0) continue;
 
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Binance REST error: ${response.status}`);
-
-      const data: any[] = await response.json();
-      return data.map(k => ({
-        pair,
-        timeframe,
-        open:      parseFloat(k[1]),
-        high:      parseFloat(k[2]),
-        low:       parseFloat(k[3]),
-        close:     parseFloat(k[4]),
-        volume:    parseFloat(k[5]),
-        timestamp: new Date(k[0]),
-      }));
-    } catch (err: any) {
-      return this.generateSimulatedCandles(pair, timeframe, limit);
+        return ohlcv.map((k: any) => ({
+          pair,
+          timeframe,
+          open:      parseFloat(k[1]),
+          high:      parseFloat(k[2]),
+          low:       parseFloat(k[3]),
+          close:     parseFloat(k[4]),
+          volume:    parseFloat(k[5]),
+          timestamp: new Date(k[0]),
+        }));
+      } catch (err: any) {
+        logger.warn(`[CCXT] Failed to fetch candles for ${formattedPair} from ${exchange.id}: ${err.message}`);
+        // try next exchange
+      }
     }
+
+    logger.error(`[CCXT] All exchanges failed for ${pair}, falling back to simulation.`);
+    return this.generateSimulatedCandles(pair, timeframe, limit);
   }
 
   async fetchTicker(pair: string) {
-    try {
-      const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Ticker fetch failed for ${pair}`);
-      const data = await res.json();
-      return {
-        pair:       data.symbol,
-        price:      parseFloat(data.lastPrice),
-        change:     parseFloat(data.priceChange),
-        changePct:  parseFloat(data.priceChangePercent),
-        high24h:    parseFloat(data.highPrice),
-        low24h:     parseFloat(data.lowPrice),
-        volume24h:  parseFloat(data.volume),
-        quoteVol:   parseFloat(data.quoteVolume),
-      };
-    } catch (err: any) {
-      const basePrice = DEFAULT_PRICES[pair.toUpperCase()] || 100.0;
-      return this.generateSimulatedTicker(pair, basePrice);
+    const formattedPair = pair.length > 5 ? `${pair.slice(0, pair.length - 4)}/USDT` : pair;
+
+    for (const exchange of this.exchanges) {
+      try {
+        if (!exchange.has['fetchTicker']) continue;
+        const ticker = await exchange.fetchTicker(formattedPair);
+        if (!ticker) continue;
+
+        return {
+          pair,
+          price:      ticker.last || 0,
+          change:     ticker.change || 0,
+          changePct:  ticker.percentage || 0,
+          high24h:    ticker.high || 0,
+          low24h:     ticker.low || 0,
+          volume24h:  ticker.baseVolume || 0,
+          quoteVol:   ticker.quoteVolume || 0,
+        };
+      } catch (err: any) {
+        logger.warn(`[CCXT] Failed to fetch ticker for ${formattedPair} from ${exchange.id}: ${err.message}`);
+      }
     }
+
+    logger.error(`[CCXT] All exchanges failed for ticker ${pair}, falling back to simulation.`);
+    const basePrice = DEFAULT_PRICES[pair.toUpperCase()] || 100.0;
+    return this.generateSimulatedTicker(pair, basePrice);
   }
 
   private generateSimulatedCandles(pair: string, timeframe: string, limit: number) {

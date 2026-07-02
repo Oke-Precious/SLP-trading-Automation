@@ -37,10 +37,13 @@ function isCrypto(symbol: string): boolean {
 }
 
 function toForexSymbol(symbol: string): string {
-  // EURUSD → EUR/USD
-  if (symbol.length === 6) return `${symbol.slice(0, 3)}/${symbol.slice(3)}`;
-  if (symbol === 'XAUUSD') return 'XAU/USD';
-  if (symbol === 'XAGUSD') return 'XAG/USD';
+  const clean = symbol.replace('/', '').toUpperCase();
+  if (clean === 'US30') return 'DJI';
+  if (clean === 'SPX500') return 'SPX';
+  if (clean === 'NAS100') return 'NDX';
+  if (clean === 'XAUUSD') return 'XAU/USD';
+  if (clean === 'XAGUSD') return 'XAG/USD';
+  if (clean.length === 6) return `${clean.slice(0, 3)}/${clean.slice(3)}`;
   return symbol;
 }
 
