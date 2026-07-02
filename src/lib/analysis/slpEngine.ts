@@ -15,13 +15,22 @@ export interface BOSEvent {
   price: number; // the price level of the broken swing
   direction: "BULLISH" | "BEARISH";
   type: "BOS" | "MSS";
+  impulseStartPrice: number; // start of the impulsive move
+  impulseStartTime: number;
 }
 
 export interface Inducement {
   price: number;
   type: "BULLISH" | "BEARISH";
   time: number;
-  // A valid inducement MUST retrace at least 50% of the last move
+  retracementPercentage: number;
+}
+
+export interface POIChecklist {
+  triggeredStructure: boolean;
+  protectedByInducement: boolean;
+  isUnmitigated: boolean;
+  isClosestToInducement: boolean;
 }
 
 export interface OrderBlock {
@@ -33,7 +42,7 @@ export interface OrderBlock {
   endTime: number;
   status: "ACTIVE" | "MITIGATED" | "BREAKER";
   isBroken: boolean;
-  // Satisfies the 4 rules: Triggered MSS/BOS, protected by inducement (>=50% pullback), unmitigated, closest to inducement
+  checklist: POIChecklist;
 }
 
 export interface LiquidityLevel {
@@ -108,7 +117,8 @@ export function detectSwings(
 export function detectBOS(candles: Candle[], swingHighs: SwingPoint[], swingLows: SwingPoint[]): BOSEvent[] {
   const events: BOSEvent[] = []
   let prevTrend: 'BULLISH' | 'BEARISH' | null = null
-  let mssStreak = 0
+  let lastBrokenHighTime = -1;
+  let lastBrokenLowTime = -1;
 
   for (let i = 5; i < candles.length; i++) {
     const c = candles[i]
@@ -116,29 +126,55 @@ export function detectBOS(candles: Candle[], swingHighs: SwingPoint[], swingLows
     const lastLow  = swingLows.filter(l => l.index < i).slice(-1)[0]
     if (!lastHigh || !lastLow) continue
 
-    if (c.close > lastHigh.price) {
+    if (c.close > lastHigh.price && lastHigh.time !== lastBrokenHighTime) {
       const isMSS = prevTrend === 'BEARISH'
+      
+      // The impulse start is the lowest point between the swing high and this break
+      let impulseStartPrice = lastHigh.price;
+      let impulseStartTime = lastHigh.time;
+      for (let j = lastHigh.index; j < i; j++) {
+        if (candles[j].low < impulseStartPrice) {
+          impulseStartPrice = candles[j].low;
+          impulseStartTime = candles[j].time;
+        }
+      }
+
       events.push({
         swingTime: lastHigh.time, breakTime: c.time, price: lastHigh.price,
         direction: 'BULLISH', type: isMSS ? 'MSS' : 'BOS',
+        impulseStartPrice, impulseStartTime
       })
-      mssStreak = isMSS ? mssStreak + 1 : 0
+      lastBrokenHighTime = lastHigh.time
       prevTrend = 'BULLISH'
     }
-    if (c.close < lastLow.price) {
+    
+    if (c.close < lastLow.price && lastLow.time !== lastBrokenLowTime) {
       const isMSS = prevTrend === 'BULLISH'
+      
+      // The impulse start is the highest point between the swing low and this break
+      let impulseStartPrice = lastLow.price;
+      let impulseStartTime = lastLow.time;
+      for (let j = lastLow.index; j < i; j++) {
+        if (candles[j].high > impulseStartPrice) {
+          impulseStartPrice = candles[j].high;
+          impulseStartTime = candles[j].time;
+        }
+      }
+
       events.push({
         swingTime: lastLow.time, breakTime: c.time, price: lastLow.price,
         direction: 'BEARISH', type: isMSS ? 'MSS' : 'BOS',
+        impulseStartPrice, impulseStartTime
       })
-      mssStreak = isMSS ? mssStreak + 1 : 0
+      lastBrokenLowTime = lastLow.time
       prevTrend = 'BEARISH'
     }
   }
 
+  // Deduplicate just in case, and keep only the latest 4 to avoid chart clutter
   const seen = new Set<string>()
   return events.filter(e => {
-    const key = e.price.toFixed(6)
+    const key = e.price.toFixed(6) + e.direction
     if (seen.has(key)) return false
     seen.add(key); return true
   }).slice(-4)
@@ -153,18 +189,13 @@ export function detectInducements(candles: Candle[], bosEvents: BOSEvent[], swin
     const breakCandle = candles.find((c) => c.time === bos.breakTime);
     if (!breakCandle) return;
     const breakIndex = candles.indexOf(breakCandle);
-    const startSwing = bos.direction === "BULLISH" 
-      ? swingLows.filter(l => l.index < breakIndex).slice(-1)[0]
-      : swingHighs.filter(h => h.index < breakIndex).slice(-1)[0];
-      
-    if (!startSwing) return;
 
-    // The move is from startSwing to the peak after BOS
+    // The move is from impulseStartPrice to the peak after BOS
     let peakPrice = bos.price;
     let peakIndex = breakIndex;
     
     // Find the extreme of the push
-    for (let i = breakIndex; i < Math.min(candles.length, breakIndex + 20); i++) {
+    for (let i = breakIndex; i < Math.min(candles.length, breakIndex + 40); i++) {
       if (bos.direction === "BULLISH" && candles[i].high > peakPrice) {
         peakPrice = candles[i].high;
         peakIndex = i;
@@ -175,29 +206,47 @@ export function detectInducements(candles: Candle[], bosEvents: BOSEvent[], swin
       }
     }
 
-    const moveSize = Math.abs(peakPrice - startSwing.price);
+    const moveSize = Math.abs(peakPrice - bos.impulseStartPrice);
+    if (moveSize === 0) return;
+
     const threshold50 = bos.direction === "BULLISH" 
       ? peakPrice - (moveSize * 0.5) 
       : peakPrice + (moveSize * 0.5);
 
     // Look for a pullback that reaches 50%
+    let maxRetracement = 0;
+    let inducementFound = false;
+    let inducementTime = 0;
+
     for (let i = peakIndex + 1; i < candles.length; i++) {
-      if (bos.direction === "BULLISH" && candles[i].low <= threshold50) {
-        inducements.push({
-          price: threshold50,
-          type: "BULLISH",
-          time: candles[i].time
-        });
-        break; // found the inducement pullback
+      if (bos.direction === "BULLISH") {
+        const retracement = ((peakPrice - candles[i].low) / moveSize) * 100;
+        if (retracement > maxRetracement) maxRetracement = retracement;
+        if (candles[i].low <= threshold50 && !inducementFound) {
+          inducementFound = true;
+          inducementTime = candles[i].time;
+          // We can break, or keep going to find maxRetracement. Let's break once it hits 50%.
+          break;
+        }
       }
-      if (bos.direction === "BEARISH" && candles[i].high >= threshold50) {
-        inducements.push({
-          price: threshold50,
-          type: "BEARISH",
-          time: candles[i].time
-        });
-        break;
+      if (bos.direction === "BEARISH") {
+        const retracement = ((candles[i].high - peakPrice) / moveSize) * 100;
+        if (retracement > maxRetracement) maxRetracement = retracement;
+        if (candles[i].high >= threshold50 && !inducementFound) {
+          inducementFound = true;
+          inducementTime = candles[i].time;
+          break;
+        }
       }
+    }
+
+    if (inducementFound) {
+      inducements.push({
+        price: threshold50,
+        type: bos.direction,
+        time: inducementTime,
+        retracementPercentage: Math.min(maxRetracement, 100) // clamp at 100% just in case
+      });
     }
   });
 
@@ -220,98 +269,144 @@ export function detectOrderBlocks(
     const breakIndex = candles.indexOf(breakCandle);
     if (breakIndex < 1) return;
 
-    // Find the inducement for this leg (nearest one conceptually)
+    // Rule 1: Triggered MSS/BOS
+    const triggeredStructure = true; // inherently true since we derive from bosEvents
+
+    // Rule 2: Protected by inducement
     const validInducement = inducements.find(ind => ind.time >= bos.swingTime && ind.type === bos.direction);
-    // Rule 2: Must have liquidity/inducement protecting it. If not, this is not a valid SLP Order Block.
-    if (!validInducement) return;
+    const protectedByInducement = !!validInducement;
+
+    // Find all candidate candles in the impulse leg
+    const impulseStartIndex = candles.findIndex(c => c.time === bos.impulseStartTime);
+    if (impulseStartIndex === -1 || impulseStartIndex >= breakIndex) return;
+
+    const candidates: { candle: Candle; checklist: POIChecklist; top: number; bottom: number }[] = [];
 
     if (bos.direction === "BULLISH") {
-      let obCandle: Candle | null = null;
-      // Rule 4: POI closest to the liquidity/inducement.
-      // We look backwards from the inducement price entry point to find the unmitigated down candle
-      for (let i = breakIndex - 1; i >= Math.max(0, breakIndex - 20); i--) {
-        if (candles[i].close < candles[i].open && candles[i].high <= validInducement.price) {
-          obCandle = candles[i];
-          break; // nearest one
+      // Candidates are down candles below the inducement price
+      for (let i = breakIndex - 1; i >= impulseStartIndex; i--) {
+        if (candles[i].close < candles[i].open) {
+          const isBelowInducement = validInducement ? candles[i].high <= validInducement.price : false;
+          
+          let mitigationTime: number | null = null;
+          let breakerTime: number | null = null;
+          const top = candles[i].high;
+          const bottom = Math.min(candles[i].open, candles[i].close);
+          
+          for (let j = breakIndex; j < candles.length; j++) {
+            if (candles[j].low <= top && mitigationTime === null) {
+              mitigationTime = candles[j].time;
+            }
+            if (candles[j].close < bottom) {
+              breakerTime = candles[j].time;
+              break;
+            }
+          }
+          
+          const isUnmitigated = mitigationTime === null;
+
+          candidates.push({
+            candle: candles[i],
+            top, bottom,
+            checklist: {
+              triggeredStructure,
+              protectedByInducement: isBelowInducement, // Candidate must be below inducement to be protected
+              isUnmitigated,
+              isClosestToInducement: false // We will evaluate this next
+            }
+          });
         }
       }
-      if (!obCandle) return;
-
-      const top = obCandle.high;
-      const bottom = Math.min(obCandle.open, obCandle.close);
-
-      let mitigationTime: number | null = null;
-      let breakerTime: number | null = null;
-      let status: OrderBlock["status"] = "ACTIVE";
-
-      for (let j = breakIndex; j < candles.length; j++) {
-        const c = candles[j];
-        if (c.low <= top && mitigationTime === null) {
-          mitigationTime = c.time;
-          status = "MITIGATED"; // Rule 3 evaluation
-        }
-        if (c.close < bottom) {
-          breakerTime = c.time;
-          status = "BREAKER";
-          break;
-        }
-      }
-
-      const endTime = breakerTime ?? mitigationTime ?? candles[candles.length - 1].time;
-
-      blocks.push({
-        id: `bull-ob-${bosIdx}`,
-        type: "BULLISH",
-        top,
-        bottom,
-        startTime: obCandle.time,
-        endTime,
-        status,
-        isBroken: status === "BREAKER",
-      });
     } else {
-      let obCandle: Candle | null = null;
-      for (let i = breakIndex - 1; i >= Math.max(0, breakIndex - 20); i--) {
-        if (candles[i].close > candles[i].open && candles[i].low >= validInducement.price) {
-          obCandle = candles[i];
-          break;
+      // Candidates are up candles above the inducement price
+      for (let i = breakIndex - 1; i >= impulseStartIndex; i--) {
+        if (candles[i].close > candles[i].open) {
+          const isAboveInducement = validInducement ? candles[i].low >= validInducement.price : false;
+          
+          let mitigationTime: number | null = null;
+          let breakerTime: number | null = null;
+          const top = Math.max(candles[i].open, candles[i].close);
+          const bottom = candles[i].low;
+          
+          for (let j = breakIndex; j < candles.length; j++) {
+            if (candles[j].high >= bottom && mitigationTime === null) {
+              mitigationTime = candles[j].time;
+            }
+            if (candles[j].close > top) {
+              breakerTime = candles[j].time;
+              break;
+            }
+          }
+          
+          const isUnmitigated = mitigationTime === null;
+
+          candidates.push({
+            candle: candles[i],
+            top, bottom,
+            checklist: {
+              triggeredStructure,
+              protectedByInducement: isAboveInducement,
+              isUnmitigated,
+              isClosestToInducement: false
+            }
+          });
         }
       }
-      if (!obCandle) return;
-
-      const top = Math.max(obCandle.open, obCandle.close);
-      const bottom = obCandle.low;
-
-      let mitigationTime: number | null = null;
-      let breakerTime: number | null = null;
-      let status: OrderBlock["status"] = "ACTIVE";
-
-      for (let j = breakIndex; j < candles.length; j++) {
-        const c = candles[j];
-        if (c.high >= bottom && mitigationTime === null) {
-          mitigationTime = c.time;
-          status = "MITIGATED";
-        }
-        if (c.close > top) {
-          breakerTime = c.time;
-          status = "BREAKER";
-          break;
-        }
-      }
-
-      const endTime = breakerTime ?? mitigationTime ?? candles[candles.length - 1].time;
-
-      blocks.push({
-        id: `bear-ob-${bosIdx}`,
-        type: "BEARISH",
-        top,
-        bottom,
-        startTime: obCandle.time,
-        endTime,
-        status,
-        isBroken: status === "BREAKER",
-      });
     }
+
+    // Evaluate Rule 4: Closest to inducement
+    // The loop goes backwards from breakIndex, so the first one that is protected is the closest
+    let bestCandidate = candidates.find(c => c.checklist.protectedByInducement);
+    if (bestCandidate) {
+      bestCandidate.checklist.isClosestToInducement = true;
+    } else if (candidates.length > 0) {
+      // If none are protected, just take the first one (closest to break) and fail Rule 2 and 4.
+      bestCandidate = candidates[0];
+    }
+
+    if (!bestCandidate) return;
+
+    // Determine final status
+    let status: OrderBlock["status"] = "ACTIVE";
+    let isBroken = false;
+    let endTime = candles[candles.length - 1].time;
+
+    if (bos.direction === "BULLISH") {
+      for (let j = breakIndex; j < candles.length; j++) {
+        if (candles[j].low <= bestCandidate.top && status === "ACTIVE") status = "MITIGATED";
+        if (candles[j].close < bestCandidate.bottom) {
+          status = "BREAKER";
+          isBroken = true;
+          endTime = candles[j].time;
+          break;
+        }
+      }
+    } else {
+      for (let j = breakIndex; j < candles.length; j++) {
+        if (candles[j].high >= bestCandidate.bottom && status === "ACTIVE") status = "MITIGATED";
+        if (candles[j].close > bestCandidate.top) {
+          status = "BREAKER";
+          isBroken = true;
+          endTime = candles[j].time;
+          break;
+        }
+      }
+    }
+
+    // Only keep if it passed all rules, OR if it's a breaker (breakers are valid even if mitigated)
+    // Actually, let's keep it if it triggered structure, and let the UI filter or just show them.
+    // The prompt says: "run every candidate POI through the 4-rule checklist ... return pass/fail per rule, not just a final boolean".
+    blocks.push({
+      id: `${bos.direction.toLowerCase()}-ob-${bosIdx}`,
+      type: bos.direction,
+      top: bestCandidate.top,
+      bottom: bestCandidate.bottom,
+      startTime: bestCandidate.candle.time,
+      endTime,
+      status,
+      isBroken,
+      checklist: bestCandidate.checklist
+    });
   });
 
   return blocks;
@@ -426,11 +521,18 @@ export function runSLPAnalysis(candles: Candle[]): SLPResult {
   const orderBlocks = detectOrderBlocks(candles, bosEvents, inducements);
   const liquidityLevels = detectOtherLiquidity(candles, swingHighs, swingLows, atr);
 
+  const validBlocks = orderBlocks.filter(b => 
+    b.checklist.triggeredStructure &&
+    b.checklist.protectedByInducement &&
+    (b.checklist.isUnmitigated || b.status === "BREAKER") &&
+    b.checklist.isClosestToInducement
+  );
+
   return {
     swingHighs,
     swingLows,
     bosEvents,
-    orderBlocks: orderBlocks.filter((b) => b.status === "ACTIVE" || b.status === "BREAKER").slice(-4),
+    orderBlocks: validBlocks.slice(-4),
     liquidityLevels: liquidityLevels.filter((l) => !l.swept).slice(-10),
     inducements,
   };
