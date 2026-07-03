@@ -18,6 +18,7 @@ export class TwelveDataService {
   private prisma: PrismaClient;
   private redis: Redis;
   private apiKey: string;
+  private inMemoryCache = new Map<string, { data: any; expiry: number }>();
 
   constructor(prisma: PrismaClient, redis: Redis) {
     this.prisma = prisma;
@@ -31,6 +32,77 @@ export class TwelveDataService {
       process.env.NEXT_PUBLIC_TWELVE_DATA_KEY ||
       ''
     ).trim();
+
+    // Run diagnostics check asynchronously after a 3 second delay to not block startup
+    setTimeout(() => {
+      this.runDiagnostics().catch(err => {
+        logger.error(`[TwelveData Audit] Diagnostic run failed: ${err.message || err}`);
+      });
+    }, 3000);
+  }
+
+  private getFromMemoryCache(key: string): any {
+    const item = this.inMemoryCache.get(key);
+    if (item && item.expiry > Date.now()) {
+      return item.data;
+    }
+    return null;
+  }
+
+  private setInMemoryCache(key: string, data: any, ttlSeconds: number) {
+    this.inMemoryCache.set(key, {
+      data,
+      expiry: Date.now() + ttlSeconds * 1000
+    });
+  }
+
+  async runDiagnostics() {
+    logger.info('[TwelveData Audit] Starting Twelve Data API audit...');
+    if (!this.hasValidKey()) {
+      logger.info('[TwelveData Audit] No Twelve Data key found or key is invalid. Skipping live diagnostics (using Yahoo & simulations as standard).');
+      return;
+    }
+
+    const testSymbols = [
+      'EUR/USD', 'GBP/USD', 'USD/JPY', 'GBP/JPY', 
+      'XAU/USD', 'XAG/USD', 
+      'DJI', 'SPX', 'NDX'
+    ];
+
+    logger.info(`[TwelveData Audit] Testing ${testSymbols.length} assets against Twelve Data REST API using key: ${this.apiKey.slice(0, 4)}...${this.apiKey.slice(-4)}`);
+
+    for (const sym of testSymbols) {
+      try {
+        const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym)}&apikey=${this.apiKey}`;
+        const res = await fetch(url);
+        const status = res.status;
+        const data = await res.json() as any;
+
+        if (data.status === 'error' || data.error) {
+          const errMsg = data.message || data.error;
+          let category = 'Unknown Failure';
+          if (errMsg.toLowerCase().includes('access') || errMsg.toLowerCase().includes('plan') || errMsg.toLowerCase().includes('subscribe')) {
+            category = 'Subscription Restriction (Standard for Free Keys on indices/metals)';
+          } else if (errMsg.toLowerCase().includes('rate limit') || errMsg.toLowerCase().includes('credits') || status === 429) {
+            category = 'Rate Limiting';
+          } else if (errMsg.toLowerCase().includes('api key') || status === 401 || status === 403) {
+            category = 'Invalid API Key';
+          } else if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('symbol')) {
+            category = 'Unsupported Symbol / Bad Format';
+          }
+          logger.warn(`[TwelveData Audit] ❌ ${sym} -> HTTP ${status} | Code: ${data.code || 'N/A'} | Category: ${category} | Message: "${errMsg}"`);
+        } else if (data.price) {
+          logger.info(`[TwelveData Audit]   ${sym} -> HTTP ${status} | Price: ${data.price} | Success!`);
+        } else {
+          logger.warn(`[TwelveData Audit] ⚠️ ${sym} -> HTTP ${status} | Unexpected response: ${JSON.stringify(data)}`);
+        }
+      } catch (err: any) {
+        logger.error(`[TwelveData Audit] 💥 ${sym} -> Exception: ${err.message || err}`);
+      }
+      // Wait 1 second between requests to respect rate limiting (8 req/min max)
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    logger.info('[TwelveData Audit] Twelve Data API audit completed.');
   }
 
   private hasValidKey(): boolean {
@@ -179,7 +251,32 @@ export class TwelveDataService {
 
   async fetchHistoricalCandles(symbol: string, timeframe: string, limit = 500) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
+    const cacheKey = `candles:${cleanSymbol}:${timeframe}:${limit}`;
+    const cached = this.getFromMemoryCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const candles = await this.fetchHistoricalCandlesRaw(symbol, timeframe, limit);
+    if (candles && candles.length > 0) {
+      this.setInMemoryCache(cacheKey, candles, 60); // 60 seconds local memory caching
+    }
+    return candles;
+  }
+
+  private async fetchHistoricalCandlesRaw(symbol: string, timeframe: string, limit = 500) {
+    const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const mappedInterval = timeframe === '1D' ? '1day' : timeframe.toLowerCase();
+
+    // Preemptive routing for Indices: DJI/DJIA/US30, SPX/SPX500, NDX/NAS100
+    const isIndex = ['DJI', 'SPX', 'NDX', 'US30', 'SPX500', 'NAS100'].includes(cleanSymbol);
+    if (isIndex) {
+      try {
+        return await this.fetchYahooCandles(symbol, timeframe, limit);
+      } catch (err) {
+        return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
+      }
+    }
 
     // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
     if (cleanSymbol === 'XAUUSD') {
@@ -223,7 +320,10 @@ export class TwelveDataService {
       }
 
       const data = await response.json();
-      if (!data.values || !Array.isArray(data.values)) {
+      if (data.status === 'error' || data.error || !data.values || !Array.isArray(data.values)) {
+        if (data.status === 'error' || data.error) {
+          logger.warn(`[TwelveData REST] Error fetching candles for ${symbol}: "${data.message || data.error}" (falling back to Yahoo)`);
+        }
         try {
           return await this.fetchYahooCandles(symbol, timeframe, limit);
         } catch (yahooErr) {
@@ -252,7 +352,32 @@ export class TwelveDataService {
 
   async fetchTicker(symbol: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
+    const cacheKey = `ticker:${cleanSymbol}`;
+    const cached = this.getFromMemoryCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const ticker = await this.fetchTickerRaw(symbol);
+    if (ticker) {
+      this.setInMemoryCache(cacheKey, ticker, 15); // 15 seconds local memory caching
+    }
+    return ticker;
+  }
+
+  private async fetchTickerRaw(symbol: string) {
+    const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const basePrice = DEFAULT_PRICES[symbol] || DEFAULT_PRICES[toForexFormat(symbol)] || 1.0;
+
+    // Preemptive routing for Indices: DJI/DJIA/US30, SPX/SPX500, NDX/NAS100
+    const isIndex = ['DJI', 'SPX', 'NDX', 'US30', 'SPX500', 'NAS100'].includes(cleanSymbol);
+    if (isIndex) {
+      try {
+        return await this.fetchYahooTicker(symbol);
+      } catch {
+        return this.generateSimulatedTicker(cleanSymbol, basePrice);
+      }
+    }
 
     // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
     if (cleanSymbol === 'XAUUSD') {
@@ -293,7 +418,10 @@ export class TwelveDataService {
       }
 
       const data = await response.json();
-      if (!data.price) {
+      if (data.status === 'error' || data.error || !data.price) {
+        if (data.status === 'error' || data.error) {
+          logger.warn(`[TwelveData REST] Error fetching ticker for ${symbol}: "${data.message || data.error}" (falling back to Yahoo)`);
+        }
         try {
           return await this.fetchYahooTicker(symbol);
         } catch {

@@ -289,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {showPairMenu && (
-            <div className="absolute left-0 mt-1 w-80 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-2 max-h-[30rem] overflow-y-auto">
+            <div className="absolute right-0 mt-1 w-72 sm:w-80 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-2 max-h-[30rem] overflow-y-auto">
               <div className="p-1 mb-2 border-b border-[#2A2E39] flex items-center space-x-1.5">
                 <Search size={12} className="text-gray-400" />
                 <input
