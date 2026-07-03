@@ -254,7 +254,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-col justify-center">
           <div className="flex items-center space-x-1.5 animate-fade-in">
             <span className="text-light font-bold tracking-tight text-sm font-display">AutoSLP</span>
-            <span className="text-white font-bold tracking-tight text-xs bg-slate-800 px-1.5 py-0.5 rounded scale-90">TRADER</span>
+            <span className="hidden xs:inline-block text-white font-bold tracking-tight text-xs bg-slate-800 px-1.5 py-0.5 rounded scale-90">TRADER</span>
             <div className="flex items-center space-x-1 shadow-sm border-l border-slate-700 pl-2">
               <span className={`w-1.5 h-1.5 rounded-full ${
                 connectionStatus === 'connected'
@@ -263,29 +263,29 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'bg-amber-400 animate-pulse'
                     : 'bg-rose-500'
               }`} />
-              <span className="text-[8px] text-gray-400 uppercase font-mono tracking-wider">
+              <span className="hidden sm:inline-block text-[8px] text-gray-400 uppercase font-mono tracking-wider">
                 {connectionStatus}
               </span>
             </div>
           </div>
-          <span className="text-[9px] text-warm font-mono leading-none tracking-widest mt-0.5 uppercase">
+          <span className="hidden sm:inline-block text-[9px] text-warm font-mono leading-none tracking-widest mt-0.5 uppercase">
             Directional Bias System
           </span>
         </div>
       </div>
 
-      <div className="hidden lg:flex items-center space-x-6">
+      <div className="flex items-center space-x-1.5 sm:space-x-4 lg:space-x-6">
         <div className="relative" ref={pairSelectorRef}>
           <button 
             id="pair-selector-dropdown-trigger"
             onClick={() => setShowPairMenu(!showPairMenu)}
-            className="flex items-center space-x-2 bg-surface hover:bg-[#1C202F] text-gray-200 px-3 py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer"
+            className="flex items-center space-x-1 sm:space-x-2 bg-surface hover:bg-[#1C202F] text-gray-200 px-2 py-1 sm:px-3 sm:py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer h-7"
           >
-            <span className="text-gray-500 text-[9px] bg-slate-900 px-1.5 py-0.5 rounded mr-1">
+            <span className="hidden xs:inline-block text-gray-500 text-[9px] bg-slate-900 px-1.5 py-0.5 rounded mr-1">
               {activeExchange}
             </span>
-            <span className="font-bold text-light">{selectedPair}</span>
-            <ChevronDown size={14} className="text-gray-400" />
+            <span className="font-bold text-light text-xs sm:text-xs">{selectedPair}</span>
+            <ChevronDown size={12} className="text-gray-400" />
           </button>
 
           {showPairMenu && (
@@ -353,9 +353,9 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center space-x-2" ref={tfDropdownRef}>
+        <div className="flex items-center space-x-1 sm:space-x-2" ref={tfDropdownRef}>
           {/* Pinned Timeframe Shortcuts */}
-          <div className="flex bg-surface border border-[#2A2E39] rounded-lg p-0.5 whitespace-nowrap scrollbar-none">
+          <div className="hidden md:flex bg-surface border border-[#2A2E39] rounded-lg p-0.5 whitespace-nowrap scrollbar-none">
             {pinnedTimeframes.map((tf) => (
               <button
                 key={tf}
@@ -375,15 +375,15 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setTfDropdownOpen(!tfDropdownOpen)}
-              className={`flex items-center space-x-1.5 bg-surface hover:bg-[#1C202F] text-gray-200 px-3 py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer h-7 ${
+              className={`flex items-center space-x-1 bg-surface hover:bg-[#1C202F] text-gray-200 px-2 sm:px-3 py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer h-7 ${
                 !pinnedTimeframes.includes(selectedTimeframe) ? 'border-[#CAAA98]/40 bg-[#CAAA98]/5 text-[#CAAA98]' : ''
               }`}
               title="Select timeframe"
             >
-              <span className="font-semibold">
+              <span className="font-semibold text-xs">
                 {selectedTimeframe}
               </span>
-              <ChevronDown size={14} className="text-gray-400" />
+              <ChevronDown size={12} className="text-gray-400" />
             </button>
 
             {tfDropdownOpen && (
@@ -436,7 +436,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {ticker && (
-          <div className="text-gray-400 text-xs font-mono hidden md:flex border-l border-[#2A2E39] pl-6 space-x-5 items-center">
+          <div className="text-gray-400 text-xs font-mono hidden lg:flex border-l border-[#2A2E39] pl-6 space-x-5 items-center">
             <div>
               <span className="text-[9px] text-gray-500 uppercase tracking-wider block leading-none mb-1">Price</span>
               <span className="text-white font-extrabold text-sm">${formatPrice(ticker.price, selectedPair)}</span>
@@ -460,7 +460,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-light">{dateTimeStr}</span>
         </div>
 
-        <div className="border-l border-[#2A2E39] pl-6 flex items-center shadow-sm">
+        <div className="hidden sm:flex border-l border-[#2A2E39] pl-4 lg:pl-6 items-center shadow-sm">
           <div 
             className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider transition-all duration-300 ${
               pulse ? 'scale-110 ring-2 ring-[#CAAA98] animate-pulse duration-500 bg-opacity-35' : ''
