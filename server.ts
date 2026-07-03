@@ -30,18 +30,46 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Set up Proxy for local Fastify server
-  const fastifyProxy = createProxyMiddleware({
-    pathFilter: ['/api/v1', '/auth', '/pois', '/market', '/features', '/feedback', '/ai', '/signals', '/alerts', '/user', '/socket.io'],
+  const backendProxy = createProxyMiddleware({
     target: 'http://127.0.0.1:3002',
     changeOrigin: true,
     ws: true,
-    pathRewrite: {
-      '^/api/v1': ''
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        console.log(`[Proxy] Forwarding ${req.method} ${req.originalUrl} -> ${proxyReq.path}`);
+      },
+      error: (err, req, res) => {
+        console.error(`[Proxy] Error forwarding ${req.originalUrl}:`, err.message);
+      }
     }
   });
 
-  app.use(fastifyProxy);
+  // Explicitly handle /api/v1 which needs to strip the prefix
+  app.use('/api/v1', backendProxy);
+  
+  // Create a separate proxy for direct routes that should NOT strip their prefix
+  const directProxy = createProxyMiddleware({
+    pathFilter: (pathname, req) => {
+      const match = pathname.startsWith('/auth') || 
+                    pathname.startsWith('/pois') || 
+                    pathname.startsWith('/market') || 
+                    pathname.startsWith('/features') || 
+                    pathname.startsWith('/feedback') || 
+                    pathname.startsWith('/ai') || 
+                    pathname.startsWith('/socket.io');
+      return match;
+    },
+    target: 'http://127.0.0.1:3002',
+    changeOrigin: true,
+    ws: true,
+    on: {
+      proxyReq: (proxyReq, req, res) => {
+        console.log(`[DirectProxy] Forwarding ${req.method} ${req.originalUrl} -> ${proxyReq.path}`);
+      }
+    }
+  });
+
+  app.use(directProxy);
 
   // 3. Mount Vite middleware or Static files depending on NODE_ENV environment
   if (process.env.NODE_ENV !== 'production') {
