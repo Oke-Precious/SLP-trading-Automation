@@ -56,16 +56,32 @@ export const marketService = {
       const cached = await redis.get(cacheKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-        return parsed.map((c: any) => ({
-          ...c,
-          timestamp: new Date(c.timestamp)
-        }));
+        if (parsed && typeof parsed === 'object' && 'candles' in parsed) {
+          return {
+            candles: parsed.candles.map((c: any) => ({
+              ...c,
+              timestamp: new Date(c.timestamp)
+            })),
+            isCached: parsed.isCached,
+            apiError: parsed.apiError
+          };
+        } else if (Array.isArray(parsed)) {
+          return {
+            candles: parsed.map((c: any) => ({
+              ...c,
+              timestamp: new Date(c.timestamp)
+            })),
+            isCached: false,
+            apiError: null
+          };
+        }
       }
     } catch (cacheErr) {
       console.warn('Redis read error for candles:', cacheErr);
     }
 
     let candles;
+    let apiError: string | null = null;
     try {
       if (isCrypto(pair)) {
         candles = await binance.fetchHistoricalCandles(pair, timeframe, limit);
@@ -74,9 +90,14 @@ export const marketService = {
       }
 
       if (candles && candles.length > 0) {
+        const resultObject = {
+          candles,
+          isCached: false,
+          apiError: null
+        };
         // Cache candles in Redis for 60 seconds (1 minute)
         try {
-          await redis.setex(cacheKey, 60, JSON.stringify(candles));
+          await redis.setex(cacheKey, 60, JSON.stringify(resultObject));
         } catch (cacheErr) {
           console.warn('Redis write error for candles:', cacheErr);
         }
@@ -89,10 +110,11 @@ export const marketService = {
             create: c,
           }).catch((err: any) => console.error('DB Insert Error', err))
         ));
-        return candles;
+        return resultObject;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Failed to fetch candles from API, falling back to DB proxy:', err);
+      apiError = err?.message || 'Exchange/data provider temporarily unavailable';
     }
 
     const where: any = { pair, timeframe };
@@ -106,7 +128,19 @@ export const marketService = {
     });
 
     dbCandles.reverse();
-    return dbCandles;
+
+    const resultObject = {
+      candles: dbCandles,
+      isCached: true,
+      apiError: apiError || 'Market data feed is temporarily offline. Displaying cached fallback data.'
+    };
+
+    // Store in Redis briefly to prevent immediate re-triggering of failing APIs
+    try {
+      await redis.setex(cacheKey, 10, JSON.stringify(resultObject));
+    } catch (cacheErr) {}
+
+    return resultObject;
   },
 
   async getTicker(pair: string) {
@@ -203,7 +237,8 @@ export const marketService = {
     if (cached) return JSON.parse(cached);
 
     // Get recent candles for analysis
-    const candles = await marketService.getCandles(pair, timeframe, 200);
+    const candlesResult = await marketService.getCandles(pair, timeframe, 200);
+    const candles = candlesResult.candles;
     if (candles.length < 20) return { bias: 'NEUTRAL', strength: 'WEAK', structure: 'Insufficient data' };
 
     const result = analysisService.calculateBias(candles, timeframe);

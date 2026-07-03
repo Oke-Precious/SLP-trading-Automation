@@ -70,7 +70,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     };
   }, []);
 
-  const { candles, isLoading, isConnected, isRealData, apiError, error, refetch } =
+  const { candles, isLoading, isConnected, isRealData, isCachedData, apiError, error, refetch } =
     useRealtimeCandles(selectedPair, selectedTimeframe);
 
   // Toggle Fullscreen logic
@@ -634,7 +634,12 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                 </span>
               )
             ) : (
-              isRealData ? (
+              isCachedData ? (
+                <span className="text-[10px] text-amber-500 font-bold tracking-wider ml-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  SHOWING CACHED DATA
+                </span>
+              ) : isRealData ? (
                 <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-[#26A69A] rounded-full animate-pulse" />
                   TWELVE DATA SYNCHRONIZED
@@ -660,14 +665,16 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       </div>
 
       {/* Dynamic Warning Bar */}
-      {((!isConnected && CRYPTO_PAIRS.some(p => p.symbol === selectedPair) && !isLoading) || apiError) && (
+      {((!isConnected && CRYPTO_PAIRS.some(p => p.symbol === selectedPair) && !isLoading) || apiError || isCachedData) && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between shrink-0 text-xs text-amber-400 font-mono">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
             <span>
-              {apiError 
-                ? apiError 
-                : "Live stream unavailable (connection interrupted). Retrying connection and polling fallback feeds..."
+              {isCachedData 
+                ? (apiError || "Showing cached stale data. Twelve Data API is temporarily unavailable or quota is exhausted.")
+                : apiError 
+                  ? apiError 
+                  : "Live stream unavailable (connection interrupted). Retrying connection and polling fallback feeds..."
               }
             </span>
           </div>
@@ -728,7 +735,11 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
               </div>
               <h3 className="text-sm font-semibold text-white tracking-tight">Chart Data Unavailable</h3>
               <p className="text-xs text-gray-400 max-w-sm mt-2 leading-relaxed">
-                Could not retrieve live market candles for <span className="font-semibold text-gray-200">{selectedPair} ({selectedTimeframe})</span> from real-time feeds. Analytical integrity is maintained; synthetic fallback datasets have been disabled.
+                {apiError ? apiError : (
+                  <>
+                    Could not retrieve live market candles for <span className="font-semibold text-gray-200">{selectedPair} ({selectedTimeframe})</span> from real-time feeds. Analytical integrity is maintained; synthetic fallback datasets have been disabled.
+                  </>
+                )}
               </p>
               <div className="mt-5 flex gap-3">
                 <button

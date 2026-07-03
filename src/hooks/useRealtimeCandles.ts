@@ -8,6 +8,7 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
   const [isLoading, setIsLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
   const [isRealData, setIsRealData] = useState(true)
+  const [isCachedData, setIsCachedData] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const candlesRef = useRef<Candle[]>([])
@@ -27,6 +28,7 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
         candlesRef.current = result.candles
         setCandles(result.candles)
         setIsRealData(result.isRealData)
+        setIsCachedData(!!result.isCachedData)
         setApiError(result.apiError || null)
         setIsLoading(false)
       })
@@ -108,6 +110,7 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
             candlesRef.current = result.candles
             setCandles(result.candles)
             setIsRealData(result.isRealData)
+            setIsCachedData(!!result.isCachedData)
             setApiError(result.apiError || null)
           })
           .catch(() => {})
@@ -127,10 +130,11 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
         candlesRef.current = result.candles
         setCandles(result.candles)
         setIsRealData(result.isRealData)
+        setIsCachedData(!!result.isCachedData)
         setApiError(result.apiError || null)
       })
       .finally(() => setIsLoading(false))
   }
 
-  return { candles, isLoading, isConnected, isRealData, apiError, error, refetch }
+  return { candles, isLoading, isConnected, isRealData, isCachedData, apiError, error, refetch }
 }

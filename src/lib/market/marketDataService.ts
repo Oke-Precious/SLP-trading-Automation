@@ -283,34 +283,75 @@ export async function fetchCandlesWithFlag(
   symbol: string,
   timeframe: string,
   limit: number = 200
-): Promise<{candles: Candle[], isRealData: boolean, apiError?: string | null}> {
+): Promise<{candles: Candle[], isRealData: boolean, isCachedData?: boolean, apiError?: string | null}> {
   try {
     const { data: res } = await apiClient.get('/market/candles', {
       params: { pair: symbol, timeframe, limit }
     })
     const list = res?.data ?? res
-    if (Array.isArray(list) && list.length > 0) {
-      return {
-        isRealData: true,
-        candles: list.map((c: any) => ({
-          time: Math.floor(new Date(c.timestamp || c.time * 1000).getTime() / 1000),
-          open: Number(c.open),
-          high: Number(c.high),
-          low: Number(c.low),
-          close: Number(c.close),
-          volume: Number(c.volume),
-        }))
+    const isCached = !!res?.isCached
+    const backendError = res?.apiError || null
+
+    if (Array.isArray(list)) {
+      // Validate each candle completely
+      const parsedCandles: Candle[] = []
+      for (const c of list) {
+        if (!c) continue;
+        const time = Math.floor(new Date(c.timestamp || c.time * 1000).getTime() / 1000);
+        const open = Number(c.open);
+        const high = Number(c.high);
+        const low = Number(c.low);
+        const close = Number(c.close);
+        const volume = Number(c.volume);
+
+        if (
+          !isNaN(time) && time > 0 &&
+          !isNaN(open) && isFinite(open) &&
+          !isNaN(high) && isFinite(high) &&
+          !isNaN(low) && isFinite(low) &&
+          !isNaN(close) && isFinite(close) &&
+          !isNaN(volume) && isFinite(volume)
+        ) {
+          parsedCandles.push({ time, open, high, low, close, volume });
+        }
+      }
+
+      // Treat incomplete response as failure if fewer than 10 valid candles parsed
+      if (parsedCandles.length >= 10) {
+        return {
+          isRealData: !isCached,
+          isCachedData: isCached,
+          candles: parsedCandles,
+          apiError: backendError
+        }
       }
     }
   } catch (backendErr: any) {
     console.warn(`[API Proxy] Failed to load candles for ${symbol}:`, backendErr)
+    const respData = backendErr?.response?.data
+    if (respData) {
+      if (respData.code === 'UNSUPPORTED_SYMBOL') {
+        return {
+          isRealData: false,
+          candles: [],
+          apiError: `Unsupported Symbol: ${respData.error || 'This asset is not supported by the platform.'}`
+        }
+      }
+      if (respData.code === 'TEMPORARILY_UNAVAILABLE') {
+        return {
+          isRealData: false,
+          candles: [],
+          apiError: `Service Temporarily Unavailable: ${respData.error}`
+        }
+      }
+    }
   }
 
   // Fallback to empty array and flag error when API fails
   return {
     isRealData: false,
     candles: [],
-    apiError: "Failed to load live market data. Chart feed unavailable."
+    apiError: "Failed to connect to backend proxy. Chart feed unavailable."
   }
 }
 

@@ -308,15 +308,33 @@ export class TwelveDataService {
       const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${mappedInterval}&outputsize=${limit}&apikey=${this.apiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
+        if (response.status === 429) {
+          try {
+            return await this.fetchYahooCandles(symbol, timeframe, limit);
+          } catch (yahooErr) {
+            throw new Error('Twelve Data API quota exhausted. Data temporarily unavailable, please try again shortly.');
+          }
+        }
         throw new Error(`TwelveData REST API error: ${response.status}`);
       }
 
       const data = await response.json();
       if (data.status === 'error' || data.error || !data.values || !Array.isArray(data.values)) {
+        const errMsg = String(data.message || data.error || '').toLowerCase();
+        const isQuotaExhausted = errMsg.includes('quota') || errMsg.includes('credit') || errMsg.includes('limit') || errMsg.includes('plan') || errMsg.includes('subscribe');
+        
         if (data.status === 'error' || data.error) {
           logger.warn(`[TwelveData REST] Error fetching candles for ${symbol}: "${data.message || data.error}" (falling back to Yahoo)`);
         }
-        return await this.fetchYahooCandles(symbol, timeframe, limit);
+        
+        try {
+          return await this.fetchYahooCandles(symbol, timeframe, limit);
+        } catch (yahooErr) {
+          if (isQuotaExhausted) {
+            throw new Error('Twelve Data API quota exhausted. Data temporarily unavailable, please try again shortly.');
+          }
+          throw yahooErr;
+        }
       }
 
       return data.values.map((v: any) => ({

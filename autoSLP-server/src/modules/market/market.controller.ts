@@ -10,9 +10,41 @@ export const marketController = {
   async getCandles(req: FastifyRequest<{
     Querystring: { pair: string; timeframe: string; limit?: number; from?: string; to?: string }
   }>, reply: FastifyReply) {
-    const { pair, timeframe, limit = 500, from, to } = req.query as any;
-    const candles = await marketService.getCandles(pair, timeframe, limit, from, to);
-    return reply.send({ success: true, data: candles });
+    try {
+      const { pair, timeframe, limit = 500, from, to } = req.query as any;
+      
+      // Validation check for supported pairs to distinguish from temporary outages
+      if (pair) {
+        const cleanPair = pair.replace('/', '').toUpperCase();
+        const allSupported = [
+          'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT',
+          'EURUSD', 'GBPUSD', 'USDJPY', 'GBPJPY', 'AUDUSD', 'USDCAD', 'EURJPY',
+          'XAUUSD', 'XAGUSD', 'US30', 'SPX500', 'NAS100', 'DJI', 'SPX', 'NDX'
+        ];
+        if (!allSupported.includes(cleanPair)) {
+          return reply.status(400).send({
+            success: false,
+            code: 'UNSUPPORTED_SYMBOL',
+            error: `The asset symbol "${pair}" is not currently supported by the platform's feeds.`
+          });
+        }
+      }
+
+      const result = await marketService.getCandles(pair, timeframe, limit, from, to);
+      return reply.send({
+        success: true,
+        data: result.candles,
+        isCached: result.isCached,
+        apiError: result.apiError
+      });
+    } catch (err: any) {
+      console.error('[Controller] Error in getCandles:', err);
+      return reply.status(503).send({
+        success: false,
+        code: 'TEMPORARILY_UNAVAILABLE',
+        error: 'Market data server is temporarily busy or undergoing connection retries. Please wait.'
+      });
+    }
   },
 
   async getTicker(req: FastifyRequest<{
