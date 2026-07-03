@@ -329,7 +329,14 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
   }
 
   useEffect(() => {
-    if (!candleSeries.current || !slpResult) return;
+    if (!candleSeries.current) return;
+    if (!slpResult || candles.length === 0) {
+      clearSLPOverlays();
+      try {
+        markersPluginRef.current?.setMarkers([]);
+      } catch {}
+      return;
+    }
     clearSLPOverlays();
     const allMarkers: any[] = [];
 
@@ -713,6 +720,33 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         <div className="flex-1 min-w-0 bg-[#131722] relative flex flex-col justify-stretch">
           {/* Real-time chart element is kept in DOM */}
           <div ref={chartRef} className="w-full h-full" />
+          
+          {candles.length === 0 && !isLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#131722]/98 z-40 p-6 text-center select-none animate-in fade-in duration-300">
+              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-4">
+                <AlertCircle size={24} />
+              </div>
+              <h3 className="text-sm font-semibold text-white tracking-tight">Chart Data Unavailable</h3>
+              <p className="text-xs text-gray-400 max-w-sm mt-2 leading-relaxed">
+                Could not retrieve live market candles for <span className="font-semibold text-gray-200">{selectedPair} ({selectedTimeframe})</span> from real-time feeds. Analytical integrity is maintained; synthetic fallback datasets have been disabled.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => refetch()}
+                  className="px-4 py-2 text-xs font-semibold text-[#111622] bg-[#CAAA98] hover:bg-[#bfa08f] rounded transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw size={14} />
+                  Retry Connection
+                </button>
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#252B3A] hover:bg-[#2A3142] border border-[#2D3345] rounded transition-all cursor-pointer"
+                >
+                  Configure API Settings
+                </button>
+              </div>
+            </div>
+          )}
           
           {!isRealData && (
             <div className="absolute top-4 left-4 z-10 max-w-sm bg-[#1E2433]/95 border border-amber-500/30 p-3.5 rounded-lg shadow-xl backdrop-blur-md flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">

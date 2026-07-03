@@ -201,8 +201,8 @@ export class BinanceService {
       }
     }
 
-    logger.error(`[CCXT] All exchanges failed for ${pair}, falling back to simulation.`);
-    return this.generateSimulatedCandles(pair, timeframe, limit);
+    logger.error(`[CCXT] All exchanges failed for ${pair}.`);
+    return [];
   }
 
   async fetchTicker(pair: string) {
@@ -229,72 +229,8 @@ export class BinanceService {
       }
     }
 
-    logger.error(`[CCXT] All exchanges failed for ticker ${pair}, falling back to simulation.`);
-    const basePrice = DEFAULT_PRICES[pair.toUpperCase()] || 100.0;
-    return this.generateSimulatedTicker(pair, basePrice);
-  }
-
-  private generateSimulatedCandles(pair: string, timeframe: string, limit: number) {
-    const candles = [];
-    const basePrice = DEFAULT_PRICES[pair.toUpperCase()] || 100.0;
-    let currentPrice = basePrice;
-    
-    // Time steps in milliseconds
-    let stepMs = 60 * 60 * 1000; // default 1H
-    if (timeframe === '1D') stepMs = 24 * 60 * 60 * 1000;
-    else if (timeframe === '4H') stepMs = 4 * 60 * 60 * 1000;
-    else if (timeframe === '30m') stepMs = 30 * 60 * 1000;
-    else if (timeframe === '15m') stepMs = 15 * 60 * 1000;
-    else if (timeframe === '5m') stepMs = 5 * 60 * 1000;
-
-    const baseTime = Date.now() - limit * stepMs;
-
-    for (let i = 0; i < limit; i++) {
-      const candleTime = new Date(baseTime + i * stepMs);
-      const volatility = 0.008; // 0.8% volatility
-      
-      const change = currentPrice * volatility * (Math.random() - 0.48); // Slight upward/downward drift
-      const open = currentPrice;
-      const close = currentPrice + change;
-      const jackpot = Math.random();
-      const extraHigh = jackpot > 0.8 ? currentPrice * volatility : currentPrice * volatility * 0.3;
-      const extraLow = jackpot > 0.8 ? currentPrice * volatility : currentPrice * volatility * 0.3;
-      const high = Math.max(open, close) + extraHigh * Math.random();
-      const low = Math.min(open, close) - extraLow * Math.random();
-      const volume = Math.floor(Math.random() * 200000 + 50000);
-
-      candles.push({
-        pair,
-        timeframe,
-        open,
-        high,
-        low,
-        close,
-        volume,
-        timestamp: candleTime,
-      });
-
-      currentPrice = close;
-    }
-
-    return candles;
-  }
-
-  private generateSimulatedTicker(pair: string, basePrice: number) {
-    const drift = (Math.random() - 0.5) * 0.01;
-    const price = basePrice * (1 + drift);
-    const change = price * 0.005;
-    const changePct = 0.5 + Math.random() * 1.5;
-    return {
-      pair,
-      price,
-      change,
-      changePct: (Math.random() > 0.5 ? 1 : -1) * changePct,
-      high24h: price * 1.015,
-      low24h: price * 0.985,
-      volume24h: 154000,
-      quoteVol: 154000 * price,
-    };
+    logger.error(`[CCXT] All exchanges failed for ticker ${pair}.`);
+    return null;
   }
 
   shutdown() {

@@ -271,11 +271,7 @@ export class TwelveDataService {
     // Preemptive routing for Indices: DJI/DJIA/US30, SPX/SPX500, NDX/NAS100
     const isIndex = ['DJI', 'SPX', 'NDX', 'US30', 'SPX500', 'NAS100'].includes(cleanSymbol);
     if (isIndex) {
-      try {
-        return await this.fetchYahooCandles(symbol, timeframe, limit);
-      } catch (err) {
-        return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
-      }
+      return await this.fetchYahooCandles(symbol, timeframe, limit);
     }
 
     // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
@@ -305,11 +301,7 @@ export class TwelveDataService {
     }
 
     if (!this.hasValidKey()) {
-      try {
-        return await this.fetchYahooCandles(symbol, timeframe, limit);
-      } catch (err) {
-        return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
-      }
+      return await this.fetchYahooCandles(symbol, timeframe, limit);
     }
 
     try {
@@ -324,11 +316,7 @@ export class TwelveDataService {
         if (data.status === 'error' || data.error) {
           logger.warn(`[TwelveData REST] Error fetching candles for ${symbol}: "${data.message || data.error}" (falling back to Yahoo)`);
         }
-        try {
-          return await this.fetchYahooCandles(symbol, timeframe, limit);
-        } catch (yahooErr) {
-          return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
-        }
+        return await this.fetchYahooCandles(symbol, timeframe, limit);
       }
 
       return data.values.map((v: any) => ({
@@ -342,11 +330,7 @@ export class TwelveDataService {
         timestamp: new Date(v.datetime),
       })).reverse(); // Reverse so they are ascending in chronological order
     } catch (err: any) {
-      try {
-        return await this.fetchYahooCandles(symbol, timeframe, limit);
-      } catch (yahooErr) {
-        return this.generateSimulatedCandles(cleanSymbol, timeframe, limit);
-      }
+      return await this.fetchYahooCandles(symbol, timeframe, limit);
     }
   }
 
@@ -372,11 +356,7 @@ export class TwelveDataService {
     // Preemptive routing for Indices: DJI/DJIA/US30, SPX/SPX500, NDX/NAS100
     const isIndex = ['DJI', 'SPX', 'NDX', 'US30', 'SPX500', 'NAS100'].includes(cleanSymbol);
     if (isIndex) {
-      try {
-        return await this.fetchYahooTicker(symbol);
-      } catch {
-        return this.generateSimulatedTicker(cleanSymbol, basePrice);
-      }
+      return await this.fetchYahooTicker(symbol);
     }
 
     // High accuracy live gold (XAUUSD) fallback using PAXGUSDT on Binance
@@ -403,11 +383,7 @@ export class TwelveDataService {
     }
 
     if (!this.hasValidKey()) {
-      try {
-        return await this.fetchYahooTicker(symbol);
-      } catch {
-        return this.generateSimulatedTicker(cleanSymbol, basePrice);
-      }
+      return await this.fetchYahooTicker(symbol);
     }
 
     try {
@@ -422,11 +398,7 @@ export class TwelveDataService {
         if (data.status === 'error' || data.error) {
           logger.warn(`[TwelveData REST] Error fetching ticker for ${symbol}: "${data.message || data.error}" (falling back to Yahoo)`);
         }
-        try {
-          return await this.fetchYahooTicker(symbol);
-        } catch {
-          return this.generateSimulatedTicker(cleanSymbol, basePrice);
-        }
+        return await this.fetchYahooTicker(symbol);
       }
 
       const price = parseFloat(data.price);
@@ -441,11 +413,7 @@ export class TwelveDataService {
         quoteVol: 350000 * price,
       };
     } catch {
-      try {
-        return await this.fetchYahooTicker(symbol);
-      } catch {
-        return this.generateSimulatedTicker(cleanSymbol, basePrice);
-      }
+      return await this.fetchYahooTicker(symbol);
     }
   }
 
@@ -456,12 +424,7 @@ export class TwelveDataService {
     if (!this.hasValidKey()) {
       const fallbackResult: Record<string, any> = {};
       await Promise.all(symbols.map(async (sym) => {
-        try {
-          fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
-        } catch {
-          const basePrice = DEFAULT_PRICES[sym] || DEFAULT_PRICES[toForexFormat(sym)] || 1.0;
-          fallbackResult[sym.replace('/', '')] = this.generateSimulatedTicker(sym.replace('/', ''), basePrice);
-        }
+        fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
       }));
       return fallbackResult;
     }
@@ -499,12 +462,7 @@ export class TwelveDataService {
             quoteVol: parseFloat(item.volume || '100000') * price,
           };
         } else {
-          try {
-            parsedTickers[cleanSymbol] = await this.fetchTicker(rawSym);
-          } catch {
-            const basePrice = DEFAULT_PRICES[rawSym] || DEFAULT_PRICES[formattedSym] || 1.0;
-            parsedTickers[cleanSymbol] = this.generateSimulatedTicker(cleanSymbol, basePrice);
-          }
+          parsedTickers[cleanSymbol] = await this.fetchTicker(rawSym);
         }
       }
 
@@ -512,142 +470,12 @@ export class TwelveDataService {
     } catch (err: any) {
       const fallbackResult: Record<string, any> = {};
       await Promise.all(symbols.map(async (sym) => {
-        try {
-          fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
-        } catch {
-          const basePrice = DEFAULT_PRICES[sym] || DEFAULT_PRICES[toForexFormat(sym)] || 1.0;
-          fallbackResult[sym.replace('/', '')] = this.generateSimulatedTicker(sym.replace('/', ''), basePrice);
-        }
+        fallbackResult[sym.replace('/', '')] = await this.fetchTicker(sym);
       }));
       return fallbackResult;
     }
   }
 
-  private generateSimulatedCandles(pair: string, timeframe: string, limit: number) {
-    const candles = [];
-    const formattedSymbol = toForexFormat(pair);
-    const basePrice = DEFAULT_PRICES[formattedSymbol] || DEFAULT_PRICES[pair] || 100.0;
-    
-    // Time steps in milliseconds
-    let stepMs = 60 * 60 * 1000; // default 1H
-    if (timeframe === '1D' || timeframe === '1d') stepMs = 24 * 60 * 60 * 1000;
-    else if (timeframe === '4H' || timeframe === '4h') stepMs = 4 * 60 * 60 * 1000;
-    else if (timeframe === '15M' || timeframe === '15m') stepMs = 15 * 60 * 1000;
-    else if (timeframe === '5M' || timeframe === '5m') stepMs = 5 * 60 * 1000;
-    else if (timeframe === '1M' || timeframe === '1m') stepMs = 60 * 1000;
-
-    const now = Date.now();
-    const alignedNow = Math.floor(now / stepMs) * stepMs;
-    const baseTime = alignedNow - limit * stepMs;
-
-    // Hash symbol for a stable offset
-    let symbolHash = 0;
-    for (let idx = 0; idx < pair.length; idx++) {
-      symbolHash = (symbolHash * 31 + pair.charCodeAt(idx)) & 0xFFFFFFFF;
-    }
-    const hashVal = Math.abs(symbolHash);
-
-    for (let i = 0; i < limit; i++) {
-      const candleTime = baseTime + i * stepMs;
-      const t = candleTime / 100000000; // scale timestamp
-
-      // Multi-frequency sine waves to model realistic macro cycles, swing trends, and intraday waves
-      const longTerm = Math.sin(t / 24 + (hashVal % 100)) * 0.12;
-      const medTerm = Math.cos(t / 6 + (hashVal % 37)) * 0.04;
-      const shortTerm = Math.sin(t * 2 + (hashVal % 13)) * 0.012;
-      const micro = Math.cos(t * 15 + (hashVal % 7)) * 0.003;
-
-      const closePrice = basePrice * (1 + longTerm + medTerm + shortTerm + micro);
-
-      // Determine open price using the timestamp of the previous candle boundary
-      const prevT = (candleTime - stepMs) / 100000000;
-      const prevLongTerm = Math.sin(prevT / 24 + (hashVal % 100)) * 0.12;
-      const prevMedTerm = Math.cos(prevT / 6 + (hashVal % 37)) * 0.04;
-      const prevShortTerm = Math.sin(prevT * 2 + (hashVal % 13)) * 0.012;
-      const prevMicro = Math.cos(prevT * 15 + (hashVal % 7)) * 0.003;
-      const openPrice = basePrice * (1 + prevLongTerm + prevMedTerm + prevShortTerm + prevMicro);
-
-      // Generate deterministic high and low using candle timestamp as seed
-      const deterministicNoise = (Math.abs(Math.sin(candleTime / 1000 + hashVal)) * 10000) % 1;
-      const minOC = Math.min(openPrice, closePrice);
-      const maxOC = Math.max(openPrice, closePrice);
-      const wickRange = basePrice * (0.002 + 0.006 * deterministicNoise);
-
-      const highPrice = maxOC + wickRange * 0.7;
-      const lowPrice = Math.max(minOC - wickRange * 0.7, basePrice * 0.1);
-
-      // Decide dec count based on instrument type
-      let decimals = 5;
-      if (pair.includes('JPY')) decimals = 3;
-      else if (pair.includes('XAU') || pair === 'US30' || pair === 'SPX500' || pair === 'NAS100') decimals = 2;
-      else if (pair.includes('XAG')) decimals = 3;
-
-      candles.push({
-        pair,
-        timeframe,
-        open:   parseFloat(openPrice.toFixed(decimals)),
-        high:   parseFloat(highPrice.toFixed(decimals)),
-        low:    parseFloat(lowPrice.toFixed(decimals)),
-        close:  parseFloat(closePrice.toFixed(decimals)),
-        volume: parseFloat(((100000 + (hashVal % 50000)) * (0.5 + 0.5 * deterministicNoise)).toFixed(2)),
-        timestamp: new Date(candleTime),
-      });
-    }
-
-    return candles;
-  }
-
-  private generateSimulatedTicker(pair: string, basePrice: number) {
-    const formattedSymbol = toForexFormat(pair);
-    const now = Date.now();
-    const alignedNow = Math.floor(now / 60000) * 60000;
-
-    let symbolHash = 0;
-    for (let idx = 0; idx < pair.length; idx++) {
-      symbolHash = (symbolHash * 31 + pair.charCodeAt(idx)) & 0xFFFFFFFF;
-    }
-    const hashVal = Math.abs(symbolHash);
-
-    // Derive price deterministically
-    const t = alignedNow / 100000000;
-    const longTerm = Math.sin(t / 24 + (hashVal % 100)) * 0.12;
-    const medTerm = Math.cos(t / 6 + (hashVal % 37)) * 0.04;
-    const shortTerm = Math.sin(t * 2 + (hashVal % 13)) * 0.012;
-    const micro = Math.cos(t * 15 + (hashVal % 7)) * 0.003;
-    const price = basePrice * (1 + longTerm + medTerm + shortTerm + micro);
-
-    // Derive price from 24h ago for a stable change24h
-    const prevT = (alignedNow - 86400000) / 100000000;
-    const prevLongTerm = Math.sin(prevT / 24 + (hashVal % 100)) * 0.12;
-    const prevMedTerm = Math.cos(prevT / 6 + (hashVal % 37)) * 0.04;
-    const prevShortTerm = Math.sin(prevT * 2 + (hashVal % 13)) * 0.012;
-    const prevMicro = Math.cos(prevT * 15 + (hashVal % 7)) * 0.003;
-    const prevPrice = basePrice * (1 + prevLongTerm + prevMedTerm + prevShortTerm + prevMicro);
-
-    const change = price - prevPrice;
-    const changePct = (change / prevPrice) * 100;
-
-    // High & Low ranges
-    const volatility = basePrice * 0.015;
-    const high24h = Math.max(price, prevPrice) + volatility * 0.5;
-    const low24h = Math.max(Math.min(price, prevPrice) - volatility * 0.5, basePrice * 0.1);
-
-    let decimals = 5;
-    if (pair.includes('JPY')) decimals = 3;
-    else if (pair.includes('XAU') || pair === 'US30' || pair === 'SPX500' || pair === 'NAS100') decimals = 2;
-    else if (pair.includes('XAG')) decimals = 3;
-
-    return {
-      pair,
-      price:        parseFloat(price.toFixed(decimals)),
-      change:       parseFloat(change.toFixed(decimals)),
-      changePct:    parseFloat(changePct.toFixed(2)),
-      high24h:      parseFloat(high24h.toFixed(decimals)),
-      low24h:       parseFloat(low24h.toFixed(decimals)),
-      volume24h:    Math.floor((500000 + (hashVal % 250000))),
-      quoteVol:     Math.floor((500000 + (hashVal % 250000))) * price,
-    };
-  }
 }
 
 function toForexFormat(pair: string): string {

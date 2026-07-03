@@ -94,6 +94,7 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
 
   // Fallback Polling if WebSocket fails or for Forex pairs
   useEffect(() => {
+    let active = true;
     let intervalId: ReturnType<typeof setInterval>;
     
     // Always poll for Forex (since WS is crypto only). 
@@ -101,7 +102,6 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
     const isCrypto = CRYPTO_PAIRS.some(p => p.symbol === symbol)
     if (!isCrypto || (!isConnected && !isLoading)) {
       intervalId = setInterval(() => {
-        let active = true
         fetchCandlesWithFlag(symbol, timeframe, 200)
           .then(result => {
             if (!active) return
@@ -111,13 +111,11 @@ export function useRealtimeCandles(symbol: string, timeframe: string) {
             setApiError(result.apiError || null)
           })
           .catch(() => {})
-        return () => {
-          active = false
-        }
       }, 30000); // Polling every 30 seconds (optimized for rate-limits)
     }
 
     return () => {
+      active = false;
       if (intervalId) clearInterval(intervalId);
     }
   }, [symbol, timeframe, isConnected, isLoading])
