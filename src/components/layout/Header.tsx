@@ -11,7 +11,9 @@ import {
   FileText, 
   ChevronDown,
   ChevronUp,
-  Menu
+  Menu,
+  Star,
+  Pin
 } from 'lucide-react';
 import { CurrencyPair, Timeframe } from '../../types';
 import { useMarketStore } from '../../store/useMarketStore';
@@ -59,6 +61,72 @@ export const Header: React.FC<HeaderProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Timeframe pinning and dropdown states
+  const [pinnedTimeframes, setPinnedTimeframes] = useState<Timeframe[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('autoslp_pinned_timeframes');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return ['15m', '1H', '4H', '1D']; // sensible defaults matching core layouts
+  });
+
+  const [tfDropdownOpen, setTfDropdownOpen] = useState(false);
+  const tfDropdownRef = useRef<HTMLDivElement>(null);
+  const pairSelectorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('autoslp_pinned_timeframes', JSON.stringify(pinnedTimeframes));
+    }
+  }, [pinnedTimeframes]);
+
+  // Click outside dropdowns listener
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Close timeframe dropdown if clicked outside
+      if (tfDropdownRef.current && !tfDropdownRef.current.contains(target)) {
+        setTfDropdownOpen(false);
+      }
+      
+      // Close pair selector if clicked outside
+      if (pairSelectorRef.current && !pairSelectorRef.current.contains(target)) {
+        setShowPairMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
+  const togglePinTimeframe = (tf: Timeframe) => {
+    setPinnedTimeframes((prev) => {
+      if (prev.includes(tf)) {
+        // Allow unpinning, but keep at least 1 timeframe to avoid empty bars
+        if (prev.length <= 1) return prev;
+        return prev.filter((p) => p !== tf);
+      } else {
+        // Enforce the requested maximum of 7 pinned timeframes
+        if (prev.length >= 7) {
+          return prev;
+        }
+        return [...prev, tf];
+      }
+    });
+  };
 
   const [notifications, setNotifications] = useState([
     { id: '1', title: 'BOS Confirmed (BTCUSDT H4)', desc: 'Break of Structure identified at $67,400', time: '5m ago', type: 'structure' },
@@ -207,7 +275,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="hidden lg:flex items-center space-x-6">
-        <div className="relative">
+        <div className="relative" ref={pairSelectorRef}>
           <button 
             id="pair-selector-dropdown-trigger"
             onClick={() => setShowPairMenu(!showPairMenu)}
@@ -285,20 +353,86 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex bg-surface border border-[#2A2E39] rounded-lg p-0.5 overflow-x-auto max-w-[280px] md:max-w-none scrollbar-none whitespace-nowrap scroll-smooth">
-          {timeframes.map((tf) => (
+        <div className="flex items-center space-x-2" ref={tfDropdownRef}>
+          {/* Pinned Timeframe Shortcuts */}
+          <div className="flex bg-surface border border-[#2A2E39] rounded-lg p-0.5 whitespace-nowrap scrollbar-none">
+            {pinnedTimeframes.map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setSelectedTimeframe(tf)}
+                className={`px-2.5 py-0.5 rounded text-xs transition-all duration-200 cursor-pointer font-mono ${
+                  selectedTimeframe === tf 
+                    ? 'bg-[#2A3245] text-[#CAAA98] font-bold shadow-inner' 
+                    : 'text-gray-400 hover:text-white hover:bg-[#202738]/50'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+
+          {/* All Timeframes Dropdown */}
+          <div className="relative">
             <button
-              key={tf}
-              onClick={() => setSelectedTimeframe(tf)}
-              className={`px-2.5 py-0.5 rounded text-xs transition-all duration-200 cursor-pointer font-mono ${
-                selectedTimeframe === tf 
-                  ? 'bg-[#2A3245] text-light font-bold shadow-inner' 
-                  : 'text-gray-400 hover:text-white'
+              onClick={() => setTfDropdownOpen(!tfDropdownOpen)}
+              className={`flex items-center space-x-1.5 bg-surface hover:bg-[#1C202F] text-gray-200 px-3 py-1 rounded-md border border-[#2A2E39] text-xs font-mono transition-colors cursor-pointer h-7 ${
+                !pinnedTimeframes.includes(selectedTimeframe) ? 'border-[#CAAA98]/40 bg-[#CAAA98]/5 text-[#CAAA98]' : ''
               }`}
+              title="Select timeframe"
             >
-              {tf}
+              <span className="font-semibold">
+                {selectedTimeframe}
+              </span>
+              <ChevronDown size={14} className="text-gray-400" />
             </button>
-          ))}
+
+            {tfDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-56 bg-[#1A1F2C] border border-[#2A2E39] rounded-md shadow-2xl z-50 p-1 animate-in fade-in slide-in-from-top-1 duration-100">
+                <div className="px-2.5 py-1.5 text-[9px] text-gray-500 font-bold uppercase tracking-wider border-b border-[#2A2E39] mb-1 flex justify-between items-center select-none">
+                  <span>Select Timeframe</span>
+                  <span className="text-gray-400 font-normal lowercase">({pinnedTimeframes.length}/7 pinned)</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto scrollbar-none space-y-0.5">
+                  {timeframes.map((tf) => {
+                    const isPinned = pinnedTimeframes.includes(tf);
+                    const isSelected = selectedTimeframe === tf;
+                    return (
+                      <div
+                        key={tf}
+                        className={`flex items-center justify-between rounded px-2 py-1 text-xs font-mono hover:bg-[#202738] transition-colors group ${
+                          isSelected ? 'bg-[#2A3245]/40 text-light' : 'text-gray-400'
+                        }`}
+                      >
+                        <button
+                          onClick={() => {
+                            setSelectedTimeframe(tf);
+                            setTfDropdownOpen(false);
+                          }}
+                          className="flex-1 text-left py-0.5 cursor-pointer text-white"
+                        >
+                          {tf} {isSelected && <span className="text-[10px] text-[#CAAA98] ml-1.5">(active)</span>}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePinTimeframe(tf);
+                          }}
+                          className={`p-1.5 rounded cursor-pointer transition-colors ${
+                            isPinned 
+                              ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-500/10' 
+                              : 'text-gray-600 hover:text-gray-200 hover:bg-gray-700/30'
+                          }`}
+                          title={isPinned ? 'Unpin from navbar' : 'Pin to navbar'}
+                        >
+                          <Star size={12} className={isPinned ? 'fill-current' : ''} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {ticker && (
