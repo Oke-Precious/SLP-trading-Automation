@@ -621,7 +621,12 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                 )}
               </div>
             </div>
-            {CRYPTO_PAIRS.some(p => p.symbol === selectedPair) ? (
+            {candles.length === 0 ? (
+              <span className="text-[10px] text-red-500 font-bold tracking-wider ml-2 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                LIVE FEED OFFLINE
+              </span>
+            ) : CRYPTO_PAIRS.some(p => p.symbol === selectedPair) ? (
               isConnected ? (
                 <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-[#26A69A] rounded-full animate-pulse" />
@@ -639,15 +644,10 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
                   SHOWING CACHED DATA
                 </span>
-              ) : isRealData ? (
+              ) : (
                 <span className="text-[10px] text-[#26A69A] font-bold tracking-wider ml-2 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-[#26A69A] rounded-full animate-pulse" />
                   TWELVE DATA SYNCHRONIZED
-                </span>
-              ) : (
-                <span className="text-[10px] text-amber-500 font-bold tracking-wider ml-2 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                  SANDBOX MODE (EMULATED)
                 </span>
               )
             )}
@@ -730,16 +730,12 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           
           {candles.length === 0 && !isLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#131722]/98 z-40 p-6 text-center select-none animate-in fade-in duration-300">
-              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-4">
+              <div className="w-12 h-12 rounded-full bg-[#CAAA98]/10 border border-[#CAAA98]/20 flex items-center justify-center text-[#CAAA98] mb-4">
                 <AlertCircle size={24} />
               </div>
               <h3 className="text-sm font-semibold text-white tracking-tight">Chart Data Unavailable</h3>
               <p className="text-xs text-gray-400 max-w-sm mt-2 leading-relaxed">
-                {apiError ? apiError : (
-                  <>
-                    Could not retrieve live market candles for <span className="font-semibold text-gray-200">{selectedPair} ({selectedTimeframe})</span> from real-time feeds. Analytical integrity is maintained; synthetic fallback datasets have been disabled.
-                  </>
-                )}
+                Live chart data is temporarily unavailable. Please try again shortly.
               </p>
               <div className="mt-5 flex gap-3">
                 <button
@@ -747,45 +743,8 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                   className="px-4 py-2 text-xs font-semibold text-[#111622] bg-[#CAAA98] hover:bg-[#bfa08f] rounded transition-all shadow-md cursor-pointer flex items-center gap-1.5"
                 >
                   <RotateCcw size={14} />
-                  Retry Connection
+                  Force Reconnect
                 </button>
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-[#252B3A] hover:bg-[#2A3142] border border-[#2D3345] rounded transition-all cursor-pointer"
-                >
-                  Configure API Settings
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {!isRealData && (
-            <div className="absolute top-4 left-4 z-10 max-w-sm bg-[#1E2433]/95 border border-amber-500/30 p-3.5 rounded-lg shadow-xl backdrop-blur-md flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex-shrink-0 text-amber-500 mt-0.5">
-                <AlertCircle size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-semibold text-white flex items-center gap-1.5 leading-none">
-                  Sandbox Emulated Mode Active
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                </h4>
-                <p className="text-[10px] text-gray-400 leading-normal mt-1.5">
-                  Live API unreachable or rate-limited. Running on emulated market candles so you can still test SLP order blocks, structures, and drawing overlays safely.
-                </p>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="text-[9px] font-bold text-[#111622] bg-[#CAAA98] hover:bg-[#bfa08f] px-2 py-1 rounded transition-colors cursor-pointer"
-                  >
-                    Configure API Key
-                  </button>
-                  <button
-                    onClick={() => refetch()}
-                    className="text-[9px] font-bold text-white bg-[#252B3A] hover:bg-[#2A3142] border border-[#2D3345] px-2 py-1 rounded transition-colors cursor-pointer"
-                  >
-                    Retry Live
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -797,13 +756,11 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           </div>
 
           <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
-            <span className={`w-1.5 h-1.5 rounded-full ${!isRealData ? 'bg-amber-500 animate-pulse' : (candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse')}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
             <span>
-              {!isRealData
-                ? 'SLP Engine: Running in Sandbox mode. Computing structure overlays (BOS, MSS, OBs) from emulated candles.'
-                : candles.length < 30 
-                  ? 'SLP Engine: Insufficient data to compute structure levels confidently (minimum 30 candles required).'
-                  : 'SLP Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.'
+              {candles.length < 30 
+                ? 'SLP Engine: Insufficient data to compute structure levels confidently (minimum 30 candles required).'
+                : 'SLP Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.'
               }
             </span>
           </div>

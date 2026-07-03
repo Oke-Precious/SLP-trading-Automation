@@ -129,17 +129,13 @@ export default function DirectionalBiasView() {
                     let title = '';
                     
                     if (cell) {
-                      if (!cell.isRealData && cell.bias === 'N/A') {
+                      if (cell.bias === 'N/A') {
                         display = 'N/A';
                         bg = 'bg-gray-700 text-gray-400';
                         title = 'Live data unavailable';
                       } else {
                         display = cell.bias;
                         bg = display === 'BULLISH' ? 'bg-[#26A69A]/10 text-[#26A69A]' : display === 'BEARISH' ? 'bg-[#EF5350]/10 text-[#EF5350]' : 'bg-gray-600/20 text-gray-400';
-                        if (!cell.isRealData) {
-                          display = display + ' *';
-                          title = 'Demo Sandbox Data — add API key for live feed';
-                        }
                       }
                     }
                     
@@ -163,8 +159,7 @@ export default function DirectionalBiasView() {
           </tbody>
         </table>
       </div>
-      <div className="text-[10px] text-gray-500 mt-4 border-t border-[#2A2E39] pt-3 flex items-center justify-between">
-        <span>* Sandbox Mode: Items marked with (*) are running on emulated market data due to live feed restrictions.</span>
+      <div className="text-[10px] text-gray-500 mt-4 border-t border-[#2A2E39] pt-3 flex items-center justify-end">
         <span className="text-[#CAAA98] cursor-pointer hover:underline" onClick={loadData}>Force Sync</span>
       </div>
     </div>

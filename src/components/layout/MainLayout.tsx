@@ -237,7 +237,7 @@ export default function MainLayout() {
 
       <footer className="w-full bg-[#111622] py-4 text-center border-t border-[#2A2E39]/40 select-none flex flex-col items-center justify-center gap-2 mt-auto">
         <span className="font-mono text-[10px] text-gray-600 tracking-wider uppercase">
-          AutoSLP Algorithmic Solutions &bull; May 2026 Sandbox Preview Mode
+          AutoSLP Algorithmic Solutions
         </span>
         <div className="flex space-x-4 text-[10px] font-mono text-gray-500">
           <a href="#" className="hover:text-[#CAAA98] transition-colors">Privacy Policy</a>
