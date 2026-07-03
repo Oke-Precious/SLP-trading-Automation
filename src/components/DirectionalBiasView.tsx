@@ -29,12 +29,12 @@ export default function DirectionalBiasView() {
           results.forEach((result, i) => {
             const tf = TIMEFRAMES[i];
             if (result.status === 'fulfilled' && result.value.candles.length >= 20) {
-              if (!result.value.isRealData) {
-                 newData[pair][tf] = { bias: 'N/A', isRealData: false, rawBias: 'N/A' };
-              } else {
-                 const biasResult = analyseBias(result.value.candles, tf);
-                 newData[pair][tf] = { bias: biasResult.bias, isRealData: true, rawBias: biasResult.bias };
-              }
+              const biasResult = analyseBias(result.value.candles, tf);
+              newData[pair][tf] = { 
+                bias: biasResult.bias, 
+                isRealData: result.value.isRealData, 
+                rawBias: biasResult.bias 
+              };
             } else {
               newData[pair][tf] = { bias: 'N/A', isRealData: false, rawBias: 'N/A' };
             }
@@ -129,13 +129,17 @@ export default function DirectionalBiasView() {
                     let title = '';
                     
                     if (cell) {
-                      if (!cell.isRealData) {
-                         display = 'N/A';
-                         bg = 'bg-gray-700 text-gray-400';
-                         title = 'Live data unavailable — add API key';
+                      if (!cell.isRealData && cell.bias === 'N/A') {
+                        display = 'N/A';
+                        bg = 'bg-gray-700 text-gray-400';
+                        title = 'Live data unavailable';
                       } else {
-                         display = cell.bias;
-                         bg = display === 'BULLISH' ? 'bg-[#26A69A]/10 text-[#26A69A]' : display === 'BEARISH' ? 'bg-[#EF5350]/10 text-[#EF5350]' : 'bg-gray-600/20 text-gray-400';
+                        display = cell.bias;
+                        bg = display === 'BULLISH' ? 'bg-[#26A69A]/10 text-[#26A69A]' : display === 'BEARISH' ? 'bg-[#EF5350]/10 text-[#EF5350]' : 'bg-gray-600/20 text-gray-400';
+                        if (!cell.isRealData) {
+                          display = display + ' *';
+                          title = 'Demo Sandbox Data — add API key for live feed';
+                        }
                       }
                     }
                     
@@ -158,6 +162,10 @@ export default function DirectionalBiasView() {
             })}
           </tbody>
         </table>
+      </div>
+      <div className="text-[10px] text-gray-500 mt-4 border-t border-[#2A2E39] pt-3 flex items-center justify-between">
+        <span>* Sandbox Mode: Items marked with (*) are running on emulated market data due to live feed restrictions.</span>
+        <span className="text-[#CAAA98] cursor-pointer hover:underline" onClick={loadData}>Force Sync</span>
       </div>
     </div>
   );

@@ -711,59 +711,57 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
 
         {/* Chart View */}
         <div className="flex-1 min-w-0 bg-[#131722] relative flex flex-col justify-stretch">
-          {/* Real-time chart element is kept in DOM but hidden if emulated/not real to prevent unmount cycle issues */}
-          <div ref={chartRef} className={`w-full h-full ${!isRealData ? 'hidden' : ''}`} />
+          {/* Real-time chart element is kept in DOM */}
+          <div ref={chartRef} className="w-full h-full" />
           
           {!isRealData && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#131722] overflow-y-auto">
-              <div className="max-w-md p-8 space-y-4 font-sans select-none animate-in fade-in duration-300">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-500/10 text-red-400 mb-2">
-                  <AlertCircle size={28} />
-                </div>
-                <h3 className="text-base font-semibold text-white tracking-tight">Real-Time Market Chart Unavailable</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  The platform is unable to retrieve real-time candle data for <strong className="text-white">{selectedPair}</strong> at this moment. This is typically due to a missing or inactive <strong>Twelve Data API key</strong> in your Settings, or rate limits on the free tier.
+            <div className="absolute top-4 left-4 z-10 max-w-sm bg-[#1E2433]/95 border border-amber-500/30 p-3.5 rounded-lg shadow-xl backdrop-blur-md flex gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex-shrink-0 text-amber-500 mt-0.5">
+                <AlertCircle size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-semibold text-white flex items-center gap-1.5 leading-none">
+                  Sandbox Emulated Mode Active
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                </h4>
+                <p className="text-[10px] text-gray-400 leading-normal mt-1.5">
+                  Live API unreachable or rate-limited. Running on emulated market candles so you can still test SLP order blocks, structures, and drawing overlays safely.
                 </p>
-                <div className="text-[11px] text-gray-500 font-mono bg-[#1A1F2C] border border-[#2D3345] rounded p-3 leading-relaxed break-all">
-                  {apiError || "API Response: Unresolved or quota-limited request. Live socket inactive."}
-                </div>
-                <div className="pt-2 flex justify-center gap-3">
+                <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => setShowSettings(true)}
-                    className="px-4 py-1.5 bg-[#CAAA98] hover:bg-[#bfa08f] text-[#111622] text-xs font-bold rounded transition-colors cursor-pointer"
+                    className="text-[9px] font-bold text-[#111622] bg-[#CAAA98] hover:bg-[#bfa08f] px-2 py-1 rounded transition-colors cursor-pointer"
                   >
                     Configure API Key
                   </button>
                   <button
                     onClick={() => refetch()}
-                    className="px-4 py-1.5 bg-[#252B3A] hover:bg-[#2A3142] border border-[#2D3345] text-white text-xs font-bold rounded transition-colors cursor-pointer"
+                    className="text-[9px] font-bold text-white bg-[#252B3A] hover:bg-[#2A3142] border border-[#2D3345] px-2 py-1 rounded transition-colors cursor-pointer"
                   >
-                    Retry Connection
+                    Retry Live
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {isRealData && (
-            <div className="absolute bottom-2 right-2 z-10 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity">
-              <a href="https://tradingview.com/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[10px] text-gray-400 font-sans hover:text-[#CAAA98]">
-                <span>Powered by TradingView</span>
-              </a>
-            </div>
-          )}
+          <div className="absolute bottom-2 right-2 z-10 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity">
+            <a href="https://tradingview.com/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1 text-[10px] text-gray-400 font-sans hover:text-[#CAAA98]">
+              <span>Powered by TradingView</span>
+            </a>
+          </div>
 
-          {isRealData && (
-            <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
-              <span className={`w-1.5 h-1.5 rounded-full ${candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
-              <span>
-                {candles.length < 30 
+          <div className="absolute bottom-2 left-2 z-10 bg-[#1E2433]/90 border border-[#2A2E39] px-2.5 py-1 rounded-md text-[10px] text-gray-400 font-mono pointer-events-none select-none flex items-center gap-1.5 backdrop-blur-sm">
+            <span className={`w-1.5 h-1.5 rounded-full ${!isRealData ? 'bg-amber-500 animate-pulse' : (candles.length < 30 ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse')}`} />
+            <span>
+              {!isRealData
+                ? 'SLP Engine: Running in Sandbox mode. Computing structure overlays (BOS, MSS, OBs) from emulated candles.'
+                : candles.length < 30 
                   ? 'SLP Engine: Insufficient data to compute structure levels confidently (minimum 30 candles required).'
                   : 'SLP Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.'
-                }
-              </span>
-            </div>
-          )}
+              }
+            </span>
+          </div>
         </div>
 
         {/* Settings Overlay Slide out */}
