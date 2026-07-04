@@ -123,8 +123,8 @@ export class TwelveDataService {
     const queryLimit = timeframe === '4H' ? limit * 4 : limit;
     
     const urls = [
-      `https://query2.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`,
-      `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`
+      `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=${queryInterval}&range=${range}`
     ];
 
     let lastError: any = null;
@@ -199,8 +199,8 @@ export class TwelveDataService {
     const yahooSymbol = getYahooSymbol(cleanSymbol);
     
     const urls = [
-      `https://query2.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`,
-      `https://query1.finance.chart.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`
+      `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1m&range=1d`
     ];
 
     let lastError: any = null;
