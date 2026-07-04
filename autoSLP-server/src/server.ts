@@ -66,7 +66,9 @@ export async function createServer(): Promise<FastifyInstance> {
         origin === allowedOrigin || 
         origin.includes('localhost') || 
         origin.includes('127.0.0.1') || 
-        origin.includes('run.app')
+        origin.includes('run.app') ||
+        origin.includes('netlify.app') ||
+        origin.includes('vercel.app')
       ) {
         cb(null, true);
         return;
