@@ -18,6 +18,8 @@ import { useMarketStore } from "../../store/useMarketStore";
 import { usePOIStore } from "../../store/usePOIStore";
 import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSLPAnalysis } from "../../lib/analysis/slpEngine";
+import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
+import { detectSLPStructure } from "../../lib/slp/slpStructure";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown, AlertCircle } from 'lucide-react';
@@ -323,6 +325,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     return runSLPAnalysis(candles);
   }, [candles]);
 
+  const slpStructure = React.useMemo(() => {
+    if (candles.length < 30) return { mssEvents: [], bosEvents: [] };
+    const biasResult = analyseSLPBias(candles, selectedTimeframe);
+    const { highs, lows } = detectSwingPoints(candles, selectedTimeframe);
+    return detectSLPStructure(candles, selectedTimeframe, biasResult.bias, highs, lows);
+  }, [candles, selectedTimeframe]);
+
   const slpOverlayRefs = useRef<{ seriesList: any[]; markers: any[] }>({ seriesList: [], markers: [] });
   function clearSLPOverlays() {
     slpOverlayRefs.current.seriesList.forEach((s) => { try { chartApi.current?.removeSeries(s); } catch {} });
@@ -341,21 +350,53 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     clearSLPOverlays();
     const allMarkers: any[] = [];
 
-    // BOS
-    if (settings.showBOS || settings.showMSS) {
-      slpResult.bosEvents.forEach((bos) => {
-        if (bos.type === 'BOS' && !settings.showBOS) return;
-        if (bos.type === 'MSS' && !settings.showMSS) return;
+    // Sequential MSS and BOS drawing
+    if (settings.showMSS && slpStructure) {
+      slpStructure.mssEvents.forEach((mss) => {
+        const color = "#CAAA98";
+        const text = mss.direction === 'BULLISH' ? 'MSS ↑' : 'MSS ↓';
+        const position = mss.direction === 'BULLISH' ? 'belowBar' : 'aboveBar';
+        allMarkers.push({
+          time: mss.time as Time,
+          position,
+          color,
+          shape: mss.direction === 'BULLISH' ? 'arrowUp' : 'arrowDown',
+          text,
+          size: 1.0,
+        });
+      });
+    }
+
+    if (settings.showBOS && slpStructure) {
+      slpStructure.bosEvents.forEach((bos) => {
+        const color = bos.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
         
-        let color = bos.direction === "BULLISH" ? settings.bosUpColor : settings.bosDownColor;
-        if (bos.type === 'MSS') color = settings.mssColor;
+        // Horizontal line from swingBroken.time to breakTime (lineTo)
+        const lineSeries = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
         
-        const lineSeries = chartApi.current!.addSeries(LineSeries, { color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        if (bos.swingTime < bos.breakTime) {
-          lineSeries.setData([ { time: bos.swingTime as Time, value: bos.price }, { time: bos.breakTime as Time, value: bos.price } ]);
+        if (bos.lineFrom < bos.lineTo) {
+          lineSeries.setData([
+            { time: bos.lineFrom as Time, value: bos.price },
+            { time: bos.lineTo as Time, value: bos.price },
+          ]);
         }
-        allMarkers.push({ time: bos.breakTime as Time, position: bos.direction === "BULLISH" ? "belowBar" : "aboveBar", color, shape: "circle", text: bos.type, size: 0.6 });
         slpOverlayRefs.current.seriesList.push(lineSeries);
+
+        // Marker at the breakTime end point
+        allMarkers.push({
+          time: bos.lineTo as Time,
+          position: bos.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+          color,
+          shape: 'circle',
+          text: 'BOS',
+          size: 0.8,
+        });
       });
     }
 
@@ -479,7 +520,20 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     if (!chartApi.current || !chartRef.current) return;
     
     // ML Data Collection hook
-    if (slpResult && candles.length > 0) {
+    if (slpStructure && slpStructure.bosEvents.length > 0 && candles.length > 0) {
+      const mappedEvents = slpStructure.bosEvents.map((b) => ({
+        swingTime: b.lineFrom,
+        breakTime: b.lineTo,
+        price: b.price,
+        direction: b.direction,
+        type: 'BOS' as const,
+        impulseStartPrice: b.mssReference?.price || b.price,
+        impulseStartTime: b.mssReference?.time || b.lineFrom,
+      }));
+      import('../../lib/ml/mlCollectorService')
+        .then(({ processMLDataCollection }) => processMLDataCollection(mappedEvents, candles))
+        .catch(() => {});
+    } else if (slpResult && candles.length > 0) {
       import('../../lib/ml/mlCollectorService')
         .then(({ processMLDataCollection }) => processMLDataCollection(slpResult.bosEvents, candles))
         .catch(() => {});
@@ -510,13 +564,17 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       if (slpResult) {
         const timeNum = param.time as number;
         const activeOB = slpResult.orderBlocks.find((ob: any) => timeNum >= ob.startTime && timeNum <= ob.endTime);
-        const thisBOS = slpResult.bosEvents.find((bos: any) => timeNum === bos.breakTime);
+        const thisBOS = slpStructure?.bosEvents.find((bos) => timeNum === bos.lineTo);
+        const thisMSS = slpStructure?.mssEvents.find((mss) => timeNum === mss.time);
         
         if (activeOB) {
           slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${activeOB.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">${activeOB.type === 'BULLISH' ? 'Bull OB' : 'Bear OB'} Zone</div>`;
         }
         if (thisBOS) {
-          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">${thisBOS.type} Broken Here</div>`;
+          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">BOS Broken Here</div>`;
+        }
+        if (thisMSS) {
+          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: #CAAA98">MSS Shift Here</div>`;
         }
       }
       

@@ -58,7 +58,7 @@ describe('Header Component', () => {
     });
 
     render(<Header onOpenSpecs={onOpenSpecs} onOpenSearch={onOpenSearch} />);
-    expect(screen.getByText('BULLISH')).toBeInTheDocument();
+    expect(screen.getByText('BULLISH BIAS')).toBeInTheDocument();
   });
 
   it('bias badge shows "BEARISH BIAS" when bias is BEARISH', () => {
@@ -81,7 +81,7 @@ describe('Header Component', () => {
     });
 
     render(<Header onOpenSpecs={onOpenSpecs} onOpenSearch={onOpenSearch} />);
-    expect(screen.getByText('BEARISH')).toBeInTheDocument();
+    expect(screen.getByText('BEARISH BIAS')).toBeInTheDocument();
   });
 
   it('notification bell shows correct unread count', () => {
