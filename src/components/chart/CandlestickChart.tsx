@@ -21,6 +21,7 @@ import { runSLPAnalysis } from "../../lib/analysis/slpEngine";
 import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
 import { detectSLPStructure } from "../../lib/slp/slpStructure";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
+import { detectSLPPOIs } from "../../lib/slp/slpPOI";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown, AlertCircle } from 'lucide-react';
@@ -341,6 +342,11 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     return detectSLPLiquidity(candles, highs, lows, biasResult.bias, atr);
   }, [candles, selectedTimeframe]);
 
+  const slpPOIs = React.useMemo(() => {
+    if (candles.length < 30 || !slpStructure || !slpLiquidity) return [];
+    return detectSLPPOIs(candles, slpStructure.mssEvents, slpStructure.bosEvents, slpLiquidity);
+  }, [candles, slpStructure, slpLiquidity]);
+
   const slpOverlayRefs = useRef<{ seriesList: any[]; markers: any[] }>({ seriesList: [], markers: [] });
   function clearSLPOverlays() {
     slpOverlayRefs.current.seriesList.forEach((s) => { try { chartApi.current?.removeSeries(s); } catch {} });
@@ -409,51 +415,79 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       });
     }
 
-    // Order Blocks
-    if (settings.showOrderBlocks || settings.showBreakerBlocks) {
-      slpResult.orderBlocks.forEach((ob) => {
-        if (ob.isBroken && !settings.showBreakerBlocks) return;
-        if (!ob.isBroken && !settings.showOrderBlocks) return;
-        
-        const borderCol = ob.isBroken ? settings.breakerColor : (ob.type === "BULLISH" ? settings.bullOBColor : settings.bearOBColor);
-        const color = ob.isBroken ? settings.breakerColor + "12" : (ob.type === "BULLISH" ? settings.bullOBColor + "12" : settings.bearOBColor + "12"); // "12" is ~7% opacity for stacking nicely
+    // Valid SLP POIs (Order Blocks & Breaker Blocks satisfying all 4 rules)
+    if ((settings.showOrderBlocks || settings.showBreakerBlocks) && slpPOIs) {
+      slpPOIs.forEach((poi) => {
+        if (poi.type === 'ORDER_BLOCK' && !settings.showOrderBlocks) return;
+        if (poi.type === 'BREAKER_BLOCK' && !settings.showBreakerBlocks) return;
 
-        const obSeries = chartApi.current!.addSeries(CandlestickSeries, {
-          upColor: color,
-          downColor: color,
-          borderUpColor: 'transparent',
-          borderDownColor: 'transparent',
-          wickUpColor: 'transparent',
-          wickDownColor: 'transparent',
+        let color = '#1565C0'; // Breaker Block color
+        if (poi.type === 'ORDER_BLOCK') {
+          color = poi.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+        }
+
+        const endTime = candles[candles.length - 1].time;
+
+        // Top line (solid)
+        const topLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
           priceLineVisible: false,
           lastValueVisible: false,
+          crosshairMarkerVisible: false
         });
-        const obCandles = candles.filter((c) => c.time >= ob.startTime && c.time <= ob.endTime);
-        if (obCandles.length > 0) {
-          obSeries.setData(obCandles.map((c) => ({
-            time: c.time as Time,
-            open: ob.bottom,
-            high: ob.top,
-            low: ob.bottom,
-            close: ob.top
-          })));
+        if (poi.time < endTime) {
+          topLine.setData([
+            { time: poi.time as Time, value: poi.priceTop },
+            { time: endTime as Time, value: poi.priceTop }
+          ]);
         }
 
-        const endLineTime = ob.endTime || candles[candles.length - 1].time;
-
-        const topLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Solid, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        if (ob.startTime < endLineTime) {
-          topLine.setData([{ time: ob.startTime as Time, value: ob.top }, { time: endLineTime as Time, value: ob.top }]);
+        // 50% midpoint line (dashed) - labeled: "50% — Entry Zone"
+        const midLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+          title: '50% — Entry Zone'
+        });
+        if (poi.time < endTime) {
+          midLine.setData([
+            { time: poi.time as Time, value: poi.priceMid },
+            { time: endTime as Time, value: poi.priceMid }
+          ]);
         }
-        
-        allMarkers.push({ time: ob.startTime as Time, position: "aboveBar", color: borderCol, shape: "circle", text: ob.isBroken ? "BB" : ob.type === "BULLISH" ? "Bull OB" : "Bear OB", size: 0.5 });
 
-        const botLine = chartApi.current!.addSeries(LineSeries, { color: borderCol, lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        if (ob.startTime < endLineTime) {
-          botLine.setData([{ time: ob.startTime as Time, value: ob.bottom }, { time: endLineTime as Time, value: ob.bottom }]);
+        // Bottom line (dotted)
+        const botLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false
+        });
+        if (poi.time < endTime) {
+          botLine.setData([
+            { time: poi.time as Time, value: poi.priceBottom },
+            { time: endTime as Time, value: poi.priceBottom }
+          ]);
         }
 
-        slpOverlayRefs.current.seriesList.push(obSeries, topLine, botLine);
+        // Marker at start of zone
+        allMarkers.push({
+          time: poi.time as Time,
+          position: poi.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+          color,
+          shape: 'circle',
+          text: poi.displayLabel,
+          size: 0.7
+        });
+
+        slpOverlayRefs.current.seriesList.push(topLine, midLine, botLine);
       });
     }
 
@@ -601,12 +635,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       
       if (slpResult) {
         const timeNum = param.time as number;
-        const activeOB = slpResult.orderBlocks.find((ob: any) => timeNum >= ob.startTime && timeNum <= ob.endTime);
+        const activePOI = slpPOIs?.find((poi: any) => timeNum >= poi.time);
         const thisBOS = slpStructure?.bosEvents.find((bos) => timeNum === bos.lineTo);
         const thisMSS = slpStructure?.mssEvents.find((mss) => timeNum === mss.time);
         
-        if (activeOB) {
-          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${activeOB.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">${activeOB.type === 'BULLISH' ? 'Bull OB' : 'Bear OB'} Zone</div>`;
+        if (activePOI) {
+          const color = activePOI.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${color}">${activePOI.displayLabel} Zone</div>`;
         }
         if (thisBOS) {
           slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">BOS Broken Here</div>`;

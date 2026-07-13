@@ -2,44 +2,50 @@ import React, { useMemo } from 'react';
 import { useMarketStore } from '../../store/useMarketStore';
 import { usePOIStore } from '../../store/usePOIStore';
 import { useRealtimeCandles } from '../../hooks/useRealtimeCandles';
-import { runSLPAnalysis } from '../../lib/analysis/slpEngine';
 import { Target, Layers, ArrowUpRight, ArrowDownRight, Clock } from 'lucide-react';
 import { formatPrice } from '../../lib/market/marketDataService';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { analyseSLPBias, detectSwingPoints } from '../../lib/slp/slpBias';
+import { detectSLPStructure } from '../../lib/slp/slpStructure';
+import { detectSLPLiquidity, calcATR } from '../../lib/slp/slpLiquidity';
+import { detectSLPPOIs } from '../../lib/slp/slpPOI';
 
 export default function TradeSetupsPage() {
   const { selectedPair, selectedTimeframe } = useMarketStore();
   const { pois } = usePOIStore();
   const { candles, isLoading } = useRealtimeCandles(selectedPair, selectedTimeframe);
 
-  const slpResult = useMemo(() => {
-    if (!candles || candles.length < 30) return null;
-    return runSLPAnalysis(candles);
-  }, [candles]);
+  const slpPOIs = useMemo(() => {
+    if (!candles || candles.length < 30) return [];
+    const biasResult = analyseSLPBias(candles, selectedTimeframe);
+    const { highs, lows } = detectSwingPoints(candles, selectedTimeframe);
+    const struct = detectSLPStructure(candles, selectedTimeframe, biasResult.bias, highs, lows);
+    const atr = calcATR(candles, 14);
+    const liq = detectSLPLiquidity(candles, highs, lows, biasResult.bias, atr);
+    return detectSLPPOIs(candles, struct.mssEvents, struct.bosEvents, liq);
+  }, [candles, selectedTimeframe]);
 
   const setups = useMemo(() => {
     const list: any[] = [];
-    if (!slpResult) return list;
+    if (!slpPOIs) return list;
 
-    // From SLP Engine
-    slpResult.orderBlocks.forEach((ob, idx) => {
-      const type = ob.isBroken ? 'Breaker Block' : 'Order Block';
-      const direction = ob.type;
-      
-      const relatedBos = slpResult.bosEvents.find(b => b.direction === direction && b.breakTime >= ob.startTime);
-      const isConfirmed = !!relatedBos;
+    // From Validated SLP POIs
+    slpPOIs.forEach((poi, idx) => {
+      const type = poi.type === 'BREAKER_BLOCK' ? 'Breaker Block' : 'Order Block';
+      const direction = poi.direction;
+      const isConfirmed = true;
 
       list.push({
         id: `auto-${idx}`,
         source: 'Auto-SLP',
-        title: `${selectedTimeframe} ${direction} ${type}`,
+        title: `${selectedTimeframe} ${poi.displayLabel}`,
         direction,
         type,
-        entryZone: `${formatPrice(Math.min(ob.bottom, ob.top), selectedPair)} - ${formatPrice(Math.max(ob.bottom, ob.top), selectedPair)}`,
-        status: ob.status,
+        entryZone: `${formatPrice(poi.priceBottom, selectedPair)} - ${formatPrice(poi.priceTop, selectedPair)}`,
+        status: poi.status,
         isConfirmed,
-        time: ob.startTime
+        time: poi.time
       });
     });
 
@@ -62,7 +68,7 @@ export default function TradeSetupsPage() {
     });
 
     return list;
-  }, [slpResult, pois, selectedTimeframe, selectedPair]);
+  }, [slpPOIs, pois, selectedTimeframe, selectedPair]);
 
   return (
     <div className="p-6 bg-[#111622] text-[#E0E3EB] min-h-full">
