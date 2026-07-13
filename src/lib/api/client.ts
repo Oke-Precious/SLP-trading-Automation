@@ -7,14 +7,7 @@ const envApiUrl =
   (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL ||
   (import.meta as any).env?.VITE_API_BASE_URL || '';
 
-// If running on a deployed Netlify or Vercel instance, fall back to the AI Studio live preview container URL to handle server requests
-const isDeployedFrontend = typeof window !== 'undefined' && 
-  (window.location.hostname.includes('netlify.app') || 
-   window.location.hostname.includes('vercel.app'));
-
-const defaultBackendUrl = isDeployedFrontend 
-  ? 'https://ais-pre-ku6lcml2s6vyhlthtfokbq-372757961021.europe-west1.run.app/api/v1' 
-  : '/api/v1';
+const defaultBackendUrl = '/api/v1';
 
 // Force relative path if the environment variable points to a localhost URL (which breaks in cloud preview)
 const NEXT_PUBLIC_API_BASE_URL = (envApiUrl && !envApiUrl.includes('localhost')) ? envApiUrl : defaultBackendUrl;

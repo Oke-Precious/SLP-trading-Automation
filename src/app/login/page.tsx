@@ -326,7 +326,7 @@ export default function LoginPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider">Structure Mapping</span>
               </div>
               <p className="text-[11px] text-[#9AA3B2] leading-relaxed">
-                Real-time, automated detection of Market Structure Breaks (BOS), Change of Character (CHoCH), Order Blocks (OB), and Fair Value Gaps (FVG).
+                Real-time, automated detection of Market Structure Breaks (BOS), Market Structure Shifts (MSS), Order Blocks (OB), and Breaker Blocks (BB).
               </p>
             </div>
             <div className="p-4 bg-[#1E2433] border border-[#2A2E39]/40 rounded-lg space-y-2">
@@ -388,9 +388,9 @@ export default function LoginPage() {
               <div className="absolute left-4 bottom-2 w-36 h-12 bg-emerald-500/10 border border-emerald-500/30 rounded flex items-center justify-center">
                 <span className="text-[8px] text-emerald-400 font-mono tracking-widest uppercase">4H bullish OB</span>
               </div>
-              {/* Fair Value Gap Shaded Area */}
-              <div className="absolute right-12 top-2 w-32 h-10 bg-red-500/10 border border-red-500/30 rounded flex items-center justify-center">
-                <span className="text-[8px] text-red-400 font-mono tracking-widest uppercase">1H Bearish FVG</span>
+              {/* Breaker Block Shaded Area */}
+              <div className="absolute right-12 top-2 w-32 h-10 bg-[#1565C0]/10 border border-[#1565C0]/30 rounded flex items-center justify-center">
+                <span className="text-[8px] text-[#1565C0] font-mono tracking-widest uppercase">1H Bearish BB</span>
               </div>
 
               {/* Individual Simulated Candles (SVG or CSS elements) */}
@@ -406,7 +406,7 @@ export default function LoginPage() {
                 <div className="flex flex-col items-center h-full justify-end">
                   <div className="w-0.5 h-14 bg-emerald-500 absolute bottom-4"></div>
                   <div className="w-3 h-8 bg-emerald-500 rounded-sm relative z-20"></div>
-                  <div className="absolute -top-3 text-[7px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-1 py-0.5 rounded whitespace-nowrap">CHoCH ↑</div>
+                  <div className="absolute -top-3 text-[7px] font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-1 py-0.5 rounded whitespace-nowrap">MSS ↑</div>
                 </div>
                 <div className="flex flex-col items-center h-full justify-end">
                   <div className="w-0.5 h-20 bg-emerald-500 absolute bottom-6"></div>

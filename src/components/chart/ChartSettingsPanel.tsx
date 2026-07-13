@@ -164,7 +164,6 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
             <ColorInput label="Trendline Liq" settingKey="trendlineLiqColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Equal Highs/Lows Liq" settingKey="eqLiqColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Long Wick Liq" settingKey="longWickLiqColor" settings={settings} updateSetting={updateSetting} />
-            <ColorInput label="Inducement Pullback" settingKey="inducementColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 
@@ -177,7 +176,6 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
             <ToggleInput label="Show Order Blocks" settingKey="showOrderBlocks" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Breaker Blocks" settingKey="showBreakerBlocks" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Liquidity Levels" settingKey="showLiquidity" settings={settings} updateSetting={updateSetting} />
-            <ToggleInput label="Show Inducement" settingKey="showInducement" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Volume" settingKey="showVolume" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>

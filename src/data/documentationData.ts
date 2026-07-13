@@ -141,7 +141,7 @@ Retail traders often lose because they use basic retail patterns like "double bo
 
 1. **Market Structure (BOS / MSS):**
    * **BOS (Break of Structure):** When a trend is healthy, price continues to break previous highs (in an uptrend) or previous lows (in a downtrend), creating new expansion legs.
-   * **MSS / CHoCH (Market Structure Shift / Change of Character):** The first signal of a trend reversal. For example, in an uptrend, when the price breaks below the latest higher low, structure shifts from bullish to bearish.
+   * **MSS (Market Structure Shift):** The first signal of a trend reversal. For example, in an uptrend, when the price breaks below the latest higher low, structure shifts from bullish to bearish.
 
 2. **Liquidity Pools (BSL / SSL):**
    * Institutions need massive order volume to enter trades. They find this volume where retail traders place their stop-losses.

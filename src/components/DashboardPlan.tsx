@@ -91,7 +91,7 @@ export default function DashboardPlan({
     { idx: 1, title: '1. Establish HTF Bias (Daily/4H)', desc: 'Scan daily chart for 2-3 consecutive trends (e.g., HH/HL for Bullish or LH/LL for Bearish).' },
     { idx: 2, title: '2. Plot Unmitigated HTF POIs', desc: 'Mark Daily/4H Order Blocks or Breakers. These are areas where price usually retraces.' },
     { idx: 3, title: '3. Monitor Retracement to POI', desc: 'Wait patiently for price to correction or retrace into unmitigated zone. Avoid chasing premium spikes.' },
-    { idx: 4, title: '4. Wait for Lower TF MSS & Inducement', desc: 'Confirm on H1/15m with a Market Structure Shift. Inducement must have a solid BODY CLOSE, no wicks.' },
+    { idx: 4, title: '4. Wait for Lower TF MSS', desc: 'Confirm on H1/15m with a Market Structure Shift. The candle body must close cleanly beyond the trigger high/low.' },
     { idx: 5, title: '5. Place Entry at LTF POI', desc: 'Set limit setups at nearest unmitigated LTF block aligned strictly with the overall HTF bias.' },
     { idx: 6, title: '6. Target Swing Bounds & DBOS', desc: 'Target next logical HH (bullish) or LL (bearish). Scale-in trailing entries via Double Breaker Steps.' },
   ];

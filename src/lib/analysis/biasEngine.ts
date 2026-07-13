@@ -100,10 +100,10 @@ export function classifyStructure(highs: SwingPoint[], lows: SwingPoint[], curre
   if (currentPrice) {
     if (bias === 'BULLISH' && currentPrice < l2.price) {
         bias = 'BEARISH';
-        structure = 'Bearish CHoCH (Structure Break Down)';
+        structure = 'Bearish Structure Break Down';
     } else if (bias === 'BEARISH' && currentPrice > h2.price) {
         bias = 'BULLISH';
-        structure = 'Bullish CHoCH (Structure Break Up)';
+        structure = 'Bullish Structure Break Up';
     } else if (bias === 'RANGING') {
         if (currentPrice > h2.price) {
             bias = 'BULLISH';

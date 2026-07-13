@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function JournalPage() {
-  const { trades, addTrade, updateTrade, closeTrade, deleteTrade, getStats } = useJournalStore()
+  const { trades, addTrade, updateTrade, closeTrade, deleteTrade, getStats, clearTrades } = useJournalStore()
   
   // UI Tabs & state
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'ANALYTICS'>('LEDGER')
@@ -279,6 +279,22 @@ export default function JournalPage() {
             <Plus size={14} className="stroke-[3]" />
             <span>Log Trade</span>
           </button>
+
+          {trades.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to clear your trade ledger? All trade entries and logs will be permanently deleted.")) {
+                  clearTrades();
+                  toast.success("Journal cleared!");
+                }
+              }}
+              className="px-4 py-2 rounded-lg bg-red-950/40 hover:bg-red-900/40 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1 shrink-0"
+              title="Delete all trade entries"
+            >
+              <Trash2 size={14} />
+              <span>Clear Ledger</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -549,7 +565,7 @@ export default function JournalPage() {
               >
                 <option value="OB_BOUNCE">Order Block Bounce</option>
                 <option value="BREAKER_RETEST">Breaker Block Retest</option>
-                <option value="BOS_RETEST">BOS / CHoCH Retest</option>
+                <option value="BOS_RETEST">MSS / BOS Retest</option>
                 <option value="LIQUIDITY_SWEEP">Liquidity Sweep Trigger</option>
                 <option value="OTHER">Other Custom Strategy</option>
               </select>

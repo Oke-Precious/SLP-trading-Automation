@@ -434,10 +434,6 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     slpResult.swingHighs.forEach((h) => allMarkers.push({ time: h.time as Time, position: "aboveBar", color: settings.downCandleColor, shape: "arrowDown", text: "SH", size: 0.5 }));
     slpResult.swingLows.forEach((l) => allMarkers.push({ time: l.time as Time, position: "belowBar", color: settings.upCandleColor, shape: "arrowUp", text: "SL", size: 0.5 }));
 
-    if (settings.showInducement) {
-      slpResult.inducements.forEach((indu) => allMarkers.push({ time: indu.time as Time, position: indu.type === "BULLISH" ? "belowBar" : "aboveBar", color: settings.inducementColor, shape: "circle", text: "INDU Pullback", size: 0.8 }));
-    }
-
     allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
     
     // Deduplicate markers (Lightweight Charts throws if multiple markers have the exact same time)
@@ -503,9 +499,8 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       }
 
       tooltipRef.current.style.display = "block";
-      
       const date = new Date((param.time as number) * 1000);
-      let smcText = "";
+      let slpText = "";
       
       if (slpResult) {
         const timeNum = param.time as number;
@@ -513,16 +508,16 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         const thisBOS = slpResult.bosEvents.find((bos: any) => timeNum === bos.breakTime);
         
         if (activeOB) {
-          smcText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${activeOB.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">${activeOB.type === 'BULLISH' ? 'Bull OB' : 'Bear OB'} Zone</div>`;
+          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${activeOB.type === 'BULLISH' ? '#26A69A' : '#EF5350'}">${activeOB.type === 'BULLISH' ? 'Bull OB' : 'Bear OB'} Zone</div>`;
         }
         if (thisBOS) {
-          smcText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">${thisBOS.type} Broken Here</div>`;
+          slpText += `<div style="margin-top:4px; padding-top:4px; border-top: 1px dashed #2A2E39; color: ${thisBOS.direction === 'BULLISH' ? '#26A69A' : '#EF5350'}">${thisBOS.type} Broken Here</div>`;
         }
       }
       
       const isBullish = candleData.close >= candleData.open;
       const candleColor = isBullish ? '#26A69A' : '#EF5350';
-
+   
       const content = `
         <div style="font-weight: 600; color: #E2E8F0; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #2A2E39; display: flex; justify-content: space-between;">
           <span>${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}</span>
@@ -533,7 +528,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>L</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.low.toFixed(2)}</span></div>
         <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>C</span> <span style="color: ${candleColor}; font-weight: 500;">${candleData.close.toFixed(2)}</span></div>
         ${volumeData ? `<div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; padding-top: 4px; border-top: 1px solid #2A2E39;"><span>Vol</span> <span>${volumeData.value.toFixed(2)}</span></div>` : ''}
-        ${smcText}
+        ${slpText}
       `;
       
       tooltipRef.current.innerHTML = content;
@@ -760,7 +755,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
             <span>
               {candles.length < 30 
                 ? 'SLP Engine: Insufficient data to compute structure levels confidently (minimum 30 candles required).'
-                : 'SLP Engine: Active, computing live structural shifted overlays (BOS, CHoCH, MSS, OBs) from real-time OHLCV candles.'
+                : 'SLP Engine: Active, computing live structural shifted overlays (BOS, MSS, OBs, BBs) from real-time OHLCV candles.'
               }
             </span>
           </div>

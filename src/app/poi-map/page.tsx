@@ -71,7 +71,7 @@ export default function POIMapPage() {
                                       <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${
                                         poi.type === 'OB' ? 'bg-[#26A69A]/20 text-[#26A69A]' : 
                                         poi.type === 'BB' ? 'bg-[#1565C0]/20 text-[#42A5F5]' : 
-                                        poi.type === 'FVG' ? 'bg-purple-900/40 text-purple-400' : 'bg-gray-800 text-gray-300'
+                                        'bg-gray-800 text-gray-300'
                                       }`}>
                                          {poi.type}
                                       </span>

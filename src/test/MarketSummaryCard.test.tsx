@@ -63,7 +63,7 @@ describe('MarketSummaryCard Component', () => {
       timeframe: '4H', 
       bias: 'BEARISH' as const,
       strength: 90,
-      structure: 'CHOCH' as any,
+      structure: 'Bearish Structure Break Down' as any,
       phase: 'Distribution' as any,
       nextMove: 'Declining'
     } as any;

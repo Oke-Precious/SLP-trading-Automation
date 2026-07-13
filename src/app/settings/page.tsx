@@ -184,13 +184,10 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                      {[
                        { key: 'showBOS', label: 'BOS' },
-                       { key: 'showCHoCH', label: 'CHoCH' },
                        { key: 'showMSS', label: 'MSS' },
                        { key: 'showOrderBlocks', label: 'Order Blocks' },
                        { key: 'showBreakerBlocks', label: 'Breaker Blocks' },
                        { key: 'showLiquidity', label: 'Liquidity Levels' },
-                       { key: 'showFVG', label: 'Fair Value Gaps' },
-                       { key: 'showInducement', label: 'Inducement' },
                        { key: 'showVolume', label: 'Volume Histogram' },
                      ].map(({ key, label }) => (
                         <div key={key} className="flex items-center justify-between bg-[#0A0D14] border border-[#2A2E39] p-3 rounded-lg">

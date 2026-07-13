@@ -348,15 +348,11 @@ export default function DashboardChart({
             />
           )}
 
-          {/* SLP Smart Money Concept Overlays */}
+          {/* SLP Overlays */}
           <g>
             {/* BOS Line (Break of Structure from Candle 3 to 10) */}
             <line x1="110" y1="150" x2="330" y2="150" stroke="#26A69A" strokeWidth="1" strokeDasharray="3 2" />
             <text x="220" y="146" textAnchor="middle" className="font-mono text-[9px] fill-[#26A69A] font-bold select-none">BOS ↑</text>
-            
-            {/* CHoCH Line (Change of Character from Candle 1 to 6) */}
-            <line x1="50" y1="240" x2="200" y2="240" stroke="#F0B90B" strokeWidth="1" strokeDasharray="2 2" />
-            <text x="125" y="236" textAnchor="middle" className="font-mono text-[9px] fill-[#F0B90B] font-bold select-none">CHoCH ↑</text>
 
             {/* MSS (Market Structure Shift from Candle 6 dropping below Candle 5) */}
             <line x1="200" y1="225" x2="260" y2="225" stroke="#CAAA98" strokeWidth="1" strokeDasharray="4 2" />
@@ -370,17 +366,9 @@ export default function DashboardChart({
             <rect x="230" y="165" width="28" height="20" fill="#1565C0" fillOpacity="0.2" stroke="#1565C0" strokeWidth="1" strokeDasharray="1 1" />
             <text x="244" y="180" textAnchor="middle" className="font-mono text-[8px] fill-[#42A5F5] font-bold pointer-events-none">BB</text>
 
-            {/* FVG (Fair Value Gap between Candle 2 and 4) */}
-            <rect x="135" y="165" width="40" height="15" fill="#26A69A" fillOpacity="0.1" />
-            <text x="155" y="175" textAnchor="middle" className="font-mono text-[7px] fill-[#26A69A] pointer-events-none">FVG</text>
-
             {/* Liquidity Sweep (BSL at Candle 10) */}
             <line x1="320" y1="120" x2="350" y2="120" stroke="#F0B90B" strokeWidth="1.5" strokeDasharray="1 1" />
             <text x="335" y="115" textAnchor="middle" className="font-mono text-[9px] fill-[#F0B90B] font-bold">BSL</text>
-
-            {/* Inducement (INDU at Candle 8) */}
-            <circle cx="270" cy="330" r="3" fill="#9A8678" />
-            <text x="270" y="340" textAnchor="middle" className="font-mono text-[8px] fill-[#9A8678]">INDU</text>
           </g>
 
           {/* Candlesticks loop */}

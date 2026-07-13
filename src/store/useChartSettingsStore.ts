@@ -24,14 +24,12 @@ export interface ChartSettings {
   trendlineLiqColor:  string;
   eqLiqColor:         string;
   longWickLiqColor:   string;
-  inducementColor:    string;
   // Visibility toggles
   showBOS:            boolean;
   showMSS:            boolean;
   showOrderBlocks:    boolean;
   showBreakerBlocks:  boolean;
   showLiquidity:      boolean;
-  showInducement:     boolean;
   showVolume:         boolean;
   // Presets
   preset: 'dark' | 'dark-green' | 'midnight' | 'custom';
@@ -53,13 +51,11 @@ const DEFAULTS: ChartSettings = {
   trendlineLiqColor: '#F0B90B',
   eqLiqColor:      '#E040FB',
   longWickLiqColor: '#29B6F6',
-  inducementColor: '#9A8678',
   showBOS:            true,
   showMSS:            true,
   showOrderBlocks:    true,
   showBreakerBlocks:  true,
   showLiquidity:      true,
-  showInducement:     true,
   showVolume:         true,
   preset:             'dark',
 };

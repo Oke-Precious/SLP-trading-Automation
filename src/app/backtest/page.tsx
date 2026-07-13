@@ -143,27 +143,6 @@ export default function BacktestPage() {
               setupName = 'OB Mitigation (Short)';
             }
           }
-        } else if (selectedStrategy === 'FVG_MITIGATION') {
-          // Fair Value Gap fill
-          // Bullish gap between candle[i-3] high and candle[i-1] low
-          const fvgBottom = candles[i - 3].high;
-          const fvgTop = candles[i - 1].low;
-          if (fvgTop > fvgBottom && isUptrend && currentCandle.low <= fvgTop && currentCandle.close > fvgBottom) {
-            trigger = 'LONG';
-            sl = fvgBottom * 0.998;
-            tp = currentCandle.close + (currentCandle.close - sl) * riskReward;
-            setupName = 'FVG Fill (Long)';
-          } else {
-            // Bearish gap
-            const fvgBearTop = candles[i - 3].low;
-            const fvgBearBottom = candles[i - 1].high;
-            if (fvgBearBottom < fvgBearTop && !isUptrend && currentCandle.high >= fvgBearBottom && currentCandle.close < fvgBearTop) {
-              trigger = 'SHORT';
-              sl = fvgBearTop * 1.002;
-              tp = currentCandle.close - (sl - currentCandle.close) * riskReward;
-              setupName = 'FVG Fill (Short)';
-            }
-          }
         } else {
           // LIQUIDITY_SWEEP
           // Sweep of recent 10-period highs or lows
@@ -395,7 +374,6 @@ export default function BacktestPage() {
                 className="w-full bg-[#131824] border border-[#2C354E] text-sm text-gray-200 rounded-lg p-2.5 outline-none focus:border-[#CAAA98]"
               >
                 <option value="OB_MITIGATION">Order Block (OB) Retest</option>
-                <option value="FVG_MITIGATION">Fair Value Gap (FVG) Fill</option>
                 <option value="LIQUIDITY_SWEEP">Liquidity Sweep Reversal</option>
               </select>
             </div>
