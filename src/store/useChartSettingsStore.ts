@@ -24,6 +24,7 @@ export interface ChartSettings {
   trendlineLiqColor:  string;
   eqLiqColor:         string;
   longWickLiqColor:   string;
+  inducementLiqColor: string;
   // Visibility toggles
   showBOS:            boolean;
   showMSS:            boolean;
@@ -51,6 +52,7 @@ const DEFAULTS: ChartSettings = {
   trendlineLiqColor: '#F0B90B',
   eqLiqColor:      '#E040FB',
   longWickLiqColor: '#29B6F6',
+  inducementLiqColor: '#FF7043',
   showBOS:            true,
   showMSS:            true,
   showOrderBlocks:    true,

@@ -164,6 +164,7 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
             <ColorInput label="Trendline Liq" settingKey="trendlineLiqColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Equal Highs/Lows Liq" settingKey="eqLiqColor" settings={settings} updateSetting={updateSetting} />
             <ColorInput label="Long Wick Liq" settingKey="longWickLiqColor" settings={settings} updateSetting={updateSetting} />
+            <ColorInput label="Inducement Liq" settingKey="inducementLiqColor" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
 

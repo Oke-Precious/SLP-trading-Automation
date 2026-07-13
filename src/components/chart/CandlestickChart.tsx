@@ -51,6 +51,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     setShowSettings(false);
   }, []);
   const [activeDrawTool, setActiveDrawTool] = useState<'cursor' | 'trendline'>('cursor');
+  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
   
   const [drawings, setDrawings] = useState<Array<{ id: string, points: {time: Time, price: number}[], seriesRef: any }>>([]);
   const draftDrawingRef = useRef<{ points: {time: Time, price: number}[], seriesRef: any } | null>(null);
@@ -410,14 +411,18 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     if (settings.showLiquidity) {
       slpResult.liquidityLevels.forEach((liq) => {
         let color = settings.trendlineLiqColor;
-        let text = "TRENDLINE";
+        let text = "TL";
         if (liq.type === "EQUAL_HIGHS_LOWS") {
             color = settings.eqLiqColor;
-            text = `EQ ${liq.strength || ''}`;
+            text = "EQH/EQL";
         }
         if (liq.type === "LONG_WICK") {
             color = settings.longWickLiqColor;
             text = "WICK";
+        }
+        if (liq.type === "INDUCEMENT") {
+            color = (settings as any).inducementLiqColor || '#FF7043';
+            text = "IND";
         }
 
         const liqLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: liq.swept ? 1 : 2, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
@@ -722,6 +727,78 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         <div className="flex-1 min-w-0 bg-[#131722] relative flex flex-col justify-stretch">
           {/* Real-time chart element is kept in DOM */}
           <div ref={chartRef} className="w-full h-full" />
+
+          {/* Floating SLP Legend Overlay */}
+          <div className="absolute top-3 left-3 z-10 bg-[#1E2433]/90 border border-[#2A2E39] rounded-md overflow-hidden backdrop-blur-sm shadow-lg w-52 pointer-events-auto">
+            <div 
+              className="flex items-center justify-between px-2.5 py-1.5 bg-[#161B26]/80 border-b border-[#2A2E39] cursor-pointer select-none" 
+              onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+            >
+              <span className="text-[10px] font-bold text-[#CAAA98] tracking-wider uppercase font-mono">SLP Legend Map</span>
+              <span className="text-[9px] text-gray-400 font-mono font-bold">{isLegendExpanded ? "HIDE" : "SHOW"}</span>
+            </div>
+            {isLegendExpanded && (
+              <div className="p-2 space-y-1.5 text-[9px] font-mono text-gray-400 select-none">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#26A69A] shrink-0" style={{ backgroundColor: settings.bosUpColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">BOS ↑</span>
+                    <span className="text-[8px] text-gray-500">Break of Structure (Up)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#EF5350] shrink-0" style={{ backgroundColor: settings.bosDownColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">BOS ↓</span>
+                    <span className="text-[8px] text-gray-500">Break of Structure (Down)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#CAAA98] shrink-0" style={{ backgroundColor: settings.mssColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">MSS ↑/↓</span>
+                    <span className="text-[8px] text-gray-500">Market Structure Shift</span>
+                  </div>
+                </div>
+                <div className="h-[1px] bg-[#2A2E39] my-1" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-sm bg-[#26A69A] shrink-0" style={{ backgroundColor: settings.bullOBColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">BULL OB</span>
+                    <span className="text-[8px] text-gray-500">Bullish Order Block</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-sm bg-[#EF5350] shrink-0" style={{ backgroundColor: settings.bearOBColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">BEAR OB</span>
+                    <span className="text-[8px] text-gray-500">Bearish Order Block</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-sm bg-[#1565C0] shrink-0" style={{ backgroundColor: settings.breakerColor }} />
+                    <span className="text-gray-300 font-semibold uppercase">BB</span>
+                    <span className="text-[8px] text-gray-500">Breaker Block (Broken OB)</span>
+                  </div>
+                </div>
+                <div className="h-[1px] bg-[#2A2E39] my-1" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 text-center font-bold text-[#E040FB] shrink-0 text-[8px] border border-[#E040FB]/30 bg-[#E040FB]/5 rounded-sm" style={{ color: settings.eqLiqColor, borderColor: settings.eqLiqColor + '30', backgroundColor: settings.eqLiqColor + '10' }}>EQH/EQL</span>
+                    <span className="text-[8px] text-gray-500">Equal Highs / Lows</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 text-center font-bold text-[#29B6F6] shrink-0 text-[8px] border border-[#29B6F6]/30 bg-[#29B6F6]/5 rounded-sm" style={{ color: settings.longWickLiqColor, borderColor: settings.longWickLiqColor + '30', backgroundColor: settings.longWickLiqColor + '10' }}>WICK</span>
+                    <span className="text-[8px] text-gray-500">Long Wick Liquidity</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 text-center font-bold text-[#FF7043] shrink-0 text-[8px] border border-[#FF7043]/30 bg-[#FF7043]/5 rounded-sm" style={{ color: (settings as any).inducementLiqColor || '#FF7043', borderColor: ((settings as any).inducementLiqColor || '#FF7043') + '30', backgroundColor: ((settings as any).inducementLiqColor || '#FF7043') + '10' }}>IND</span>
+                    <span className="text-[8px] text-gray-500">Inducement Liquidity</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-6 text-center font-bold text-[#F0B90B] shrink-0 text-[8px] border border-[#F0B90B]/30 bg-[#F0B90B]/5 rounded-sm" style={{ color: settings.trendlineLiqColor, borderColor: settings.trendlineLiqColor + '30', backgroundColor: settings.trendlineLiqColor + '10' }}>TL</span>
+                    <span className="text-[8px] text-gray-500">Trendline Liquidity *</span>
+                  </div>
+                </div>
+                <div className="pt-1 text-[7px] text-gray-500 leading-tight border-t border-[#2A2E39]/30">
+                  * Trendline liquidity can be drawn manually using toolbar trendline helper
+                </div>
+              </div>
+            )}
+          </div>
           
           {candles.length === 0 && !isLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#131722]/98 z-40 p-6 text-center select-none animate-in fade-in duration-300">
