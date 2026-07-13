@@ -20,6 +20,7 @@ import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSLPAnalysis } from "../../lib/analysis/slpEngine";
 import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
 import { detectSLPStructure } from "../../lib/slp/slpStructure";
+import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown, AlertCircle } from 'lucide-react';
@@ -332,6 +333,14 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     return detectSLPStructure(candles, selectedTimeframe, biasResult.bias, highs, lows);
   }, [candles, selectedTimeframe]);
 
+  const slpLiquidity = React.useMemo(() => {
+    if (candles.length < 30) return [];
+    const biasResult = analyseSLPBias(candles, selectedTimeframe);
+    const { highs, lows } = detectSwingPoints(candles, selectedTimeframe);
+    const atr = calcATR(candles, 14);
+    return detectSLPLiquidity(candles, highs, lows, biasResult.bias, atr);
+  }, [candles, selectedTimeframe]);
+
   const slpOverlayRefs = useRef<{ seriesList: any[]; markers: any[] }>({ seriesList: [], markers: [] });
   function clearSLPOverlays() {
     slpOverlayRefs.current.seriesList.forEach((s) => { try { chartApi.current?.removeSeries(s); } catch {} });
@@ -449,30 +458,59 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     }
 
     // Liquidity Levels
-    if (settings.showLiquidity) {
-      slpResult.liquidityLevels.forEach((liq) => {
-        let color = settings.trendlineLiqColor;
-        let text = "TL";
-        if (liq.type === "EQUAL_HIGHS_LOWS") {
-            color = settings.eqLiqColor;
-            text = "EQH/EQL";
-        }
-        if (liq.type === "LONG_WICK") {
-            color = settings.longWickLiqColor;
-            text = "WICK";
-        }
-        if (liq.type === "INDUCEMENT") {
-            color = (settings as any).inducementLiqColor || '#FF7043';
-            text = "IND";
+    if (settings.showLiquidity && slpLiquidity) {
+      slpLiquidity.forEach((liq) => {
+        let color = '#9A8678';
+        let label = '';
+
+        if (liq.type === 'EQUAL_HIGHS') {
+          color = '#F0B90B';
+          label = `EQH×${liq.touchCount}`;
+        } else if (liq.type === 'EQUAL_LOWS') {
+          color = '#F0B90B';
+          label = `EQL×${liq.touchCount}`;
+        } else if (liq.type === 'LONG_WICK_HIGH') {
+          color = '#9A8678';
+          label = 'LWH';
+        } else if (liq.type === 'LONG_WICK_LOW') {
+          color = '#9A8678';
+          label = 'LWL';
+        } else if (liq.type === 'INDUCEMENT_HIGH' || liq.type === 'INDUCEMENT_LOW') {
+          color = '#CAAA98';
+          label = 'INDU';
         }
 
-        const liqLine = chartApi.current!.addSeries(LineSeries, { color, lineWidth: liq.swept ? 1 : 2, lineStyle: LineStyle.Dotted, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-        const endLineTime = liq.sweepTime || candles[candles.length - 1].time;
-        if (liq.time < endLineTime) {
-          liqLine.setData([{ time: liq.time as Time, value: liq.price }, { time: endLineTime as Time, value: liq.price }]);
+        if (liq.swept) {
+          color = '#444444';
+          label += ' (Swept)';
         }
-        
-        allMarkers.push({ time: liq.time as Time, position: "aboveBar", color, shape: "circle", text: liq.swept ? `${text} ✓` : text, size: 0.5 });
+
+        const lineWidth = liq.touchCount >= 3 ? 2 : 1;
+        const liqLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth,
+          lineStyle: LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false
+        });
+
+        const endLineTime = liq.sweptTime || candles[candles.length - 1].time;
+        if (liq.time < endLineTime) {
+          liqLine.setData([
+            { time: liq.time as Time, value: liq.price },
+            { time: endLineTime as Time, value: liq.price }
+          ]);
+        }
+
+        allMarkers.push({
+          time: liq.time as Time,
+          position: liq.side === 'BUY_SIDE' ? 'aboveBar' : 'belowBar',
+          color,
+          shape: 'circle',
+          text: label,
+          size: 0.6
+        });
         slpOverlayRefs.current.seriesList.push(liqLine);
       });
     }
@@ -494,7 +532,7 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     });
 
     markersPluginRef.current?.setMarkers(uniqueMarkers);
-  }, [slpResult, chartInitialized, settings]);
+  }, [slpResult, slpStructure, slpLiquidity, chartInitialized, settings]);
 
   // Live Price Line
   const livePriceLineRef = useRef<any>(null);
