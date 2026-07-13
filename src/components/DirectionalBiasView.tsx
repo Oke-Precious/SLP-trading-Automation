@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchCandlesWithFlag } from '../lib/market/marketDataService';
-import { analyseBias } from '../lib/analysis/biasEngine';
+import { analyseSLPBias } from '../lib/slp/slpBias';
 
 const PAIRS = ['BTCUSDT','ETHUSDT','SOLUSDT','EURUSD','GBPUSD','USDJPY','XAUUSD'];
 const TIMEFRAMES = ['1d', '4h', '1h', '30m', '15m'];
@@ -26,19 +26,19 @@ export default function DirectionalBiasView() {
             TIMEFRAMES.map((tf) => fetchCandlesWithFlag(pair, tf, 100))
           );
           
-          results.forEach((result, i) => {
-            const tf = TIMEFRAMES[i];
-            if (result.status === 'fulfilled' && result.value.candles.length >= 20) {
-              const biasResult = analyseBias(result.value.candles, tf);
-              newData[pair][tf] = { 
-                bias: biasResult.bias, 
-                isRealData: result.value.isRealData, 
-                rawBias: biasResult.bias 
-              };
-            } else {
-              newData[pair][tf] = { bias: 'N/A', isRealData: false, rawBias: 'N/A' };
-            }
-          });
+            results.forEach((result, i) => {
+              const tf = TIMEFRAMES[i];
+              if (result.status === 'fulfilled' && result.value.candles.length >= 30) {
+                const biasResult = analyseSLPBias(result.value.candles, tf);
+                newData[pair][tf] = { 
+                  bias: biasResult.bias, 
+                  isRealData: result.value.isRealData, 
+                  rawBias: biasResult.bias 
+                };
+              } else {
+                newData[pair][tf] = { bias: 'N/A', isRealData: false, rawBias: 'N/A' };
+              }
+            });
         })
       );
       

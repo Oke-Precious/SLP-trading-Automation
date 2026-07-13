@@ -6,10 +6,10 @@
 import React from 'react';
 import { useMarketStore } from '../../store/useMarketStore';
 import { Compass, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
-import { BiasResult } from '../../lib/analysis/biasEngine';
+import { SLPBiasResult } from '../../lib/slp/slpBias';
 
 interface MarketSummaryCardProps {
-  biasResult: BiasResult | null;
+  biasResult: SLPBiasResult | null;
   isLoading: boolean;
 }
 

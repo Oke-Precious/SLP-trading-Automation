@@ -474,7 +474,7 @@ export const Header: React.FC<HeaderProps> = ({
             title={`Zustand Aligned: ${bias}`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${bias === 'BULLISH' ? 'bg-bullish' : bias === 'BEARISH' ? 'bg-bearish' : 'bg-gray-400'}`} />
-            <span>{bias}</span>
+            <span>{bias === 'BULLISH' ? 'BULLISH BIAS' : bias === 'BEARISH' ? 'BEARISH BIAS' : 'NEUTRAL'}</span>
           </div>
         </div>
       </div>

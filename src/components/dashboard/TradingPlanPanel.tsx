@@ -6,11 +6,11 @@
 import React, { useState } from 'react';
 import { CheckSquare, Square, Flame, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePOIStore } from '../../store/usePOIStore';
-import { BiasResult } from '../../lib/analysis/biasEngine';
+import { SLPBiasResult } from '../../lib/slp/slpBias';
 import { ActiveSignalCard } from './ActiveSignalCard';
 
 interface TradingPlanPanelProps {
-  biasResult: BiasResult | null;
+  biasResult: SLPBiasResult | null;
 }
 
 export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult }) => {

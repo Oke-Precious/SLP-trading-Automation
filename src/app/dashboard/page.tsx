@@ -11,7 +11,7 @@ import { useMarketStore }      from '../../store/useMarketStore'
 import { usePOIStore }         from '../../store/usePOIStore'
 import { useBiasStore }        from '../../store/useBiasStore'
 import { useRealtimeCandles }  from '../../hooks/useRealtimeCandles'
-import { useBiasAnalysis }     from '../../hooks/useBiasAnalysis'
+import { useSLPBias }          from '../../hooks/useSLPBias'
 import { detectOrderBlocks }   from '../../lib/analysis/orderBlockEngine'
 
 export default function DashboardPage() {
@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const { candles, isLoading, isConnected } = useRealtimeCandles(selectedPair, selectedTimeframe)
 
   // Run bias analysis on candles
-  const biasResult = useBiasAnalysis(candles)
+  const biasResult = useSLPBias(candles, selectedTimeframe)
 
   // Auto-detect POIs from candles
   useEffect(() => {
@@ -40,7 +40,8 @@ export default function DashboardPage() {
   // Update bias store
   useEffect(() => {
     if (!biasResult) return
-    setBias(selectedPair, selectedTimeframe, biasResult.bias)
+    const storeBias = biasResult.bias === 'NEUTRAL' ? 'RANGING' : biasResult.bias;
+    setBias(selectedPair, selectedTimeframe, storeBias)
   }, [biasResult, selectedPair, selectedTimeframe, setBias])
 
   return (
