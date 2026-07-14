@@ -510,7 +510,7 @@ function toForexFormat(pair: string): string {
 function getYahooSymbol(symbol: string): string {
   const s = symbol.replace('/', '').toUpperCase();
   if (s === 'XAUUSD') return 'XAU-USD';
-  if (s === 'XAGUSD') return 'XAG-USD';
+  if (s === 'XAGUSD') return 'SI=F';
   if (s === 'US30') return '^DJI';
   if (s === 'SPX500') return '^GSPC';
   if (s === 'NAS100') return '^IXIC';
