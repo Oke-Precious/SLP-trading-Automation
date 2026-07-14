@@ -9,10 +9,78 @@ import { useMarketStore } from '../../store/useMarketStore';
 import { usePOIStore } from '../../store/usePOIStore';
 import { formatPrice } from '../../lib/market/marketDataService';
 import { EmptyState } from '../ui/EmptyState';
+import { SLPSignal } from '../../lib/slp/slpPipeline';
 
-export const ActiveSignalCard: React.FC = () => {
+interface ActiveSignalCardProps {
+  signal?: SLPSignal | null;
+}
+
+export const ActiveSignalCard: React.FC<ActiveSignalCardProps> = ({ signal }) => {
   const { selectedPair } = useMarketStore();
   const { pois } = usePOIStore();
+
+  if (signal) {
+    return (
+      <div className="bg-card border border-bullish/60 rounded-xl p-5 hover:border-bullish transition-all duration-300 shadow-[0_0_12px_rgba(38,166,154,0.1)]">
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center space-x-2">
+            <Target className="text-bullish shrink-0" size={18} />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-white">Active SLP Execution</h3>
+          </div>
+          <span className="text-[10px] bg-bullish/20 text-bullish border border-bullish/40 px-2.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider animate-pulse">
+            SETUP VALID
+          </span>
+        </div>
+
+        <div className="space-y-3.5 bg-[#162C27]/20 p-4 rounded-xl border border-bullish/25 text-xs">
+          <div className="flex justify-between items-center pb-2 border-b border-[#2D313E]/60">
+            <span className="text-gray-400 font-medium">SLP Asset Setup</span>
+            <span className="font-mono text-white font-bold">{signal.pair} ({signal.direction} LIMIT)</span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 py-1">
+            <div className="text-center bg-[#131722] p-2.5 rounded border border-gray-800">
+              <span className="text-[9px] text-gray-500 font-bold block uppercase tracking-wider">ENTRY</span>
+              <span className="font-mono text-zinc-100 font-extrabold text-xs mt-1 block">
+                {formatPrice(signal.entryPrice, signal.pair)}
+              </span>
+            </div>
+
+            <div className="text-center bg-[#131722] p-2.5 rounded border border-gray-800">
+              <span className="text-[9px] text-gray-500 font-bold block uppercase tracking-wider">STOP</span>
+              <span className="font-mono text-bearish font-extrabold text-xs mt-1 block">
+                {formatPrice(signal.stopLoss, signal.pair)}
+              </span>
+            </div>
+
+            <div className="text-center bg-[#131722] p-2.5 rounded border border-gray-800">
+              <span className="text-[9px] text-gray-500 font-bold block uppercase tracking-wider">TARGET</span>
+              <span className="font-mono text-bullish font-extrabold text-xs mt-1 block">
+                {formatPrice(signal.target1, signal.pair)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-2 border-t border-[#2D313E]/60 text-xs font-mono">
+            <span className="text-gray-400">Execution Block:</span>
+            <span className="text-light font-bold text-[11px] max-w-[150px] truncate">{signal.poiRef.displayLabel}</span>
+          </div>
+
+          <div className="flex justify-between items-center text-xs font-mono">
+            <span className="text-gray-400">Risk Reward Ratio:</span>
+            <span className="text-bullish font-bold">1:{signal.rrRatio}</span>
+          </div>
+
+          {signal.target2 && (
+            <div className="flex justify-between items-center text-xs font-mono">
+              <span className="text-gray-400">Target 2 (opposing):</span>
+              <span className="text-white/90 font-bold">{formatPrice(signal.target2, signal.pair)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const firstActivePOI = pois.find(p => p.status === 'Active');
 
