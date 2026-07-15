@@ -345,8 +345,9 @@ export async function fetchCandlesWithFlag(
 ): Promise<{candles: Candle[], isRealData: boolean, isCachedData?: boolean, apiError?: string | null}> {
   // 1. PRIMARY: Try proxying through the backend server
   try {
+    const key = getTwelveDataKey();
     const { data: res } = await apiClient.get('/market/candles', {
-      params: { pair: symbol, timeframe, limit }
+      params: { pair: symbol, timeframe, limit, apikey: key }
     })
     const list = res?.data ?? res
     const isCached = !!res?.isCached
@@ -438,7 +439,8 @@ export async function fetchCandles(
 export async function fetchTicker(symbol: string): Promise<Ticker | null> {
   // 1. PRIMARY: Try backend proxy
   try {
-    const { data: res } = await apiClient.get('/market/ticker', { params: { pair: symbol } })
+    const key = getTwelveDataKey();
+    const { data: res } = await apiClient.get('/market/ticker', { params: { pair: symbol, apikey: key } })
     const t = res?.data ?? res
     if (t && t.price !== undefined) {
       return {

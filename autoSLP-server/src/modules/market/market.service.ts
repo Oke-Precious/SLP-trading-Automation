@@ -50,8 +50,8 @@ function toForexSymbol(symbol: string): string {
 export const marketService = {
   getSupportedPairs: () => SUPPORTED_PAIRS,
 
-  async getCandles(pair: string, timeframe: string, limit: number, from?: string, to?: string) {
-    const cacheKey = `candles:${pair}:${timeframe}:${limit}`;
+  async getCandles(pair: string, timeframe: string, limit: number, from?: string, to?: string, customApiKey?: string) {
+    const cacheKey = `candles:${pair}:${timeframe}:${limit}:${customApiKey ? customApiKey.slice(-6) : 'default'}`;
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
@@ -86,7 +86,7 @@ export const marketService = {
       if (isCrypto(pair)) {
         candles = await binance.fetchHistoricalCandles(pair, timeframe, limit);
       } else {
-        candles = await twelveData.fetchHistoricalCandles(toForexSymbol(pair), timeframe, limit);
+        candles = await twelveData.fetchHistoricalCandles(toForexSymbol(pair), timeframe, limit, customApiKey);
       }
 
       if (candles && candles.length > 0) {

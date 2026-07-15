@@ -249,22 +249,22 @@ export class TwelveDataService {
     throw lastError || new Error('All Yahoo Ticker servers failed');
   }
 
-  async fetchHistoricalCandles(symbol: string, timeframe: string, limit = 500) {
+  async fetchHistoricalCandles(symbol: string, timeframe: string, limit = 500, customApiKey?: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
-    const cacheKey = `candles:${cleanSymbol}:${timeframe}:${limit}`;
+    const cacheKey = `candles:${cleanSymbol}:${timeframe}:${limit}:${customApiKey ? customApiKey.slice(-6) : 'default'}`;
     const cached = this.getFromMemoryCache(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const candles = await this.fetchHistoricalCandlesRaw(symbol, timeframe, limit);
+    const candles = await this.fetchHistoricalCandlesRaw(symbol, timeframe, limit, customApiKey);
     if (candles && candles.length > 0) {
       this.setInMemoryCache(cacheKey, candles, 60); // 60 seconds local memory caching
     }
     return candles;
   }
 
-  private async fetchHistoricalCandlesRaw(symbol: string, timeframe: string, limit = 500) {
+  private async fetchHistoricalCandlesRaw(symbol: string, timeframe: string, limit = 500, customApiKey?: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const mappedInterval = timeframe === '1D' ? '1day' : timeframe.toLowerCase();
 
@@ -300,12 +300,13 @@ export class TwelveDataService {
       }
     }
 
-    if (!this.hasValidKey()) {
+    const activeApiKey = customApiKey?.trim() || this.apiKey;
+    if (!activeApiKey) {
       return await this.fetchYahooCandles(symbol, timeframe, limit);
     }
 
     try {
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${mappedInterval}&outputsize=${limit}&apikey=${this.apiKey}`;
+      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${mappedInterval}&outputsize=${limit}&apikey=${activeApiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         if (response.status === 429) {
@@ -352,22 +353,22 @@ export class TwelveDataService {
     }
   }
 
-  async fetchTicker(symbol: string) {
+  async fetchTicker(symbol: string, customApiKey?: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
-    const cacheKey = `ticker:${cleanSymbol}`;
+    const cacheKey = `ticker:${cleanSymbol}:${customApiKey ? customApiKey.slice(-6) : 'default'}`;
     const cached = this.getFromMemoryCache(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const ticker = await this.fetchTickerRaw(symbol);
+    const ticker = await this.fetchTickerRaw(symbol, customApiKey);
     if (ticker) {
       this.setInMemoryCache(cacheKey, ticker, 15); // 15 seconds local memory caching
     }
     return ticker;
   }
 
-  private async fetchTickerRaw(symbol: string) {
+  private async fetchTickerRaw(symbol: string, customApiKey?: string) {
     const cleanSymbol = symbol.replace('/', '').toUpperCase();
     const basePrice = DEFAULT_PRICES[symbol] || DEFAULT_PRICES[toForexFormat(symbol)] || 1.0;
 
@@ -400,12 +401,13 @@ export class TwelveDataService {
       }
     }
 
-    if (!this.hasValidKey()) {
+    const activeApiKey = customApiKey?.trim() || this.apiKey;
+    if (!activeApiKey) {
       return await this.fetchYahooTicker(symbol);
     }
 
     try {
-      const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${this.apiKey}`;
+      const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${activeApiKey}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`TwelveData REST API error: ${response.status}`);

@@ -8,8 +8,9 @@
 import React, { useState } from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useChartSettingsStore, PRESETS } from '../../store/useChartSettingsStore';
-import { Save, RefreshCcw, Bell, Monitor, Palette, Clock, Terminal } from 'lucide-react';
+import { Save, RefreshCcw, Bell, Monitor, Palette, Clock, Terminal, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { apiClient } from '../../lib/api/client';
 
 export default function SettingsPage() {
   const { 
@@ -25,6 +26,52 @@ export default function SettingsPage() {
   const { settings: chartSettings, updateSetting: updateChartSetting, applyPreset } = useChartSettingsStore();
 
   const [activeTab, setActiveTab] = useState<'general' | 'chart'>('general');
+  const [keyInput, setKeyInput] = useState(twelveDataApiKey || '');
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  React.useEffect(() => {
+    setKeyInput(twelveDataApiKey || '');
+  }, [twelveDataApiKey]);
+
+  const handleSaveApiKey = async () => {
+    if (!keyInput.trim()) {
+      setSetting('twelveDataApiKey', '');
+      setValidationResult({ success: true, message: 'API Key removed successfully.' });
+      return;
+    }
+
+    setIsValidating(true);
+    setValidationResult(null);
+
+    try {
+      const { data } = await apiClient.get('/market/validate-key', {
+        params: { apikey: keyInput.trim() }
+      });
+
+      if (data && data.success) {
+        setSetting('twelveDataApiKey', keyInput.trim());
+        setValidationResult({ 
+          success: true, 
+          message: 'Twelve Data API key validated and saved successfully!' 
+        });
+      } else {
+        setValidationResult({ 
+          success: false, 
+          message: data.error || 'The API key could not be validated by Twelve Data servers.' 
+        });
+      }
+    } catch (err: any) {
+      console.error('[Settings] API Key validation error:', err);
+      const errMsg = err.response?.data?.error || err.message || 'API key validation failed. Please check your key and try again.';
+      setValidationResult({ 
+        success: false, 
+        message: errMsg 
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   const pairs = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'EURUSD', 'GBPUSD'];
   const timeframes = ['1m', '5m', '15m', '30m', '1H', '4H', '1D'];
@@ -145,13 +192,51 @@ export default function SettingsPage() {
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
                   <Terminal size={14} /> TwelveData API Key
                 </label>
-                <input
-                  type="password"
-                  value={twelveDataApiKey}
-                  onChange={(e) => setSetting('twelveDataApiKey', e.target.value)}
-                  placeholder="Enter your API key to enable live data integration"
-                  className="w-full bg-[#0A0D14] border border-[#2A2E39] rounded-lg p-3 text-white focus:outline-none focus:border-[#CAAA98] font-mono text-sm"
-                />
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="password"
+                    value={keyInput}
+                    onChange={(e) => {
+                      setKeyInput(e.target.value);
+                      setValidationResult(null);
+                    }}
+                    placeholder="Enter your API key to enable live data integration"
+                    className="flex-1 bg-[#0A0D14] border border-[#2A2E39] rounded-lg p-3 text-white focus:outline-none focus:border-[#CAAA98] font-mono text-sm"
+                  />
+                  <button
+                    onClick={handleSaveApiKey}
+                    disabled={isValidating}
+                    className="px-5 py-3 sm:py-0 bg-[#CAAA98] hover:bg-[#bfa08e] text-black font-semibold text-sm rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isValidating ? (
+                      <>
+                        <Loader2 className="animate-spin animate-infinite shrink-0" size={16} />
+                        Validating...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} className="shrink-0" />
+                        Save API Key
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {validationResult && (
+                  <div className={`mt-3 p-3 rounded-lg flex items-start gap-2.5 text-xs font-medium border ${
+                    validationResult.success 
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400' 
+                      : 'bg-rose-950/20 border-rose-500/30 text-rose-400'
+                  }`}>
+                    {validationResult.success ? (
+                      <CheckCircle className="shrink-0 mt-0.5" size={14} />
+                    ) : (
+                      <AlertCircle className="shrink-0 mt-0.5" size={14} />
+                    )}
+                    <span>{validationResult.message}</span>
+                  </div>
+                )}
+
                 <p className="text-xs text-gray-500 mt-2">Required for realtime accurate market data feeds on stocks and forex.</p>
               </div>
 

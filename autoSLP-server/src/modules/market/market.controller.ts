@@ -8,10 +8,11 @@ export const marketController = {
   },
 
   async getCandles(req: FastifyRequest<{
-    Querystring: { pair: string; timeframe: string; limit?: number; from?: string; to?: string }
+    Querystring: { pair: string; timeframe: string; limit?: number; from?: string; to?: string; apikey?: string }
   }>, reply: FastifyReply) {
     try {
-      const { pair, timeframe, limit = 500, from, to } = req.query as any;
+      const { pair, timeframe, limit = 500, from, to, apikey } = req.query as any;
+      const customApiKey = apikey || req.headers['x-twelvedata-key'] || req.headers['authorization']?.replace('Bearer ', '') || req.headers['apikey'];
       
       // Validation check for supported pairs to distinguish from temporary outages
       if (pair) {
@@ -30,7 +31,7 @@ export const marketController = {
         }
       }
 
-      const result = await marketService.getCandles(pair, timeframe, limit, from, to);
+      const result = await marketService.getCandles(pair, timeframe, limit, from, to, customApiKey);
       return reply.send({
         success: true,
         data: result.candles,
@@ -48,10 +49,11 @@ export const marketController = {
   },
 
   async getTicker(req: FastifyRequest<{
-    Querystring: { pair: string }
+    Querystring: { pair: string; apikey?: string }
   }>, reply: FastifyReply) {
-    const { pair } = req.query as any;
-    const ticker = await marketService.getTicker(pair);
+    const { pair, apikey } = req.query as any;
+    const customApiKey = apikey || req.headers['x-twelvedata-key'] || req.headers['authorization']?.replace('Bearer ', '') || req.headers['apikey'];
+    const ticker = await marketService.getTicker(pair, customApiKey);
     return reply.send({ success: true, data: ticker });
   },
 
