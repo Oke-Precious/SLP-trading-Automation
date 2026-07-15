@@ -150,11 +150,23 @@ export const marketController = {
       }
     } catch (err: any) {}
 
-    // If all validation pathways failed, report the detailed errors
+    // If all validation pathways failed, report the detailed errors with user-friendly translation
     const uniqueErrors = Array.from(new Set(errors));
+    let friendlyError = 'The API key could not be validated by Twelve Data servers. Please check your key and try again.';
+    const errorStr = uniqueErrors.join(' | ');
+    
+    if (errorStr.includes('401') || errorStr.includes('Unauthorized') || errorStr.includes('invalid') || errorStr.includes('declined')) {
+      friendlyError = 'Invalid API key. Please check your Twelve Data API key and make sure it is correct and active.';
+    } else if (errorStr.includes('429')) {
+      friendlyError = 'Twelve Data API rate limit exceeded. Please wait a minute and try again.';
+    } else if (errorStr.includes('403')) {
+      friendlyError = 'The API key is valid but restricted or not authorized for these endpoints on your current Twelve Data subscription plan.';
+    }
+
     return reply.status(400).send({
       success: false,
-      error: uniqueErrors.length > 0 ? uniqueErrors.join(' | ') : 'Twelve Data API token declined by servers'
+      error: friendlyError,
+      details: errorStr
     });
   },
 };
