@@ -143,16 +143,17 @@ export const marketService = {
     return resultObject;
   },
 
-  async getTicker(pair: string) {
-    // Try Redis cache first (15s TTL)
-    const cached = await redis.get(`ticker:${pair}`);
+  async getTicker(pair: string, customApiKey?: string) {
+    // Try Redis cache first (15s TTL), scoping cache key by API key slice if a custom one is used
+    const cacheKey = `ticker:${pair}:${customApiKey ? customApiKey.slice(-6) : 'default'}`;
+    const cached = await redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
     const ticker = isCrypto(pair)
       ? await binance.fetchTicker(pair)
-      : await twelveData.fetchTicker(toForexSymbol(pair));
+      : await twelveData.fetchTicker(toForexSymbol(pair), customApiKey);
 
-    await redis.setex(`ticker:${pair}`, 15, JSON.stringify(ticker));
+    await redis.setex(cacheKey, 15, JSON.stringify(ticker));
     return ticker;
   },
 
