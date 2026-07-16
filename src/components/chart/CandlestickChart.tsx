@@ -20,6 +20,8 @@ import { useChartSettingsStore } from "../../store/useChartSettingsStore";
 import { runSLPAnalysis } from "../../lib/analysis/slpEngine";
 import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
 import { detectSLPStructure } from "../../lib/slp/slpStructure";
+import { analyseSLPStructure } from "../../lib/slp/slpMarketStructure";
+import { Timeframe } from "../../lib/slp/timeframeHierarchy";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
 import { detectSLPPOIs } from "../../lib/slp/slpPOI";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
@@ -322,17 +324,25 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     }
   };
 
+  const normalizeTimeframe = useCallback((tf: string): Timeframe => {
+    const lower = tf.toLowerCase();
+    if (lower === '1h') return '1h';
+    if (lower === '4h') return '4h';
+    if (lower === '1d') return '1d';
+    if (lower === '1w') return '1w';
+    return lower as Timeframe;
+  }, []);
+
   const slpResult = React.useMemo(() => {
     if (candles.length === 0) return null;
     return runSLPAnalysis(candles);
   }, [candles]);
 
   const slpStructure = React.useMemo(() => {
-    if (candles.length < 30) return { mssEvents: [], bosEvents: [] };
-    const biasResult = analyseSLPBias(candles, selectedTimeframe);
-    const { highs, lows } = detectSwingPoints(candles, selectedTimeframe);
-    return detectSLPStructure(candles, selectedTimeframe, biasResult.bias, highs, lows);
-  }, [candles, selectedTimeframe]);
+    if (candles.length < 40) return { mssEvents: [], bosEvents: [], doubleBOSEvents: [], swingHighs: [], swingLows: [] };
+    const tf = normalizeTimeframe(selectedTimeframe);
+    return analyseSLPStructure(candles, tf);
+  }, [candles, selectedTimeframe, normalizeTimeframe]);
 
   const slpLiquidity = React.useMemo(() => {
     if (candles.length < 30) return [];
@@ -365,53 +375,79 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     clearSLPOverlays();
     const allMarkers: any[] = [];
 
-    // Sequential MSS and BOS drawing
-    if (settings.showMSS && slpStructure) {
-      slpStructure.mssEvents.forEach((mss) => {
-        const color = "#CAAA98";
-        const text = mss.direction === 'BULLISH' ? 'MSS ↑' : 'MSS ↓';
-        const position = mss.direction === 'BULLISH' ? 'belowBar' : 'aboveBar';
-        allMarkers.push({
-          time: mss.time as Time,
-          position,
-          color,
-          shape: mss.direction === 'BULLISH' ? 'arrowUp' : 'arrowDown',
-          text,
-          size: 1.0,
-        });
-      });
-    }
+    // Sequential MSS, BOS and Double BOS (DBS) drawing
+    if (slpStructure) {
+      const mss = (settings.showMSS ? slpStructure.mssEvents : []).map(e => ({ type: 'MSS' as const, event: e, time: e.time }));
+      const bos = (settings.showBOS ? slpStructure.bosEvents : []).map(e => ({ type: 'BOS' as const, event: e, time: e.time }));
+      
+      const combinedEvents = [...mss, ...bos]
+        .sort((a, b) => b.time - a.time) // most recent first
+        .slice(0, 4) // max 4
+        .sort((a, b) => a.time - b.time); // chronological order
 
-    if (settings.showBOS && slpStructure) {
-      slpStructure.bosEvents.forEach((bos) => {
-        const color = bos.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
-        
-        // Horizontal line from swingBroken.time to breakTime (lineTo)
-        const lineSeries = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false,
-        });
-        
-        if (bos.lineFrom < bos.lineTo) {
-          lineSeries.setData([
-            { time: bos.lineFrom as Time, value: bos.price },
-            { time: bos.lineTo as Time, value: bos.price },
-          ]);
+      combinedEvents.forEach(({ type, event }) => {
+        if (type === 'MSS') {
+          const mssEvent = event as any;
+          const color = mssEvent.direction === 'BEARISH' ? '#EF5350' : '#26A69A';
+          const lineSeries = chartApi.current!.addSeries(LineSeries, {
+            color,
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          });
+
+          if (mssEvent.brokenSwing.time < mssEvent.time) {
+            lineSeries.setData([
+              { time: mssEvent.brokenSwing.time as Time, value: mssEvent.price },
+              { time: mssEvent.time as Time, value: mssEvent.price },
+            ]);
+          }
+          slpOverlayRefs.current.seriesList.push(lineSeries);
+
+          // Marker at the end point
+          allMarkers.push({
+            time: mssEvent.time as Time,
+            position: mssEvent.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+            color,
+            shape: 'circle',
+            text: 'MSS',
+            size: 0.8,
+          });
+        } else {
+          const bosEvent = event as any;
+          const isDouble = bosEvent.isDouble;
+          const color = isDouble ? '#F0B90B' : (bosEvent.direction === 'BULLISH' ? '#26A69A' : '#EF5350');
+          const lineWidth = isDouble ? 2 : 1;
+          
+          const lineSeries = chartApi.current!.addSeries(LineSeries, {
+            color,
+            lineWidth,
+            lineStyle: LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          });
+
+          if (bosEvent.lineFrom < bosEvent.lineTo) {
+            lineSeries.setData([
+              { time: bosEvent.lineFrom as Time, value: bosEvent.price },
+              { time: bosEvent.lineTo as Time, value: bosEvent.price },
+            ]);
+          }
+          slpOverlayRefs.current.seriesList.push(lineSeries);
+
+          // Marker at end
+          allMarkers.push({
+            time: bosEvent.lineTo as Time,
+            position: bosEvent.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+            color,
+            shape: 'circle',
+            text: isDouble ? 'DBS' : 'BOS',
+            size: isDouble ? 0.8 : 0.7,
+          });
         }
-        slpOverlayRefs.current.seriesList.push(lineSeries);
-
-        // Marker at the breakTime end point
-        allMarkers.push({
-          time: bos.lineTo as Time,
-          position: bos.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
-          color,
-          shape: 'circle',
-          text: 'BOS',
-          size: 0.8,
-        });
       });
     }
 
@@ -885,6 +921,11 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                     <span className="w-2 h-2 rounded bg-[#CAAA98] shrink-0" style={{ backgroundColor: settings.mssColor }} />
                     <span className="text-gray-300 font-semibold uppercase">MSS ↑/↓</span>
                     <span className="text-[8px] text-gray-500">Market Structure Shift</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#F0B90B] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">DBS</span>
+                    <span className="text-[8px] text-gray-500">Double BOS (High-Prob)</span>
                   </div>
                 </div>
                 <div className="h-[1px] bg-[#2A2E39] my-1" />
