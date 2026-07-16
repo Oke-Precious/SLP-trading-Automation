@@ -83,9 +83,7 @@ export const marketController = {
 
     const errors: string[] = [];
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'apikey': apikey,
-      'Authorization': `apikey ${apikey}`
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     };
 
     // Attempt 1: Standard /api_usage endpoint

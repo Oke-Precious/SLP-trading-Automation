@@ -35,38 +35,42 @@ export default function SettingsPage() {
   }, [twelveDataApiKey]);
 
   const handleSaveApiKey = async () => {
-    if (!keyInput.trim()) {
+    const trimmedKey = keyInput.trim();
+    if (!trimmedKey) {
       setSetting('twelveDataApiKey', '');
       setValidationResult({ success: true, message: 'API Key removed successfully.' });
       return;
     }
 
+    // Always save the API Key immediately so the user is never blocked!
+    setSetting('twelveDataApiKey', trimmedKey);
     setIsValidating(true);
     setValidationResult(null);
 
     try {
       const { data } = await apiClient.get('/market/validate-key', {
-        params: { apikey: keyInput.trim() }
+        params: { apikey: trimmedKey }
       });
 
       if (data && data.success) {
-        setSetting('twelveDataApiKey', keyInput.trim());
         setValidationResult({ 
           success: true, 
-          message: 'Twelve Data API key validated and saved successfully!' 
+          message: 'Twelve Data API key saved and validated successfully! Real-time streams are active.' 
         });
       } else {
+        // Validation returned an issue, but key is saved
         setValidationResult({ 
-          success: false, 
-          message: data.error || 'The API key could not be validated by Twelve Data servers.' 
+          success: true, 
+          message: `API Key saved! However, Twelve Data returned a validation status: "${data.error || 'Check key activation'}" (note: new free keys can take up to 15 minutes to activate, and calls from cloud hosting environments are sometimes restricted. The application will still use your saved key).` 
         });
       }
     } catch (err: any) {
       console.error('[Settings] API Key validation error:', err);
-      const errMsg = err.response?.data?.error || err.message || 'API key validation failed. Please check your key and try again.';
+      const errMsg = err.response?.data?.error || err.message || 'The server could not verify the key with Twelve Data.';
+      // Key is still saved successfully, let the user know!
       setValidationResult({ 
-        success: false, 
-        message: errMsg 
+        success: true, 
+        message: `API Key saved successfully! Note: Verification check returned: "${errMsg}" (note: new free keys can take up to 15 minutes to activate, and calls from cloud hosting environments are sometimes restricted. The application will still use your saved key).` 
       });
     } finally {
       setIsValidating(false);
