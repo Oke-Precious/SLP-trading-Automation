@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 // Get base URL dynamically and robustly across Vite / Node environments
 const envApiUrl = 
@@ -25,6 +26,16 @@ apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
   if (token && !config.url?.includes('twelvedata.com')) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // 1.5. Attach custom Twelve Data API key from settings store if present to allow server to use it
+  try {
+    const twelveKeyFromStore = useSettingsStore.getState().twelveDataApiKey;
+    if (twelveKeyFromStore && !config.url?.includes('twelvedata.com')) {
+      config.headers['x-twelvedata-key'] = twelveKeyFromStore;
+    }
+  } catch (err) {
+    console.warn('Could not read twelveDataApiKey from settings store:', err);
   }
 
   // 2. Identify if this is a Twelve Data endpoint request and inject permission keys robustly
