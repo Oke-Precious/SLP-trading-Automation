@@ -21,6 +21,7 @@ import { runSLPAnalysis } from "../../lib/analysis/slpEngine";
 import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
 import { detectSLPStructure } from "../../lib/slp/slpStructure";
 import { analyseSLPStructure } from "../../lib/slp/slpMarketStructure";
+import { useSLPInducement } from "../../hooks/useSLPInducement";
 import { Timeframe } from "../../lib/slp/timeframeHierarchy";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
 import { detectSLPPOIs } from "../../lib/slp/slpPOI";
@@ -339,10 +340,25 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
   }, [candles]);
 
   const slpStructure = React.useMemo(() => {
-    if (candles.length < 40) return { mssEvents: [], bosEvents: [], doubleBOSEvents: [], swingHighs: [], swingLows: [] };
+    if (candles.length < 40) return null;
     const tf = normalizeTimeframe(selectedTimeframe);
     return analyseSLPStructure(candles, tf);
   }, [candles, selectedTimeframe, normalizeTimeframe]);
+
+  const slpInducements = useSLPInducement(candles, slpStructure);
+
+  const activeInducements = React.useMemo(() => {
+    if (!slpInducements || candles.length === 0) return [];
+    
+    const pendingAndSwept = slpInducements.filter(i => i.status !== 'INVALIDATED');
+    const invalidated = slpInducements
+      .filter(i => i.status === 'INVALIDATED')
+      .filter(i => candles.length - 1 - i.candleIndex <= 20)
+      .sort((a, b) => b.candleIndex - a.candleIndex) // most recent first
+      .slice(0, 2); // keep at most 2
+      
+    return [...pendingAndSwept, ...invalidated];
+  }, [slpInducements, candles.length]);
 
   const slpLiquidity = React.useMemo(() => {
     if (candles.length < 30) return [];
@@ -585,6 +601,34 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       });
     }
 
+    // Draw Inducements
+    if (activeInducements) {
+      activeInducements.forEach((idm) => {
+        let color = '#CAAA98';
+        let text = 'IDM';
+        if (idm.status === 'SWEPT') {
+          color = idm.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+          text = 'IDM ✓';
+        } else if (idm.status === 'INVALIDATED') {
+          color = '#555555';
+          text = 'IDM ✗';
+        }
+        
+        if (idm.originConfidence === 'HIGH') {
+          text += ' ★';
+        }
+        
+        allMarkers.push({
+          time: idm.time as Time,
+          position: idm.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+          color,
+          shape: 'circle',
+          text,
+          size: 0.7,
+        });
+      });
+    }
+
     slpResult.swingHighs.forEach((h) => allMarkers.push({ time: h.time as Time, position: "aboveBar", color: settings.downCandleColor, shape: "arrowDown", text: "SH", size: 0.5 }));
     slpResult.swingLows.forEach((l) => allMarkers.push({ time: l.time as Time, position: "belowBar", color: settings.upCandleColor, shape: "arrowUp", text: "SL", size: 0.5 }));
 
@@ -635,8 +679,8 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         price: b.price,
         direction: b.direction,
         type: 'BOS' as const,
-        impulseStartPrice: b.mssReference?.price || b.price,
-        impulseStartTime: b.mssReference?.time || b.lineFrom,
+        impulseStartPrice: (b as any).mssReference?.price || b.price,
+        impulseStartTime: (b as any).mssReference?.time || b.lineFrom,
       }));
       import('../../lib/ml/mlCollectorService')
         .then(({ processMLDataCollection }) => processMLDataCollection(mappedEvents, candles))
@@ -926,6 +970,21 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                     <span className="w-2 h-2 rounded bg-[#F0B90B] shrink-0" />
                     <span className="text-gray-300 font-semibold uppercase">DBS</span>
                     <span className="text-[8px] text-gray-500">Double BOS (High-Prob)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#CAAA98] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">IDM</span>
+                    <span className="text-[8px] text-gray-500">IDM (Pending)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#26A69A] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">IDM ✓</span>
+                    <span className="text-[8px] text-gray-500">IDM (Swept — Valid)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded bg-[#555555] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">IDM ✗</span>
+                    <span className="text-[8px] text-gray-500">IDM (Invalidated)</span>
                   </div>
                 </div>
                 <div className="h-[1px] bg-[#2A2E39] my-1" />
