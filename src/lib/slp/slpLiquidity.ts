@@ -4,8 +4,6 @@ import { SwingPoint } from './slpBias';
 export type LiquidityType =
   | 'EQUAL_HIGHS'         // Type 2: equal highs
   | 'EQUAL_LOWS'          // Type 2: equal lows
-  | 'LONG_WICK_HIGH'      // Type 3: long wick above
-  | 'LONG_WICK_LOW'       // Type 3: long wick below
   | 'INDUCEMENT_HIGH'     // Type 4: minor high between major highs
   | 'INDUCEMENT_LOW'      // Type 4: minor low between major lows
 
@@ -96,58 +94,6 @@ function detectEqualHighsLows(
   });
 
   return levels;
-}
-
-// ── TYPE 3: LONG WICK LIQUIDITY ──────────────────────
-
-function detectLongWickLiquidity(
-  candles:    Candle[],
-  atr:        number
-): LiquidityLevel[] {
-  const levels: LiquidityLevel[] = [];
-  const currentPrice = candles[candles.length - 1].close;
-
-  candles.forEach((c, i) => {
-    const body     = Math.abs(c.close - c.open);
-    const upperWick = c.high - Math.max(c.open, c.close);
-    const lowerWick = Math.min(c.open, c.close) - c.low;
-
-    // Minimum significance: wick must also be meaningful in ATR terms
-    const minWickSize = atr * 0.3;
-
-    if (upperWick >= body * 2 && upperWick >= minWickSize) {
-      const swept = currentPrice > c.high;
-      levels.push({
-        id:         `lwh-${i}`,
-        type:       'LONG_WICK_HIGH',
-        price:      c.high,
-        priceRange: [c.high - atr * 0.05, c.high + atr * 0.05],
-        time:       c.time,
-        swept,
-        sweptTime:  null,
-        touchCount: 1,
-        side:       'BUY_SIDE',
-      });
-    }
-
-    if (lowerWick >= body * 2 && lowerWick >= minWickSize) {
-      const swept = currentPrice < c.low;
-      levels.push({
-        id:         `lwl-${i}`,
-        type:       'LONG_WICK_LOW',
-        price:      c.low,
-        priceRange: [c.low - atr * 0.05, c.low + atr * 0.05],
-        time:       c.time,
-        swept,
-        sweptTime:  null,
-        touchCount: 1,
-        side:       'SELL_SIDE',
-      });
-    }
-  });
-
-  // Only keep the most recent significant ones
-  return levels.slice(-6);
 }
 
 // ── TYPE 4: INDUCEMENT ───────────────────────────────
@@ -243,10 +189,9 @@ export function detectSLPLiquidity(
   atr:        number
 ): LiquidityLevel[] {
   const eqHL   = detectEqualHighsLows(candles, swingHighs, swingLows, atr);
-  const wicks  = detectLongWickLiquidity(candles, atr);
   const indu   = detectInducement(swingHighs, swingLows, candles, atr, bias);
 
-  return [...eqHL, ...wicks, ...indu]
+  return [...eqHL, ...indu]
     .filter(l => !l.swept)       // only show unswept levels
     .slice(-8);                  // max 8 levels total
 }

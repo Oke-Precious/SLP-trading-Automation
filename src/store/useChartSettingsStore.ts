@@ -23,7 +23,6 @@ export interface ChartSettings {
   // SLP Liquidity Types
   trendlineLiqColor:  string;
   eqLiqColor:         string;
-  longWickLiqColor:   string;
   inducementLiqColor: string;
   // Visibility toggles
   showBOS:            boolean;
@@ -52,7 +51,6 @@ const DEFAULTS: ChartSettings = {
   breakerColor:    '#1565C0',
   trendlineLiqColor: '#F0B90B',
   eqLiqColor:      '#E040FB',
-  longWickLiqColor: '#29B6F6',
   inducementLiqColor: '#FF7043',
   showBOS:            true,
   showMSS:            true,

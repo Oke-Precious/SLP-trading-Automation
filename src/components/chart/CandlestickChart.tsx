@@ -26,6 +26,7 @@ import { useSLPOrderBlocks } from "../../hooks/useSLPOrderBlocks";
 import { useSLPPOIs, SLPPOI } from "../../hooks/useSLPPOIs";
 import { Timeframe } from "../../lib/slp/timeframeHierarchy";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
+import { selectTakeProfitTarget } from "../../lib/slp/slpLiquidityTargets";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown, AlertCircle } from 'lucide-react';
@@ -576,6 +577,119 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           size: 0.8,
         });
 
+        // --- PHASE 5: LIQUIDITY TARGETS AND TP SELECTION ---
+        const atr = calcATR(candles, 14);
+        const tpSelection = selectTakeProfitTarget(candles, slpStructure!, poi, atr);
+
+        if (tpSelection) {
+          const target = tpSelection.target;
+          if (target) {
+            if (target.kind === 'TRENDLINE') {
+              const trendlineSeries = chartApi.current!.addSeries(LineSeries, {
+                color: '#9A8678',
+                lineWidth: 1,
+                lineStyle: LineStyle.Solid,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                crosshairMarkerVisible: false,
+              });
+              const data = target.anchorPoints.map(p => ({ time: p.time as Time, value: p.price }));
+              const lastPoint = target.anchorPoints[target.anchorPoints.length - 1];
+              if (lastPoint.time < endTime) {
+                const slope = target.slope;
+                const projectedPrice = lastPoint.price + slope * (endTime - lastPoint.time);
+                data.push({ time: endTime as Time, value: projectedPrice });
+              }
+              trendlineSeries.setData(data);
+              slpOverlayRefs.current.seriesList.push(trendlineSeries);
+
+              allMarkers.push({
+                time: target.originPoint.time as Time,
+                position: 'belowBar',
+                color: '#9A8678',
+                shape: 'circle',
+                text: 'Trendline Origin (TP)',
+                size: 0.6
+              });
+            } else if (target.kind === 'EQUAL_HIGHS' || target.kind === 'EQUAL_LOWS') {
+              const eqLine = chartApi.current!.addSeries(LineSeries, {
+                color: '#F0B90B',
+                lineWidth: 1,
+                lineStyle: LineStyle.Dotted,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                crosshairMarkerVisible: false,
+              });
+              const firstTouch = target.touchPoints[0];
+              eqLine.setData([
+                { time: firstTouch.time as Time, value: target.price },
+                { time: endTime as Time, value: target.price }
+              ]);
+              slpOverlayRefs.current.seriesList.push(eqLine);
+
+              allMarkers.push({
+                time: firstTouch.time as Time,
+                position: target.kind === 'EQUAL_HIGHS' ? 'aboveBar' : 'belowBar',
+                color: '#F0B90B',
+                shape: 'circle',
+                text: target.kind === 'EQUAL_HIGHS' ? `EQH ×${target.touchCount}` : `EQL ×${target.touchCount}`,
+                size: 0.6
+              });
+            } else if (target.kind === 'RANGE_HIGH' || target.kind === 'RANGE_LOW') {
+              const rangeLine = chartApi.current!.addSeries(LineSeries, {
+                color: '#CAAA98',
+                lineWidth: 1,
+                lineStyle: LineStyle.Solid,
+                priceLineVisible: false,
+                lastValueVisible: false,
+                crosshairMarkerVisible: false,
+              });
+              const startCandle = candles[Math.max(0, candles.length - 40)];
+              rangeLine.setData([
+                { time: startCandle.time as Time, value: target.price },
+                { time: endTime as Time, value: target.price }
+              ]);
+              slpOverlayRefs.current.seriesList.push(rangeLine);
+
+              allMarkers.push({
+                time: startCandle.time as Time,
+                position: target.kind === 'RANGE_HIGH' ? 'aboveBar' : 'belowBar',
+                color: '#CAAA98',
+                shape: 'circle',
+                text: target.kind === 'RANGE_HIGH' ? 'Range High' : 'Range Low',
+                size: 0.6
+              });
+            }
+          }
+
+          // TP1 Line
+          const tpColor = poi.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+          const tpLine = chartApi.current!.addSeries(LineSeries, {
+            color: tpColor,
+            lineWidth: 2,
+            lineStyle: LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          });
+          if (poi.time < endTime) {
+            tpLine.setData([
+              { time: poi.time as Time, value: tpSelection.targetPrice },
+              { time: endTime as Time, value: tpSelection.targetPrice }
+            ]);
+          }
+          slpOverlayRefs.current.seriesList.push(tpLine);
+
+          allMarkers.push({
+            time: endTime as Time,
+            position: poi.direction === 'BULLISH' ? 'aboveBar' : 'belowBar',
+            color: tpColor,
+            shape: 'circle',
+            text: `TP1: ${tpSelection.targetPrice.toFixed(4)}`,
+            size: 0.8
+          });
+        }
+
         slpOverlayRefs.current.seriesList.push(topLine, botLine, entryLine);
       });
     }
@@ -644,12 +758,6 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
         } else if (liq.type === 'EQUAL_LOWS') {
           color = '#F0B90B';
           label = `EQL×${liq.touchCount}`;
-        } else if (liq.type === 'LONG_WICK_HIGH') {
-          color = '#9A8678';
-          label = 'LWH';
-        } else if (liq.type === 'LONG_WICK_LOW') {
-          color = '#9A8678';
-          label = 'LWL';
         } else if (liq.type === 'INDUCEMENT_HIGH' || liq.type === 'INDUCEMENT_LOW') {
           color = '#CAAA98';
           label = 'INDU';
@@ -1112,20 +1220,20 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                 <div className="h-[1px] bg-[#2A2E39] my-1" />
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-6 text-center font-bold text-[#E040FB] shrink-0 text-[8px] border border-[#E040FB]/30 bg-[#E040FB]/5 rounded-sm" style={{ color: settings.eqLiqColor, borderColor: settings.eqLiqColor + '30', backgroundColor: settings.eqLiqColor + '10' }}>EQH/EQL</span>
-                    <span className="text-[8px] text-gray-500">Equal Highs / Lows</span>
+                    <span className="w-6 text-center font-bold text-[#F0B90B] shrink-0 text-[8px] border border-[#F0B90B]/30 bg-[#F0B90B]/5 rounded-sm" style={{ color: '#F0B90B', borderColor: '#F0B90B30', backgroundColor: '#F0B90B10' }}>EQH/EQL</span>
+                    <span className="text-[8px] text-gray-500">EQH/EQL (TP target)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-6 text-center font-bold text-[#29B6F6] shrink-0 text-[8px] border border-[#29B6F6]/30 bg-[#29B6F6]/5 rounded-sm" style={{ color: settings.longWickLiqColor, borderColor: settings.longWickLiqColor + '30', backgroundColor: settings.longWickLiqColor + '10' }}>WICK</span>
-                    <span className="text-[8px] text-gray-500">Long Wick Liquidity</span>
+                    <span className="w-6 text-center font-bold text-[#9A8678] shrink-0 text-[8px] border border-[#9A8678]/30 bg-[#9A8678]/5 rounded-sm" style={{ color: '#9A8678', borderColor: '#9A867830', backgroundColor: '#9A867810' }}>TL-REVP</span>
+                    <span className="text-[8px] text-gray-500">Trendline (TP on reversal)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-6 text-center font-bold text-[#FF7043] shrink-0 text-[8px] border border-[#FF7043]/30 bg-[#FF7043]/5 rounded-sm" style={{ color: (settings as any).inducementLiqColor || '#FF7043', borderColor: ((settings as any).inducementLiqColor || '#FF7043') + '30', backgroundColor: ((settings as any).inducementLiqColor || '#FF7043') + '10' }}>IND</span>
-                    <span className="text-[8px] text-gray-500">Inducement Liquidity</span>
+                    <span className="w-6 text-center font-bold text-[#CAAA98] shrink-0 text-[8px] border border-[#CAAA98]/30 bg-[#CAAA98]/5 rounded-sm" style={{ color: '#CAAA98', borderColor: '#CAAA9830', backgroundColor: '#CAAA9810' }}>RANGE</span>
+                    <span className="text-[8px] text-gray-500">Range High/Low (TP in ranging)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-6 text-center font-bold text-[#F0B90B] shrink-0 text-[8px] border border-[#F0B90B]/30 bg-[#F0B90B]/5 rounded-sm" style={{ color: settings.trendlineLiqColor, borderColor: settings.trendlineLiqColor + '30', backgroundColor: settings.trendlineLiqColor + '10' }}>TL</span>
-                    <span className="text-[8px] text-gray-500">Trendline Liquidity *</span>
+                    <span className="w-6 text-center font-bold text-[#26A69A] shrink-0 text-[8px] border border-[#26A69A]/30 bg-[#26A69A]/5 rounded-sm" style={{ color: '#26A69A', borderColor: '#26A69A30', backgroundColor: '#26A69A10' }}>TP1</span>
+                    <span className="text-[8px] text-gray-500">TP1 (selected target)</span>
                   </div>
                 </div>
                 <div className="pt-1 text-[7px] text-gray-500 leading-tight border-t border-[#2A2E39]/30">
