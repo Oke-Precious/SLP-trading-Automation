@@ -178,6 +178,7 @@ const ChartSettingsPanel = React.memo(function ChartSettingsPanel({ onClose }: {
             <ToggleInput label="Show Breaker Blocks" settingKey="showBreakerBlocks" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Liquidity Levels" settingKey="showLiquidity" settings={settings} updateSetting={updateSetting} />
             <ToggleInput label="Show Volume" settingKey="showVolume" settings={settings} updateSetting={updateSetting} />
+            <ToggleInput label="Show Failed POIs" settingKey="showFailedPOIs" settings={settings} updateSetting={updateSetting} />
           </div>
         </div>
       </div>

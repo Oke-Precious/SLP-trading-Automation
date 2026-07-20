@@ -3,6 +3,8 @@ import { SLPBias, SLPBiasResult, analyseSLPBias } from './slpBias';
 import { SLPStructureResult, detectSLPStructure } from './slpStructure';
 import { LiquidityLevel, detectSLPLiquidity } from './slpLiquidity';
 import { SLPPOI, detectSLPPOIs } from './slpPOI';
+import { detectOrderBlocks } from './slpOrderBlock';
+import { detectInducements } from './slpInducement';
 
 export type SetupStatus =
   | 'WAITING_FOR_BIAS'         // no clear bias yet
@@ -54,21 +56,21 @@ function checkRetracement(
   poi:          SLPPOI,
   currentPrice: number
 ): RetracementCheck {
-  const zoneSize = Math.abs(poi.priceTop - poi.priceBottom) || 0.000001;
-  const midpoint = poi.priceMid;
+  const zoneSize = Math.abs(poi.zoneTop - poi.zoneBottom) || 0.000001;
+  const midpoint = poi.entryLevel;
 
   let retracementPercent = 0;
   let reached = false;
 
   if (poi.direction === 'BULLISH') {
-    if (currentPrice <= poi.priceTop) {
-      const distanceIn = poi.priceTop - currentPrice;
+    if (currentPrice <= poi.zoneTop) {
+      const distanceIn = poi.zoneTop - currentPrice;
       retracementPercent = (distanceIn / zoneSize) * 100;
       reached = currentPrice <= midpoint;
     }
   } else {
-    if (currentPrice >= poi.priceBottom) {
-      const distanceIn = currentPrice - poi.priceBottom;
+    if (currentPrice >= poi.zoneBottom) {
+      const distanceIn = currentPrice - poi.zoneBottom;
       retracementPercent = (distanceIn / zoneSize) * 100;
       reached = currentPrice >= midpoint;
     }
@@ -105,8 +107,8 @@ function generateSignal(
   // Stop loss: just beyond the POI boundary
   const buffer = entryPrice * 0.001;
   const stopLoss = direction === 'LONG'
-    ? poi.priceBottom - buffer
-    : poi.priceTop + buffer;
+    ? poi.zoneBottom - buffer
+    : poi.zoneTop + buffer;
 
   // Target: nearest opposing liquidity level
   const riskAmount = Math.abs(entryPrice - stopLoss) || 0.000001;
@@ -159,7 +161,7 @@ export function runSLPPipeline(
     return {
       status: 'WAITING_FOR_BIAS',
       bias,
-      structure: { mssEvents: [], bosEvents: [] },
+      structure: { mssEvents: [], bosEvents: [] } as any,
       liquidityLevels: [],
       validPOIs: [],
       activePOI: null,
@@ -225,9 +227,11 @@ export function runSLPPipeline(
   }
 
   // ── Step 5: POI VALIDATION ──────────────────────
-  const validPOIs = detectSLPPOIs(
-    candles, structure.mssEvents, structure.bosEvents, liquidityLevels
-  );
+  const orderBlocks = detectOrderBlocks(candles, structure);
+  const inducements = detectInducements(candles, structure);
+  const allPOIs = detectSLPPOIs(candles, structure, orderBlocks, inducements);
+  const validPOIs = allPOIs.filter(p => p.validation.allRulesPass);
+
   if (validPOIs.length === 0) {
     return {
       status: 'WAITING_FOR_LIQUIDITY',
@@ -260,7 +264,7 @@ export function runSLPPipeline(
       retracementCheck,
       signal: null,
       statusMessage: `Valid POI found. Waiting for 50% retracement into zone. Currently at ${retracementCheck.retracementPercent.toFixed(0)}%.`,
-      nextStep: `Wait for price to pull back to ${activePOI.priceMid.toFixed(4)} (50% of the POI zone).`,
+      nextStep: `Wait for price to pull back to ${activePOI.entryLevel.toFixed(4)} (50% of the POI zone).`,
     };
   }
 

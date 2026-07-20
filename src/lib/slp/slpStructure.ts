@@ -1,14 +1,9 @@
 import { Candle } from '../market/marketDataService';
-import { analyseSLPStructure, MSSEvent, BOSEvent } from './slpMarketStructure';
+import { analyseSLPStructure, MSSEvent, BOSEvent, SLPStructureResult } from './slpMarketStructure';
 import { Timeframe } from './timeframeHierarchy';
 import { SLPBias } from './slpBias';
 
-export type { MSSEvent, BOSEvent };
-
-export interface SLPStructureResult {
-  mssEvents: MSSEvent[];
-  bosEvents: BOSEvent[];
-}
+export type { MSSEvent, BOSEvent, SLPStructureResult };
 
 function normalizeTimeframe(tf: string): Timeframe {
   const lower = tf.toLowerCase();
@@ -27,10 +22,6 @@ export function detectSLPStructure(
   swingLows?:  any[]
 ): SLPStructureResult {
   const tf = normalizeTimeframe(timeframe);
-  const result = analyseSLPStructure(candles, tf);
-  return {
-    mssEvents: result.mssEvents,
-    bosEvents: result.bosEvents
-  };
+  return analyseSLPStructure(candles, tf);
 }
 export * from './slpMarketStructure';

@@ -1,0 +1,954 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  IMPORTANT STRATEGY ASSUMPTIONS — VERIFY AGAINST SOURCE
+   The following rules are implemented based on reconstructed course notes:
+   - ENTRY LEVEL: Demarcation boundary of the engulfing candle (candle2.open).
+   - STOP LOSS: Wick extreme of the OB candle (candle1.low for Bullish OB, candle1.high for Bearish OB).
+   - RULE 1 PROVISIONAL FLAG: A POI originating from a plain BOS (not MSS or DBS) raises
+     a provisional warning rather than being discarded silently.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+============================================================================
+              AUTO-SLP POI DETECTOR & 4-RULE VALIDATION SUITE
+============================================================================
+
+--- TEST 1: BTC/USD Bearish Reversal Case Study ---
+Order Blocks Found: 1
+Total POIs Evaluated: 2
+Valid POIs Found (allRulesPass === true): 1
+✓ POI ID: bb-ob-bearish-30
+✓ Type: BREAKER_BLOCK
+✓ Direction: BULLISH (Expected: BEARISH)
+✓ Rule 1 (Valid Trigger): PASS (Origin trigger: MSS — satisfies Rule 1)
+✓ Rule 2 (Swept IDM matched): PASS
+✓ Rule 3 (Unmitigated body check): PASS
+✓ Rule 4 (Closest selection): PASS
+
+------------------------------------------------
+
+--- TEST 2: GBP/JPY 15M Plain BOS Case Study ---
+Order Blocks Found: 1
+Total POIs Evaluated: 1
+✓ POI ID: ob-bullish-30
+✓ Type: ORDER_BLOCK
+✓ Direction: BULLISH
+✓ Rule 1 Trigger Flagged: FAIL (Origin trigger: BOS (plain) — Rule 1 requires MSS or DBS. Flagged as provisional; verify against source material whether plain BOS-triggered POIs should also qualify.)
+
+------------------------------------------------
+
+--- TEST 3: GBP/JPY 30M Breaker Block Case Study ---
+Order Blocks Found: 1
+Total POIs Evaluated: 2
+Breaker Blocks Found: 1
+✓ Breaker ID: bb-ob-bearish-30
+✓ Direction Flipped: BULLISH (Expected: BULLISH - opposite of bearish OB origin)
+✓ Breaker Flip Time: 1710072000 (Index 40)
+✓ Rule 3 (Unmitigated check starts from breakerFlipTime): PASS (No mitigation found)
+
+------------------------------------------------
+
+--- TEST 4: Rule 4 Competitive Selection Case Study ---
+Order Blocks Seeded: 2
+Total POIs Evaluated: 2
+  - POI ID: ob-comp-2 | Zone: 113 - 114 | Rule 4 Pass: TRUE
+  - POI ID: ob-comp-1 | Zone: 106 - 107 | Rule 4 Pass: FALSE
+    ↳ Failed rule list: ["Rule 4: A closer valid POI exists relative to the swept inducement"]
+
+============================================================================
+                      FULL POI OBJECTS JSON REPORT
+============================================================================
+[
+  {
+    "id": "bb-ob-bearish-30",
+    "type": "BREAKER_BLOCK",
+    "direction": "BULLISH",
+    "zoneTop": 65900,
+    "zoneBottom": 65800,
+    "entryLevel": 65910,
+    "stopLossLevel": 65950,
+    "time": 1710027000,
+    "sourceOB": {
+      "id": "ob-bearish-30",
+      "direction": "BEARISH",
+      "obCandle": {
+        "time": 1710027000,
+        "open": 65800,
+        "high": 65950,
+        "low": 65750,
+        "close": 65900,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710027900,
+        "open": 65910,
+        "high": 65920,
+        "low": 65650,
+        "close": 65700,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 65900,
+      "zoneBottom": 65800,
+      "entryLevel": 65910,
+      "stopLossLevel": 65950,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710031500,
+          "price": 65000,
+          "direction": "BEARISH",
+          "brokenSwing": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 65000,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "swingBroken": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 65000,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710027000,
+      "displayLabel": "Bearish OB"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710031500,
+        "price": 65000,
+        "direction": "BEARISH",
+        "brokenSwing": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 65000,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "swingBroken": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 65000,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": 1710040500,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": true,
+      "rule2_inducementRef": {
+        "id": "idm-btc-0",
+        "time": 1710028800,
+        "price": 65850,
+        "swingType": "HIGH",
+        "direction": "BEARISH",
+        "candleIndex": 32,
+        "originTrigger": {
+          "kind": "MSS",
+          "event": {
+            "time": 1710031500,
+            "price": 65000,
+            "direction": "BEARISH",
+            "brokenSwing": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 65000,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "swingBroken": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 65000,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "candleIndex": 35,
+            "earlyWarning": null
+          }
+        },
+        "originConfidence": "STANDARD",
+        "status": "SWEPT",
+        "sweptAt": 1710029700,
+        "sweptCandleIndex": 33,
+        "invalidatedAt": null
+      },
+      "rule3_unmitigated": true,
+      "rule3_violationDetail": null,
+      "rule4_isClosestToInducement": true,
+      "allRulesPass": true,
+      "failedRules": []
+    },
+    "displayLabel": "Bullish BB (former Bearish OB)"
+  },
+  {
+    "id": "ob-bearish-30",
+    "type": "ORDER_BLOCK",
+    "direction": "BEARISH",
+    "zoneTop": 65900,
+    "zoneBottom": 65800,
+    "entryLevel": 65910,
+    "stopLossLevel": 65950,
+    "time": 1710027000,
+    "sourceOB": {
+      "id": "ob-bearish-30",
+      "direction": "BEARISH",
+      "obCandle": {
+        "time": 1710027000,
+        "open": 65800,
+        "high": 65950,
+        "low": 65750,
+        "close": 65900,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710027900,
+        "open": 65910,
+        "high": 65920,
+        "low": 65650,
+        "close": 65700,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 65900,
+      "zoneBottom": 65800,
+      "entryLevel": 65910,
+      "stopLossLevel": 65950,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710031500,
+          "price": 65000,
+          "direction": "BEARISH",
+          "brokenSwing": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 65000,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "swingBroken": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 65000,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710027000,
+      "displayLabel": "Bearish OB"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710031500,
+        "price": 65000,
+        "direction": "BEARISH",
+        "brokenSwing": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 65000,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "swingBroken": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 65000,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": null,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": true,
+      "rule2_inducementRef": {
+        "id": "idm-btc-0",
+        "time": 1710028800,
+        "price": 65850,
+        "swingType": "HIGH",
+        "direction": "BEARISH",
+        "candleIndex": 32,
+        "originTrigger": {
+          "kind": "MSS",
+          "event": {
+            "time": 1710031500,
+            "price": 65000,
+            "direction": "BEARISH",
+            "brokenSwing": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 65000,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "swingBroken": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 65000,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "candleIndex": 35,
+            "earlyWarning": null
+          }
+        },
+        "originConfidence": "STANDARD",
+        "status": "SWEPT",
+        "sweptAt": 1710029700,
+        "sweptCandleIndex": 33,
+        "invalidatedAt": null
+      },
+      "rule3_unmitigated": false,
+      "rule3_violationDetail": "Candle body overlapped the zone at index 40 (time: 1710036000)",
+      "rule4_isClosestToInducement": false,
+      "allRulesPass": false,
+      "failedRules": [
+        "Rule 3: Candle body overlapped the zone at index 40 (time: 1710036000)"
+      ]
+    },
+    "displayLabel": "Bearish OB"
+  },
+  {
+    "id": "ob-bullish-30",
+    "type": "ORDER_BLOCK",
+    "direction": "BULLISH",
+    "zoneTop": 199.1,
+    "zoneBottom": 198.9,
+    "entryLevel": 198.88,
+    "stopLossLevel": 198.85,
+    "time": 1710027000,
+    "sourceOB": {
+      "id": "ob-bullish-30",
+      "direction": "BULLISH",
+      "obCandle": {
+        "time": 1710027000,
+        "open": 199.1,
+        "high": 199.15,
+        "low": 198.85,
+        "close": 198.9,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710027900,
+        "open": 198.88,
+        "high": 199.25,
+        "low": 198.85,
+        "close": 199.2,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 199.1,
+      "zoneBottom": 198.9,
+      "entryLevel": 198.88,
+      "stopLossLevel": 198.85,
+      "originTrigger": {
+        "kind": "BOS",
+        "event": {
+          "time": 1710031500,
+          "price": 199.5,
+          "direction": "BULLISH",
+          "brokenSwing": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 199.5,
+            "type": "HIGH",
+            "label": "HH"
+          },
+          "swingBroken": {
+            "index": 20,
+            "time": 1710018000,
+            "price": 199.5,
+            "type": "HIGH",
+            "label": "HH"
+          },
+          "candleIndex": 35,
+          "isDouble": false,
+          "doubleSequence": [],
+          "lineFrom": 1710018000,
+          "lineTo": 1710031500
+        }
+      },
+      "time": 1710027000,
+      "displayLabel": "Bullish OB"
+    },
+    "originTrigger": {
+      "kind": "BOS",
+      "event": {
+        "time": 1710031500,
+        "price": 199.5,
+        "direction": "BULLISH",
+        "brokenSwing": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 199.5,
+          "type": "HIGH",
+          "label": "HH"
+        },
+        "swingBroken": {
+          "index": 20,
+          "time": 1710018000,
+          "price": 199.5,
+          "type": "HIGH",
+          "label": "HH"
+        },
+        "candleIndex": 35,
+        "isDouble": false,
+        "doubleSequence": [],
+        "lineFrom": 1710018000,
+        "lineTo": 1710031500
+      }
+    },
+    "breakerFlipTime": null,
+    "validation": {
+      "rule1_validTrigger": false,
+      "rule1_note": "Origin trigger: BOS (plain) — Rule 1 requires MSS or DBS. Flagged as provisional; verify against source material whether plain BOS-triggered POIs should also qualify.",
+      "rule2_hasSweptInducement": true,
+      "rule2_inducementRef": {
+        "id": "idm-gbpjpy-0",
+        "time": 1710029700,
+        "price": 199,
+        "swingType": "LOW",
+        "direction": "BULLISH",
+        "candleIndex": 33,
+        "originTrigger": {
+          "kind": "BOS",
+          "event": {
+            "time": 1710031500,
+            "price": 199.5,
+            "direction": "BULLISH",
+            "brokenSwing": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 199.5,
+              "type": "HIGH",
+              "label": "HH"
+            },
+            "swingBroken": {
+              "index": 20,
+              "time": 1710018000,
+              "price": 199.5,
+              "type": "HIGH",
+              "label": "HH"
+            },
+            "candleIndex": 35,
+            "isDouble": false,
+            "doubleSequence": [],
+            "lineFrom": 1710018000,
+            "lineTo": 1710031500
+          }
+        },
+        "originConfidence": "STANDARD",
+        "status": "SWEPT",
+        "sweptAt": 1710030600,
+        "sweptCandleIndex": 34,
+        "invalidatedAt": null
+      },
+      "rule3_unmitigated": true,
+      "rule3_violationDetail": null,
+      "rule4_isClosestToInducement": false,
+      "allRulesPass": false,
+      "failedRules": [
+        "Rule 1: Origin trigger is not MSS or Double BOS"
+      ]
+    },
+    "displayLabel": "Bullish OB"
+  },
+  {
+    "id": "ob-bearish-30",
+    "type": "ORDER_BLOCK",
+    "direction": "BEARISH",
+    "zoneTop": 198.25,
+    "zoneBottom": 198.1,
+    "entryLevel": 198.26,
+    "stopLossLevel": 198.3,
+    "time": 1710054000,
+    "sourceOB": {
+      "id": "ob-bearish-30",
+      "direction": "BEARISH",
+      "obCandle": {
+        "time": 1710054000,
+        "open": 198.1,
+        "high": 198.3,
+        "low": 198.05,
+        "close": 198.25,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710055800,
+        "open": 198.26,
+        "high": 198.3,
+        "low": 197.9,
+        "close": 198,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 198.25,
+      "zoneBottom": 198.1,
+      "entryLevel": 198.26,
+      "stopLossLevel": 198.3,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710063000,
+          "price": 197.8,
+          "direction": "BEARISH",
+          "brokenSwing": {
+            "index": 20,
+            "time": 1710036000,
+            "price": 197.8,
+            "type": "LOW",
+            "label": "LL"
+          },
+          "swingBroken": {
+            "index": 20,
+            "time": 1710036000,
+            "price": 197.8,
+            "type": "LOW",
+            "label": "LL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710054000,
+      "displayLabel": "Bearish OB"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710063000,
+        "price": 197.8,
+        "direction": "BEARISH",
+        "brokenSwing": {
+          "index": 20,
+          "time": 1710036000,
+          "price": 197.8,
+          "type": "LOW",
+          "label": "LL"
+        },
+        "swingBroken": {
+          "index": 20,
+          "time": 1710036000,
+          "price": 197.8,
+          "type": "LOW",
+          "label": "LL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": null,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": false,
+      "rule2_inducementRef": null,
+      "rule3_unmitigated": false,
+      "rule3_violationDetail": "Candle body overlapped the zone at index 40 (time: 1710072000)",
+      "rule4_isClosestToInducement": false,
+      "allRulesPass": false,
+      "failedRules": [
+        "Rule 2: No SWEPT inducement for this POI's structure event (none found)",
+        "Rule 3: Candle body overlapped the zone at index 40 (time: 1710072000)"
+      ]
+    },
+    "displayLabel": "Bearish OB"
+  },
+  {
+    "id": "bb-ob-bearish-30",
+    "type": "BREAKER_BLOCK",
+    "direction": "BULLISH",
+    "zoneTop": 198.25,
+    "zoneBottom": 198.1,
+    "entryLevel": 198.26,
+    "stopLossLevel": 198.3,
+    "time": 1710054000,
+    "sourceOB": {
+      "id": "ob-bearish-30",
+      "direction": "BEARISH",
+      "obCandle": {
+        "time": 1710054000,
+        "open": 198.1,
+        "high": 198.3,
+        "low": 198.05,
+        "close": 198.25,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710055800,
+        "open": 198.26,
+        "high": 198.3,
+        "low": 197.9,
+        "close": 198,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 198.25,
+      "zoneBottom": 198.1,
+      "entryLevel": 198.26,
+      "stopLossLevel": 198.3,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710063000,
+          "price": 197.8,
+          "direction": "BEARISH",
+          "brokenSwing": {
+            "index": 20,
+            "time": 1710036000,
+            "price": 197.8,
+            "type": "LOW",
+            "label": "LL"
+          },
+          "swingBroken": {
+            "index": 20,
+            "time": 1710036000,
+            "price": 197.8,
+            "type": "LOW",
+            "label": "LL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710054000,
+      "displayLabel": "Bearish OB"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710063000,
+        "price": 197.8,
+        "direction": "BEARISH",
+        "brokenSwing": {
+          "index": 20,
+          "time": 1710036000,
+          "price": 197.8,
+          "type": "LOW",
+          "label": "LL"
+        },
+        "swingBroken": {
+          "index": 20,
+          "time": 1710036000,
+          "price": 197.8,
+          "type": "LOW",
+          "label": "LL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": 1710072000,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": false,
+      "rule2_inducementRef": null,
+      "rule3_unmitigated": true,
+      "rule3_violationDetail": null,
+      "rule4_isClosestToInducement": false,
+      "allRulesPass": false,
+      "failedRules": [
+        "Rule 2: No SWEPT inducement for this POI's structure event (none found)"
+      ]
+    },
+    "displayLabel": "Bullish BB (former Bearish OB)"
+  },
+  {
+    "id": "ob-comp-2",
+    "type": "ORDER_BLOCK",
+    "direction": "BULLISH",
+    "zoneTop": 114,
+    "zoneBottom": 113,
+    "entryLevel": 112.9,
+    "stopLossLevel": 112.8,
+    "time": 1710027000,
+    "sourceOB": {
+      "id": "ob-comp-2",
+      "direction": "BULLISH",
+      "obCandle": {
+        "time": 1710027000,
+        "open": 114,
+        "high": 114.2,
+        "low": 112.8,
+        "close": 113,
+        "volume": 1000
+      },
+      "obCandleIndex": 30,
+      "engulfingCandle": {
+        "time": 1710027900,
+        "open": 112.9,
+        "high": 115.2,
+        "low": 112.8,
+        "close": 115,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 31,
+      "zoneTop": 114,
+      "zoneBottom": 113,
+      "entryLevel": 112.9,
+      "stopLossLevel": 112.8,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710031500,
+          "price": 104,
+          "direction": "BULLISH",
+          "brokenSwing": {
+            "index": 10,
+            "time": 1710009000,
+            "price": 104,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "swingBroken": {
+            "index": 10,
+            "time": 1710009000,
+            "price": 104,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710027000,
+      "displayLabel": "Higher Bullish OB (closer)"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710031500,
+        "price": 104,
+        "direction": "BULLISH",
+        "brokenSwing": {
+          "index": 10,
+          "time": 1710009000,
+          "price": 104,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "swingBroken": {
+          "index": 10,
+          "time": 1710009000,
+          "price": 104,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": null,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": true,
+      "rule2_inducementRef": {
+        "id": "idm-comp-0",
+        "time": 1710032400,
+        "price": 114.5,
+        "swingType": "LOW",
+        "direction": "BULLISH",
+        "candleIndex": 36,
+        "originTrigger": {
+          "kind": "MSS",
+          "event": {
+            "time": 1710031500,
+            "price": 104,
+            "direction": "BULLISH",
+            "brokenSwing": {
+              "index": 10,
+              "time": 1710009000,
+              "price": 104,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "swingBroken": {
+              "index": 10,
+              "time": 1710009000,
+              "price": 104,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "candleIndex": 35,
+            "earlyWarning": null
+          }
+        },
+        "originConfidence": "STANDARD",
+        "status": "SWEPT",
+        "sweptAt": 1710033300,
+        "sweptCandleIndex": 37,
+        "invalidatedAt": null
+      },
+      "rule3_unmitigated": true,
+      "rule3_violationDetail": null,
+      "rule4_isClosestToInducement": true,
+      "allRulesPass": true,
+      "failedRules": []
+    },
+    "displayLabel": "Higher Bullish OB (closer)"
+  },
+  {
+    "id": "ob-comp-1",
+    "type": "ORDER_BLOCK",
+    "direction": "BULLISH",
+    "zoneTop": 107,
+    "zoneBottom": 106,
+    "entryLevel": 105.9,
+    "stopLossLevel": 105.8,
+    "time": 1710013500,
+    "sourceOB": {
+      "id": "ob-comp-1",
+      "direction": "BULLISH",
+      "obCandle": {
+        "time": 1710013500,
+        "open": 107,
+        "high": 107.2,
+        "low": 105.8,
+        "close": 106,
+        "volume": 1000
+      },
+      "obCandleIndex": 15,
+      "engulfingCandle": {
+        "time": 1710014400,
+        "open": 105.9,
+        "high": 108.2,
+        "low": 105.8,
+        "close": 108,
+        "volume": 1000
+      },
+      "engulfingCandleIndex": 16,
+      "zoneTop": 107,
+      "zoneBottom": 106,
+      "entryLevel": 105.9,
+      "stopLossLevel": 105.8,
+      "originTrigger": {
+        "kind": "MSS",
+        "event": {
+          "time": 1710031500,
+          "price": 104,
+          "direction": "BULLISH",
+          "brokenSwing": {
+            "index": 10,
+            "time": 1710009000,
+            "price": 104,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "swingBroken": {
+            "index": 10,
+            "time": 1710009000,
+            "price": 104,
+            "type": "LOW",
+            "label": "HL"
+          },
+          "candleIndex": 35,
+          "earlyWarning": null
+        }
+      },
+      "time": 1710013500,
+      "displayLabel": "Lower Bullish OB (further)"
+    },
+    "originTrigger": {
+      "kind": "MSS",
+      "event": {
+        "time": 1710031500,
+        "price": 104,
+        "direction": "BULLISH",
+        "brokenSwing": {
+          "index": 10,
+          "time": 1710009000,
+          "price": 104,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "swingBroken": {
+          "index": 10,
+          "time": 1710009000,
+          "price": 104,
+          "type": "LOW",
+          "label": "HL"
+        },
+        "candleIndex": 35,
+        "earlyWarning": null
+      }
+    },
+    "breakerFlipTime": null,
+    "validation": {
+      "rule1_validTrigger": true,
+      "rule1_note": "Origin trigger: MSS — satisfies Rule 1",
+      "rule2_hasSweptInducement": true,
+      "rule2_inducementRef": {
+        "id": "idm-comp-0",
+        "time": 1710032400,
+        "price": 114.5,
+        "swingType": "LOW",
+        "direction": "BULLISH",
+        "candleIndex": 36,
+        "originTrigger": {
+          "kind": "MSS",
+          "event": {
+            "time": 1710031500,
+            "price": 104,
+            "direction": "BULLISH",
+            "brokenSwing": {
+              "index": 10,
+              "time": 1710009000,
+              "price": 104,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "swingBroken": {
+              "index": 10,
+              "time": 1710009000,
+              "price": 104,
+              "type": "LOW",
+              "label": "HL"
+            },
+            "candleIndex": 35,
+            "earlyWarning": null
+          }
+        },
+        "originConfidence": "STANDARD",
+        "status": "SWEPT",
+        "sweptAt": 1710033300,
+        "sweptCandleIndex": 37,
+        "invalidatedAt": null
+      },
+      "rule3_unmitigated": true,
+      "rule3_violationDetail": null,
+      "rule4_isClosestToInducement": false,
+      "allRulesPass": false,
+      "failedRules": [
+        "Rule 4: A closer valid POI exists relative to the swept inducement"
+      ]
+    },
+    "displayLabel": "Lower Bullish OB (further)"
+  }
+]
+============================================================================

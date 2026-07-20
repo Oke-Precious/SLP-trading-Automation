@@ -32,6 +32,7 @@ export interface ChartSettings {
   showBreakerBlocks:  boolean;
   showLiquidity:      boolean;
   showVolume:         boolean;
+  showFailedPOIs:     boolean;
   // Presets
   preset: 'dark' | 'dark-green' | 'midnight' | 'custom';
 }
@@ -59,6 +60,7 @@ const DEFAULTS: ChartSettings = {
   showBreakerBlocks:  true,
   showLiquidity:      true,
   showVolume:         true,
+  showFailedPOIs:     false,
   preset:             'dark',
 };
 

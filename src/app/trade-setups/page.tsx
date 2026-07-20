@@ -10,6 +10,8 @@ import { analyseSLPBias, detectSwingPoints } from '../../lib/slp/slpBias';
 import { detectSLPStructure } from '../../lib/slp/slpStructure';
 import { detectSLPLiquidity, calcATR } from '../../lib/slp/slpLiquidity';
 import { detectSLPPOIs } from '../../lib/slp/slpPOI';
+import { detectOrderBlocks } from '../../lib/slp/slpOrderBlock';
+import { detectInducements } from '../../lib/slp/slpInducement';
 
 export default function TradeSetupsPage() {
   const { selectedPair, selectedTimeframe } = useMarketStore();
@@ -23,7 +25,9 @@ export default function TradeSetupsPage() {
     const struct = detectSLPStructure(candles, selectedTimeframe, biasResult.bias, highs, lows);
     const atr = calcATR(candles, 14);
     const liq = detectSLPLiquidity(candles, highs, lows, biasResult.bias, atr);
-    return detectSLPPOIs(candles, struct.mssEvents, struct.bosEvents, liq);
+    const orderBlocks = detectOrderBlocks(candles, struct);
+    const inducements = detectInducements(candles, struct);
+    return detectSLPPOIs(candles, struct, orderBlocks, inducements);
   }, [candles, selectedTimeframe]);
 
   const setups = useMemo(() => {
@@ -42,8 +46,8 @@ export default function TradeSetupsPage() {
         title: `${selectedTimeframe} ${poi.displayLabel}`,
         direction,
         type,
-        entryZone: `${formatPrice(poi.priceBottom, selectedPair)} - ${formatPrice(poi.priceTop, selectedPair)}`,
-        status: poi.status,
+        entryZone: `${formatPrice(poi.zoneBottom, selectedPair)} - ${formatPrice(poi.zoneTop, selectedPair)}`,
+        status: poi.validation.allRulesPass ? 'Active' : 'Failed early / Not closest',
         isConfirmed,
         time: poi.time
       });

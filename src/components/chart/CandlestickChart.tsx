@@ -23,9 +23,9 @@ import { detectSLPStructure } from "../../lib/slp/slpStructure";
 import { analyseSLPStructure } from "../../lib/slp/slpMarketStructure";
 import { useSLPInducement } from "../../hooks/useSLPInducement";
 import { useSLPOrderBlocks } from "../../hooks/useSLPOrderBlocks";
+import { useSLPPOIs, SLPPOI } from "../../hooks/useSLPPOIs";
 import { Timeframe } from "../../lib/slp/timeframeHierarchy";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
-import { detectSLPPOIs } from "../../lib/slp/slpPOI";
 import { formatPrice, CRYPTO_PAIRS } from "../../lib/market/marketDataService";
 import LoadingSpinner from "../ui/LoadingSpinner";
 import { MousePointer, TrendingUp, Maximize2, Minimize2, Camera, RotateCcw, Settings, X, Plus, ChevronDown, AlertCircle } from 'lucide-react';
@@ -378,10 +378,12 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
     return detectSLPLiquidity(candles, highs, lows, biasResult.bias, atr);
   }, [candles, selectedTimeframe]);
 
-  const slpPOIs = React.useMemo(() => {
-    if (candles.length < 30 || !slpStructure || !slpLiquidity) return [];
-    return detectSLPPOIs(candles, slpStructure.mssEvents, slpStructure.bosEvents, slpLiquidity);
-  }, [candles, slpStructure, slpLiquidity]);
+  const { all: slpPOIs, valid: validPOIs } = useSLPPOIs(
+    candles,
+    slpStructure,
+    slpOrderBlocks || [],
+    slpInducements || []
+  );
 
   const slpOverlayRefs = useRef<{ seriesList: any[]; markers: any[] }>({ seriesList: [], markers: [] });
   function clearSLPOverlays() {
@@ -477,45 +479,79 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       });
     }
 
-    // New SLP Order Blocks (Phase 3)
-    if (settings.showOrderBlocks && activeOrderBlocks) {
-      activeOrderBlocks.forEach((ob) => {
-        const color = ob.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+    // SLP POIs (Phase 4 Validation & Breaker System)
+    const biasResultForPois = analyseSLPBias(candles, selectedTimeframe);
+    const poiBias = biasResultForPois.bias;
+
+    const validBullishPois = slpPOIs
+      .filter((p) => p.validation.allRulesPass && p.direction === 'BULLISH')
+      .sort((a, b) => b.time - a.time);
+    
+    const validBearishPois = slpPOIs
+      .filter((p) => p.validation.allRulesPass && p.direction === 'BEARISH')
+      .sort((a, b) => b.time - a.time);
+
+    const displayedValidPois: SLPPOI[] = [];
+    if (poiBias === 'BULLISH' || poiBias === 'NEUTRAL') {
+      if (validBullishPois.length > 0) {
+        displayedValidPois.push(validBullishPois[0]);
+      }
+    }
+    if (poiBias === 'BEARISH' || poiBias === 'NEUTRAL') {
+      if (validBearishPois.length > 0) {
+        displayedValidPois.push(validBearishPois[0]);
+      }
+    }
+    
+    if (displayedValidPois.length === 0) {
+      if (validBullishPois.length > 0) displayedValidPois.push(validBullishPois[0]);
+      if (validBearishPois.length > 0) displayedValidPois.push(validBearishPois[0]);
+    }
+
+    // Draw Valid POIs (solid borders)
+    if (settings.showOrderBlocks || settings.showBreakerBlocks) {
+      displayedValidPois.forEach((poi) => {
+        if (poi.type === 'ORDER_BLOCK' && !settings.showOrderBlocks) return;
+        if (poi.type === 'BREAKER_BLOCK' && !settings.showBreakerBlocks) return;
+
+        let borderColor = '#26A69A';
+        if (poi.type === 'ORDER_BLOCK') {
+          borderColor = poi.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+        } else {
+          borderColor = '#1565C0';
+        }
+
         const endTime = candles[candles.length - 1].time;
 
-        // Top line (solid)
         const topLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
+          color: borderColor,
+          lineWidth: 2,
           lineStyle: LineStyle.Solid,
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
         });
-        if (ob.time < endTime) {
-          topLine.setData([
-            { time: ob.time as Time, value: ob.zoneTop },
-            { time: endTime as Time, value: ob.zoneTop },
-          ]);
-        }
 
-        // Bottom line (dashed)
         const botLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
+          color: borderColor,
+          lineWidth: 2,
+          lineStyle: LineStyle.Solid,
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
         });
-        if (ob.time < endTime) {
+
+        if (poi.time < endTime) {
+          topLine.setData([
+            { time: poi.time as Time, value: poi.zoneTop },
+            { time: endTime as Time, value: poi.zoneTop },
+          ]);
           botLine.setData([
-            { time: ob.time as Time, value: ob.zoneBottom },
-            { time: endTime as Time, value: ob.zoneBottom },
+            { time: poi.time as Time, value: poi.zoneBottom },
+            { time: endTime as Time, value: poi.zoneBottom },
           ]);
         }
 
-        // Entry line (dotted)
         const entryLine = chartApi.current!.addSeries(LineSeries, {
           color: '#CAAA98',
           lineWidth: 1,
@@ -524,95 +560,75 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
           lastValueVisible: false,
           crosshairMarkerVisible: false,
         });
-        if (ob.time < endTime) {
+        if (poi.time < endTime) {
           entryLine.setData([
-            { time: ob.time as Time, value: ob.entryLevel },
-            { time: endTime as Time, value: ob.entryLevel },
+            { time: poi.time as Time, value: poi.entryLevel },
+            { time: endTime as Time, value: poi.entryLevel },
           ]);
         }
 
-        // Marker at start of zone
         allMarkers.push({
-          time: ob.time as Time,
-          position: ob.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
-          color,
+          time: poi.time as Time,
+          position: poi.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+          color: borderColor,
           shape: 'circle',
-          text: ob.displayLabel,
-          size: 0.7,
+          text: `${poi.displayLabel} ✓ VALID`,
+          size: 0.8,
         });
 
         slpOverlayRefs.current.seriesList.push(topLine, botLine, entryLine);
       });
     }
 
-    // Legacy Breaker Blocks only (Order Blocks are now handled by Phase 3 above)
-    if (settings.showBreakerBlocks && slpPOIs) {
-      slpPOIs.forEach((poi) => {
-        if (poi.type !== 'BREAKER_BLOCK') return;
+    // Draw Failed/Candidate POIs (dashed borders) if setting is on
+    if (settings.showFailedPOIs) {
+      const failedPois = slpPOIs.filter((p) => !p.validation.allRulesPass);
+      failedPois.forEach((poi) => {
+        if (poi.type === 'ORDER_BLOCK' && !settings.showOrderBlocks) return;
+        if (poi.type === 'BREAKER_BLOCK' && !settings.showBreakerBlocks) return;
 
-        const color = '#1565C0'; // Breaker Block color
+        const color = '#555555';
         const endTime = candles[candles.length - 1].time;
 
-        // Top line (solid)
         const topLine = chartApi.current!.addSeries(LineSeries, {
-          color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Solid,
-          priceLineVisible: false,
-          lastValueVisible: false,
-          crosshairMarkerVisible: false
-        });
-        if (poi.time < endTime) {
-          topLine.setData([
-            { time: poi.time as Time, value: poi.priceTop },
-            { time: endTime as Time, value: poi.priceTop }
-          ]);
-        }
-
-        // 50% midpoint line (dashed) - labeled: "50% — Entry Zone"
-        const midLine = chartApi.current!.addSeries(LineSeries, {
           color,
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           priceLineVisible: false,
           lastValueVisible: false,
           crosshairMarkerVisible: false,
-          title: '50% — Entry Zone'
         });
-        if (poi.time < endTime) {
-          midLine.setData([
-            { time: poi.time as Time, value: poi.priceMid },
-            { time: endTime as Time, value: poi.priceMid }
-          ]);
-        }
 
-        // Bottom line (dotted)
         const botLine = chartApi.current!.addSeries(LineSeries, {
           color,
           lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
+          lineStyle: LineStyle.Dashed,
           priceLineVisible: false,
           lastValueVisible: false,
-          crosshairMarkerVisible: false
+          crosshairMarkerVisible: false,
         });
+
         if (poi.time < endTime) {
+          topLine.setData([
+            { time: poi.time as Time, value: poi.zoneTop },
+            { time: endTime as Time, value: poi.zoneTop },
+          ]);
           botLine.setData([
-            { time: poi.time as Time, value: poi.priceBottom },
-            { time: endTime as Time, value: poi.priceBottom }
+            { time: poi.time as Time, value: poi.zoneBottom },
+            { time: endTime as Time, value: poi.zoneBottom },
           ]);
         }
 
-        // Marker at start of zone
         allMarkers.push({
           time: poi.time as Time,
           position: poi.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
           color,
           shape: 'circle',
-          text: poi.displayLabel,
-          size: 0.7
+          text: `${poi.displayLabel} (failed: ${poi.validation.failedRules.length})`,
+          size: 0.6,
         });
 
-        slpOverlayRefs.current.seriesList.push(topLine, midLine, botLine);
+        slpOverlayRefs.current.seriesList.push(topLine, botLine);
       });
     }
 
@@ -1081,6 +1097,16 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                     <span className="w-2 h-2 rounded-sm bg-[#1565C0] shrink-0" style={{ backgroundColor: settings.breakerColor }} />
                     <span className="text-gray-300 font-semibold uppercase">BB</span>
                     <span className="text-[8px] text-gray-500">Breaker Block (Broken OB)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-[#2A2E39]">
+                    <span className="text-emerald-400 font-bold text-[9px] shrink-0">✓</span>
+                    <span className="text-gray-300 font-semibold uppercase">Valid POI</span>
+                    <span className="text-[8px] text-gray-500">All 4 rules passed</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-sm bg-[#555555] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">Grey POI</span>
+                    <span className="text-[8px] text-gray-500">Candidate (Rules not yet met — hidden by default)</span>
                   </div>
                 </div>
                 <div className="h-[1px] bg-[#2A2E39] my-1" />
