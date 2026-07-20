@@ -22,6 +22,7 @@ import { detectSwingPoints, analyseSLPBias } from "../../lib/slp/slpBias";
 import { detectSLPStructure } from "../../lib/slp/slpStructure";
 import { analyseSLPStructure } from "../../lib/slp/slpMarketStructure";
 import { useSLPInducement } from "../../hooks/useSLPInducement";
+import { useSLPOrderBlocks } from "../../hooks/useSLPOrderBlocks";
 import { Timeframe } from "../../lib/slp/timeframeHierarchy";
 import { detectSLPLiquidity, calcATR } from "../../lib/slp/slpLiquidity";
 import { detectSLPPOIs } from "../../lib/slp/slpPOI";
@@ -347,6 +348,8 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
 
   const slpInducements = useSLPInducement(candles, slpStructure);
 
+  const slpOrderBlocks = useSLPOrderBlocks(candles, slpStructure);
+
   const activeInducements = React.useMemo(() => {
     if (!slpInducements || candles.length === 0) return [];
     
@@ -359,6 +362,13 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       
     return [...pendingAndSwept, ...invalidated];
   }, [slpInducements, candles.length]);
+
+  const activeOrderBlocks = React.useMemo(() => {
+    if (!slpOrderBlocks || candles.length === 0) return [];
+    // Sort descending by obCandleIndex (most recent first) and keep max 3
+    const sorted = [...slpOrderBlocks].sort((a, b) => b.obCandleIndex - a.obCandleIndex);
+    return sorted.slice(0, 3);
+  }, [slpOrderBlocks, candles.length]);
 
   const slpLiquidity = React.useMemo(() => {
     if (candles.length < 30) return [];
@@ -467,17 +477,80 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
       });
     }
 
-    // Valid SLP POIs (Order Blocks & Breaker Blocks satisfying all 4 rules)
-    if ((settings.showOrderBlocks || settings.showBreakerBlocks) && slpPOIs) {
-      slpPOIs.forEach((poi) => {
-        if (poi.type === 'ORDER_BLOCK' && !settings.showOrderBlocks) return;
-        if (poi.type === 'BREAKER_BLOCK' && !settings.showBreakerBlocks) return;
+    // New SLP Order Blocks (Phase 3)
+    if (settings.showOrderBlocks && activeOrderBlocks) {
+      activeOrderBlocks.forEach((ob) => {
+        const color = ob.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+        const endTime = candles[candles.length - 1].time;
 
-        let color = '#1565C0'; // Breaker Block color
-        if (poi.type === 'ORDER_BLOCK') {
-          color = poi.direction === 'BULLISH' ? '#26A69A' : '#EF5350';
+        // Top line (solid)
+        const topLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        if (ob.time < endTime) {
+          topLine.setData([
+            { time: ob.time as Time, value: ob.zoneTop },
+            { time: endTime as Time, value: ob.zoneTop },
+          ]);
         }
 
+        // Bottom line (dashed)
+        const botLine = chartApi.current!.addSeries(LineSeries, {
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        if (ob.time < endTime) {
+          botLine.setData([
+            { time: ob.time as Time, value: ob.zoneBottom },
+            { time: endTime as Time, value: ob.zoneBottom },
+          ]);
+        }
+
+        // Entry line (dotted)
+        const entryLine = chartApi.current!.addSeries(LineSeries, {
+          color: '#CAAA98',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        if (ob.time < endTime) {
+          entryLine.setData([
+            { time: ob.time as Time, value: ob.entryLevel },
+            { time: endTime as Time, value: ob.entryLevel },
+          ]);
+        }
+
+        // Marker at start of zone
+        allMarkers.push({
+          time: ob.time as Time,
+          position: ob.direction === 'BULLISH' ? 'belowBar' : 'aboveBar',
+          color,
+          shape: 'circle',
+          text: ob.displayLabel,
+          size: 0.7,
+        });
+
+        slpOverlayRefs.current.seriesList.push(topLine, botLine, entryLine);
+      });
+    }
+
+    // Legacy Breaker Blocks only (Order Blocks are now handled by Phase 3 above)
+    if (settings.showBreakerBlocks && slpPOIs) {
+      slpPOIs.forEach((poi) => {
+        if (poi.type !== 'BREAKER_BLOCK') return;
+
+        const color = '#1565C0'; // Breaker Block color
         const endTime = candles[candles.length - 1].time;
 
         // Top line (solid)
@@ -998,6 +1071,11 @@ export default function CandlestickChart({ height = 480, hideToolbar = false }: 
                     <span className="w-2 h-2 rounded-sm bg-[#EF5350] shrink-0" style={{ backgroundColor: settings.bearOBColor }} />
                     <span className="text-gray-300 font-semibold uppercase">BEAR OB</span>
                     <span className="text-[8px] text-gray-500">Bearish Order Block</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-[1px] border-t border-dotted border-[#CAAA98] shrink-0" />
+                    <span className="text-gray-300 font-semibold uppercase">OB ENTRY</span>
+                    <span className="text-[8px] text-gray-500">OB Entry Level (Dotted)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-sm bg-[#1565C0] shrink-0" style={{ backgroundColor: settings.breakerColor }} />

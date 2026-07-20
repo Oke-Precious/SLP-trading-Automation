@@ -282,7 +282,7 @@ function runTests() {
     const idm = inducementsInvalid[0];
     console.log(`✓ IDM Price: ${idm.price} (Expected: 101.2)`);
     console.log(`✓ IDM Status: ${idm.status} (Expected: INVALIDATED)`);
-    console.log(`✓ Invalidated At Candle Index: ${idm.invalidatedCandleIndex} (Expected: 55)`);
+    console.log(`✓ Invalidated At: ${idm.invalidatedAt} (Expected: ${1710000000 + 55 * 900})`);
   }
   console.log('\nJSON output for Invalidation Case:');
   console.log(JSON.stringify(inducementsInvalid, null, 2));
