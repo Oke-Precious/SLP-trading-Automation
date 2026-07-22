@@ -5,15 +5,15 @@ FROM node:20-alpine AS base
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json package-lock.json ./
-# Run Prisma schema generation client steps if needed
-RUN npm ci
+COPY package.json package-lock.json* ./
+RUN npm ci --ignore-scripts || npm install --ignore-scripts
 
 # Step 2: Compile TypeScript to standalone JS output
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npx prisma generate --schema=prisma/schema.prisma || true
 # Compile TypeScript files with fast build steps
 RUN npm run build
 
@@ -34,10 +34,11 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
 
 # Copy prisma Client schemas to ensure safe DB integration
-COPY --from=builder /app/src/prisma ./src/prisma
+COPY --from=builder /app/prisma ./prisma
 
 USER fastify
 
 EXPOSE 4000
 
 CMD ["node", "dist/index.js"]
+
