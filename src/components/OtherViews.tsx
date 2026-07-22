@@ -32,6 +32,7 @@ import { analytics } from '../lib/analytics';
 import { useAllTickers } from '../hooks/useMarketData';
 import JournalPage from '../app/journal/page';
 import DirectionalBiasView from './DirectionalBiasView';
+import { PositionSizeCalculator } from './trading/PositionSizeCalculator';
 
 interface OtherViewsProps {
   pageId: string;
@@ -883,6 +884,20 @@ export default function OtherViews({ pageId, currentPair, bias }: OtherViewsProp
           </div>
 
         </div>
+
+        {/* Standalone/Manual Position Sizing Section */}
+        <div className="mt-8 pt-8 border-t border-[#2D323F]/60 max-w-4xl mx-auto">
+          <div className="mb-4">
+            <h3 className="text-white text-base font-bold font-display tracking-tight uppercase">
+              Educational Standalone Risk Desk
+            </h3>
+            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+              Experiment with contract sizing, pip conversion constants, and trade projections across all supported Forex pairs, commodities, indices, and crypto assets.
+            </p>
+          </div>
+          <PositionSizeCalculator biasResult={null} symbol={useMarketStore.getState().selectedPair || 'BTCUSDT'} />
+        </div>
+
       </div>
     );
   }

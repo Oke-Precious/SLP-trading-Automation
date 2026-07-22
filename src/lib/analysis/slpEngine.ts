@@ -40,7 +40,7 @@ export interface OrderBlock {
 
 export interface LiquidityLevel {
   price: number;
-  type: "TRENDLINE" | "EQUAL_HIGHS_LOWS" | "LONG_WICK" | "INDUCEMENT";
+  type: "TRENDLINE" | "EQUAL_HIGHS_LOWS" | "INDUCEMENT";
   swept: boolean;
   time: number;
   sweepTime?: number;
@@ -460,20 +460,6 @@ export function detectOtherLiquidity(
         strength: group.length + 1,
         sweepTime,
       });
-    }
-  });
-
-  // 2. Long Wick Liquidity (Type 3)
-  candles.slice(-50).forEach((c) => {
-    const body = Math.abs(c.close - c.open);
-    const upperWick = c.high - Math.max(c.open, c.close);
-    const lowerWick = Math.min(c.open, c.close) - c.low;
-
-    if (upperWick > body * 2.5) {
-      levels.push({ price: c.high, type: "LONG_WICK", swept: false, time: c.time });
-    }
-    if (lowerWick > body * 2.5) {
-      levels.push({ price: c.low, type: "LONG_WICK", swept: false, time: c.time });
     }
   });
 

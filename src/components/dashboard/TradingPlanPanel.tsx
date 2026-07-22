@@ -9,6 +9,7 @@ import { usePOIStore } from '../../store/usePOIStore';
 import { SLPBiasResult } from '../../lib/slp/slpBias';
 import { SLPSetup } from '../../lib/slp/slpPipeline';
 import { ActiveSignalCard } from './ActiveSignalCard';
+import { PositionSizeCalculator } from '../trading/PositionSizeCalculator';
 
 interface TradingPlanPanelProps {
   biasResult: SLPBiasResult | null;
@@ -245,80 +246,26 @@ export const TradingPlanPanel: React.FC<TradingPlanPanelProps> = ({ biasResult, 
         >
           <div className="flex items-center space-x-2">
             <Calculator size={16} className="text-blue-400" />
-            <span>Position Size Calculator</span>
+            <span>Risk Desk Calculator</span>
           </div>
           {showCalculator ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
         
         {showCalculator && (
-          <div className="mt-3 space-y-3 bg-[#131722] p-3 rounded-lg border border-gray-800 text-[10px]">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Account ($)</label>
-                <input 
-                  type="number" 
-                  value={accountBalance || ''}
-                  onChange={(e) => handleAccountChange(e.target.value)}
-                  className={`w-full bg-[#1A1E29] border ${accountError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
-                />
-                {accountError && (
-                  <p className="text-red-400 text-[9px] mt-1 font-mono">{accountError}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Risk (%)</label>
-                <input 
-                  type="number"
-                  step="0.1" 
-                  value={riskPercent || ''}
-                  onChange={(e) => handleRiskChange(e.target.value)}
-                  className={`w-full bg-[#1A1E29] border ${riskError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
-                />
-                {riskError && (
-                  <p className="text-red-400 text-[9px] mt-1 font-mono">{riskError}</p>
-                )}
-              </div>
-              <div className="col-span-2">
-                <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">SL Distance (Price diff/Pips)</label>
-                <input 
-                  type="number" 
-                  value={stopLossDistance || ''}
-                  onChange={(e) => handleSlChange(e.target.value)}
-                  className={`w-full bg-[#1A1E29] border ${slError ? 'border-red-500' : 'border-gray-700'} rounded text-xs p-1.5 text-white focus:outline-none focus:border-blue-500`}
-                />
-                {slError && (
-                  <p className="text-red-400 text-[9px] mt-1 font-mono">{slError}</p>
-                )}
-              </div>
-            </div>
-            
-            <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between items-center">
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Position Size (Units)</span>
-              <span className="text-sm font-bold text-blue-400">
-                {hasCalculatorError ? (
-                  <span className="text-red-400 text-xs font-mono">Invalid Input</span>
-                ) : (
-                  stopLossDistance > 0 ? ((accountBalance * (riskPercent / 100)) / stopLossDistance).toFixed(4) : "0.0000"
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Risk Amount</span>
-              <span className="text-xs font-medium text-red-400">
-                {hasCalculatorError ? (
-                  <span className="text-red-400 text-xs font-mono">Invalid Input</span>
-                ) : (
-                  `$${(accountBalance * (riskPercent / 100)).toFixed(2)}`
-                )}
-              </span>
-            </div>
+          <div className="mt-3">
+            <PositionSizeCalculator biasResult={slpAnalysis} symbol={slpAnalysis?.signal?.pair || 'BTCUSDT'} />
           </div>
         )}
       </div>
 
       {(slpAnalysis?.signal || hasActivePois) && (
-        <div data-testid="active-signal-card" className="mt-4 pt-4 border-t border-[#2D313E]/60">
+        <div data-testid="active-signal-card" className="mt-4 pt-4 border-t border-[#2D313E]/60 space-y-4">
           <ActiveSignalCard signal={slpAnalysis?.signal} />
+          {slpAnalysis?.signal && (
+            <div className="mt-3">
+              <PositionSizeCalculator biasResult={slpAnalysis} symbol={slpAnalysis.signal.pair} />
+            </div>
+          )}
         </div>
       )}
     </div>
