@@ -24,6 +24,9 @@ jobs:
       - name: Initialize Docker Buildx multi-architecture builder
         uses: docker/setup-buildx-action@v3
 
+      - name: Downcase Repository Name for Docker
+        run: echo "REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Compile and register Frontend container
         uses: docker/build-push-action@v5
         with:
@@ -31,8 +34,8 @@ jobs:
           file: ./Dockerfile.frontend
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/frontend:staging
-            ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:staging
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
 
       - name: Compile and register Backend container
         uses: docker/build-push-action@v5
@@ -41,8 +44,8 @@ jobs:
           file: ./autoSLP-server/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/backend:staging
-            ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:staging
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.sha }}
 
   redeploy-staging:
     name: Execute Rolling Deploy to Cloud Staging cluster

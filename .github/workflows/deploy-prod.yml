@@ -37,6 +37,9 @@ jobs:
       - name: Setup Docker-Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Downcase Repository Name for Docker
+        run: echo "REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Tag and Compile Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -44,8 +47,8 @@ jobs:
           file: ./Dockerfile.frontend
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/frontend:latest
-            ghcr.io/${{ github.repository }}/frontend:${{ github.event.inputs.release_version }}
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.event.inputs.release_version }}
 
       - name: Tag and Compile Backend Image
         uses: docker/build-push-action@v5
@@ -54,8 +57,8 @@ jobs:
           file: ./autoSLP-server/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}/backend:latest
-            ghcr.io/${{ github.repository }}/backend:${{ github.event.inputs.release_version }}
+            ghcr.io/${{ env.REPO_LOWER }}/backend:latest
+            ghcr.io/${{ env.REPO_LOWER }}/backend:${{ github.event.inputs.release_version }}
 
   deploy-prod-cluster:
     name: Execute Production Cluster Rollout
