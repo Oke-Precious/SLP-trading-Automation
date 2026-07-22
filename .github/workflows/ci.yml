@@ -9,7 +9,6 @@ on:
 
 jobs:
   lint:
-    id: lint_job
     name: Code Quality check (Lint & Build Checking)
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +38,6 @@ jobs:
           npm run build
 
   test-frontend:
-    id: frontend_test_job
     name: Frontend Unit & Render Tests
     runs-on: ubuntu-latest
     steps:
@@ -59,7 +57,6 @@ jobs:
         run: npx vitest run --coverage
 
   test-backend:
-    id: backend_test_job
     name: Backend API Integration & Service Unit Tests
     runs-on: ubuntu-latest
     services:
@@ -118,7 +115,6 @@ jobs:
           npm run test -- --coverage
 
   test-e2e:
-    id: e2e_test_job
     name: Playwright Framework End-to-End Tests
     runs-on: ubuntu-latest
     steps:
@@ -141,7 +137,6 @@ jobs:
         run: npx playwright test
 
   security:
-    id: security_scan_job
     name: Vulnerability Verification (Audit / Snyk)
     runs-on: ubuntu-latest
     steps:
@@ -163,7 +158,6 @@ jobs:
         continue-on-error: true
 
   build:
-    id: build_check_job
     name: Compiles Production Container Images Mock Test
     runs-on: ubuntu-latest
     steps:
